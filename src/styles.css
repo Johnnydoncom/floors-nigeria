@@ -141,11 +141,17 @@
   }
 }
 
+@keyframes hero-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
 @layer utilities {
-  .font-display { font-family: var(--font-display); }
+  .font-display { font-family: var(--font-display); font-weight: 600; }
   .font-mono { font-family: var(--font-mono); }
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
+
 
   .container-fluid {
     width: 100%;
