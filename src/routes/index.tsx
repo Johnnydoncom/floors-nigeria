@@ -11,6 +11,8 @@ import officeImg from "@/assets/project-office.jpg";
 import residenceImg from "@/assets/project-residence.jpg";
 import aiImg from "@/assets/ai-visualizer.jpg";
 import { Reveal } from "@/components/site/Reveal";
+import { HeroSlider } from "@/components/site/HeroSlider";
+
 
 export const Route = createFileRoute("/")({
   component: Home,
