@@ -10,9 +10,10 @@
  */
 
 @theme inline {
-  --font-display: "Clash Display", "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
