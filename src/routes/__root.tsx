@@ -6,31 +6,35 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { Header } from "@/components/site/Header";
+import { Footer } from "@/components/site/Footer";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+    <>
+      <Header />
+      <main className="min-h-screen grid place-items-center px-6 pt-32 pb-24">
+        <div className="text-center max-w-lg">
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">Error 404</p>
+          <h1 className="mt-6 font-display text-6xl md:text-8xl tracking-tight">Lost the plan.</h1>
+          <p className="mt-4 text-muted-foreground">
+            The page you're looking for has been moved, renamed, or never existed.
+          </p>
+          <div className="mt-8 flex justify-center gap-3">
+            <Link to="/" className="h-11 inline-flex items-center rounded-full bg-charcoal px-6 text-sm font-medium text-primary-foreground hover:bg-charcoal-dark transition">Go home</Link>
+            <Link to="/products" className="h-11 inline-flex items-center rounded-full border border-border px-6 text-sm font-medium hover:bg-muted transition">Browse products</Link>
+          </div>
         </div>
-      </div>
-    </div>
+      </main>
+      <Footer />
+    </>
   );
 }
 
@@ -44,28 +48,16 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="font-display text-3xl">This page didn't load</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Try again, or head back home.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            onClick={() => { router.invalidate(); reset(); }}
+            className="h-11 inline-flex items-center rounded-full bg-charcoal px-6 text-sm font-medium text-primary-foreground hover:bg-charcoal-dark transition"
           >
             Try again
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
+          <a href="/" className="h-11 inline-flex items-center rounded-full border border-border px-6 text-sm font-medium hover:bg-muted transition">Go home</a>
         </div>
       </div>
     </div>
@@ -77,21 +69,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Floors NG — Premium Flooring Solutions in Nigeria" },
+      { name: "description", content: "Nigeria's premium flooring house. Engineered wood, SPC, luxury vinyl, natural stone and wall panels for residential and commercial spaces." },
+      { name: "author", content: "Floors Nigeria" },
+      { name: "theme-color", content: "#56554D" },
+      { property: "og:title", content: "Floors NG — Premium Flooring Solutions in Nigeria" },
+      { property: "og:description", content: "Engineered surfaces, natural stone and architectural finishes for Nigeria's most demanding spaces." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@FloorsNG" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "preconnect", href: "https://api.fontshare.com", crossOrigin: "" },
+      { rel: "preconnect", href: "https://cdn.fontshare.com", crossOrigin: "" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
+      { rel: "stylesheet", href: "https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@300,400,500,700,900&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -116,11 +112,20 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <Header />
+      <main id="main" className="min-h-screen">
+        <Outlet />
+      </main>
+      <Footer />
+      <Toaster />
     </QueryClientProvider>
   );
 }
