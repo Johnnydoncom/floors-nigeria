@@ -4,6 +4,7 @@ import { Sparkles, Upload, ImageIcon, Wand2, Send, RotateCcw, Download, Share2 }
 import { useState } from "react";
 import aiImg from "@/assets/ai-visualizer.jpg";
 import heroImg from "@/assets/hero-living.jpg";
+import hotelImg from "@/assets/project-hotel.jpg";
 import oakImg from "@/assets/collection-oak.jpg";
 import spcImg from "@/assets/collection-spc.jpg";
 import stoneImg from "@/assets/collection-stone.jpg";
