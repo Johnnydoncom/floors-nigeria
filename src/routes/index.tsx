@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight, Sparkles, Ruler, MessageSquareText, Play, Star, ShieldCheck, Award, Truck } from "lucide-react";
-import heroImg from "@/assets/hero-living.jpg";
+import heroImg from "@/assets/hero-floor.jpg";
+import materialsStrip from "@/assets/materials-strip.jpg";
 import oakImg from "@/assets/collection-oak.jpg";
 import spcImg from "@/assets/collection-spc.jpg";
 import stoneImg from "@/assets/collection-stone.jpg";
@@ -50,83 +51,124 @@ function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="relative min-h-[100svh] w-full overflow-hidden">
+      <section className="relative min-h-[100svh] w-full overflow-hidden bg-charcoal-dark">
+        {/* Floor-forward image */}
         <div className="absolute inset-0">
-          <img src={heroImg} alt="Luxury Nigerian interior with wide-plank oak flooring" className="h-full w-full object-cover" width={1920} height={1200} />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-background" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
+          <img
+            src={heroImg}
+            alt="Wide-plank European oak herringbone flooring in a Lagos penthouse at golden hour"
+            className="h-full w-full object-cover"
+            width={1920}
+            height={1280}
+          />
+          {/* Cinematic gradient: dark top for legibility, warm floor exposed at bottom */}
+          <div className="absolute inset-0 bg-gradient-to-b from-charcoal-dark/85 via-charcoal-dark/40 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
         </div>
 
         <div className="relative container-fluid pt-32 md:pt-40 pb-16 min-h-[100svh] flex flex-col justify-between text-white">
-          <div className="max-w-4xl">
+          {/* Top eyebrow row */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-3.5 py-1.5 text-xs font-mono tracking-wider"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-gold-light animate-pulse" />
-              NEW · AI Room Visualizer 2.0
+              PREMIUM FLOORING · NIGERIA
             </motion.div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.4 }}
+              className="hidden md:flex items-center gap-6 text-[11px] font-mono uppercase tracking-[0.24em] text-white/60"
+            >
+              <span>Wood</span>
+              <span className="h-1 w-1 rounded-full bg-gold-light/60" />
+              <span>Stone</span>
+              <span className="h-1 w-1 rounded-full bg-gold-light/60" />
+              <span>SPC</span>
+              <span className="h-1 w-1 rounded-full bg-gold-light/60" />
+              <span>Terrazzo</span>
+            </motion.div>
+          </div>
 
+          {/* Headline */}
+          <div className="max-w-5xl">
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-8 font-display text-[clamp(2.75rem,7vw,6.5rem)] leading-[0.95] tracking-[-0.03em] text-balance"
+              transition={{ duration: 1.1, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className="font-display text-[clamp(3rem,8.5vw,8rem)] leading-[0.9] tracking-[-0.035em] text-balance"
             >
-              Surfaces that <em className="not-italic text-gradient-gold">outlast</em>
-              <br className="hidden md:block" /> the architecture.
+              The floor is
+              <br className="hidden md:block" />
+              <span className="italic font-light text-gradient-gold"> everything.</span>
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="mt-6 max-w-xl text-lg text-white/85 text-pretty"
+              transition={{ duration: 1, delay: 0.35 }}
+              className="mt-8 max-w-xl text-lg md:text-xl text-white/80 text-pretty leading-relaxed"
             >
-              Nigeria's premium flooring house. Engineered wood, natural stone, luxury vinyl and
-              architectural finishes — specified, delivered and installed with obsessive precision.
+              Engineered wood, natural stone, luxury vinyl and architectural finishes —
+              specified, delivered and installed across Nigeria with obsessive precision.
             </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.45 }}
+              transition={{ duration: 1, delay: 0.5 }}
               className="mt-10 flex flex-wrap gap-3"
             >
               <Link to="/products" className="group h-12 inline-flex items-center gap-2 rounded-full bg-white text-charcoal-dark px-6 text-sm font-medium hover:bg-gold-light transition">
-                Explore collections <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                Browse flooring <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link to="/visualizer" className="group h-12 inline-flex items-center gap-2 rounded-full border border-white/30 backdrop-blur-md px-6 text-sm font-medium hover:bg-white/10 transition">
-                <Sparkles className="h-4 w-4 text-gold-light" /> Try the AI Visualizer
+                <Sparkles className="h-4 w-4 text-gold-light" /> See it in your room
               </Link>
             </motion.div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.2, delay: 0.7 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pt-12 border-t border-white/15"
-          >
-            {stats.map(([n, l]) => (
-              <div key={l}>
-                <div className="font-mono text-3xl md:text-5xl text-white tracking-tight">{n}</div>
-                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-white/60">{l}</div>
+          {/* Bottom row: material samples + stats */}
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 pt-12 border-t border-white/15">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.7 }}
+              className="lg:col-span-5"
+            >
+              <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/50 mb-4">
+                Featured materials
               </div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+              <div className="relative h-20 md:h-24 rounded-2xl overflow-hidden border border-white/10 shadow-luxe">
+                <img
+                  src={materialsStrip}
+                  alt="Oak, walnut chevron, marble, terrazzo and SPC samples"
+                  className="h-full w-full object-cover"
+                  width={1920}
+                  height={640}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-charcoal-dark/40" />
+              </div>
+            </motion.div>
 
-      {/* MARQUEE / PARTNERS */}
-      <section className="border-y border-border bg-surface py-8 overflow-hidden">
-        <div className="container-fluid flex flex-wrap items-center justify-between gap-6 text-xs uppercase tracking-[0.24em] font-mono text-muted-foreground">
-          <span>Specified by</span>
-          {["Julius Berger", "Cappa & D'Alberto", "Chapel Hill", "James Cubitt", "Cobalt Partners", "Design Union"].map((n) => (
-            <span key={n} className="text-foreground/70">{n}</span>
-          ))}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.8 }}
+              className="lg:col-span-7 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10"
+            >
+              {stats.map(([n, l]) => (
+                <div key={l}>
+                  <div className="font-mono text-2xl md:text-4xl text-white tracking-tight">{n}</div>
+                  <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/55">{l}</div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </div>
       </section>
 
