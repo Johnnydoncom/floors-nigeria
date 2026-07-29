@@ -58,7 +58,7 @@ export function Header() {
             <Link
               key={n.to}
               to={n.to}
-              className="relative h-full px-4 inline-flex items-center text-[13px] font-semibold uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground transition-colors group"
+              className="relative h-full px-4 inline-flex items-center whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground transition-colors group"
               activeProps={{ className: "text-foreground" }}
             >
               {n.label}

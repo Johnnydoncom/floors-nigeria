@@ -108,7 +108,7 @@ export function HeroSlider() {
         </motion.div>
       </AnimatePresence>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/92 via-charcoal-dark/60 to-charcoal-dark/10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/85 via-charcoal-dark/45 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-charcoal-dark/70 to-transparent" />
 
       <div className="relative h-full container-fluid flex flex-col justify-end pb-10 md:pb-14 text-white">
