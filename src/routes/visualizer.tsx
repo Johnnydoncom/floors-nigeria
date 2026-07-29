@@ -191,6 +191,3 @@ function Visualizer() {
     </>
   );
 }
-
-// unused imports guard: shadow reference so tree-shakers don't complain if missing
-export { hotelImg } from "@/routes/_shared" as any;
