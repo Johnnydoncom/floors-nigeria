@@ -1,8 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Sparkles, Ruler, MessageSquareText, Play, Star, ShieldCheck, Award, Truck } from "lucide-react";
-import heroImg from "@/assets/hero-floor.jpg";
-import materialsStrip from "@/assets/materials-strip.jpg";
+import { ArrowRight, ArrowUpRight, Sparkles, Ruler, Star, ShieldCheck, Award, Truck, Quote, ShoppingBag } from "lucide-react";
 import oakImg from "@/assets/collection-oak.jpg";
 import spcImg from "@/assets/collection-spc.jpg";
 import stoneImg from "@/assets/collection-stone.jpg";
@@ -10,32 +7,52 @@ import hotelImg from "@/assets/project-hotel.jpg";
 import officeImg from "@/assets/project-office.jpg";
 import residenceImg from "@/assets/project-residence.jpg";
 import aiImg from "@/assets/ai-visualizer.jpg";
+import heroFloor from "@/assets/hero-floor.jpg";
+import materialsStrip from "@/assets/materials-strip.jpg";
 import { Reveal } from "@/components/site/Reveal";
 import { HeroSlider } from "@/components/site/HeroSlider";
-
+import { PRODUCTS, naira } from "@/lib/catalog";
+import { useCart } from "@/lib/cart";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   component: Home,
   head: () => ({
     meta: [
       { title: "Floors NG — Premium Flooring for Nigeria's Finest Spaces" },
-      { name: "description", content: "Discover engineered wood, SPC, luxury vinyl, natural stone and wall panels. Try the AI Room Visualizer and get a quote in minutes." },
+      { name: "description", content: "Engineered wood, SPC, luxury vinyl, natural stone and wall panels — supplied and installed nationwide. Shop online, visualise with AI, get a quote in minutes." },
       { property: "og:title", content: "Floors NG — Premium Flooring for Nigeria's Finest Spaces" },
       { property: "og:description", content: "Nigeria's premium flooring house. AI-powered visualisation, expert installation, nationwide delivery." },
     ],
   }),
 });
 
-const collections = [
-  { name: "Engineered Oak", tag: "Wood", img: oakImg, price: "from ₦18,500 /m²", desc: "European white-oak planks, UV-oiled for warmth and longevity." },
-  { name: "Metropolis SPC", tag: "Vinyl", img: spcImg, price: "from ₦9,800 /m²", desc: "Waterproof stone-polymer core with 0.5mm wear layer." },
-  { name: "Savoy Marble", tag: "Stone", img: stoneImg, price: "from ₦34,000 /m²", desc: "Book-matched natural marble with honed or polished finish." },
+const materials = [
+  { name: "Engineered Wood", img: oakImg, from: 18500 },
+  { name: "SPC & Vinyl", img: spcImg, from: 7600 },
+  { name: "Natural Stone", img: stoneImg, from: 27500 },
+  { name: "Wall Panels", img: residenceImg, from: 21000 },
+  { name: "Outdoor Decking", img: heroFloor, from: 15900 },
+  { name: "Artificial Grass", img: materialsStrip, from: 6400 },
+];
+
+const rooms = [
+  { name: "Living rooms", img: residenceImg, note: "Warm oak, wide plank" },
+  { name: "Kitchens & baths", img: spcImg, note: "100% waterproof SPC" },
+  { name: "Offices & lobbies", img: officeImg, note: "Heavy-traffic rated" },
+  { name: "Hotels & lounges", img: hotelImg, note: "Acoustic + stone" },
 ];
 
 const projects = [
   { name: "Radisson Blu Lagos", type: "Hospitality · 4,200 m²", img: hotelImg },
   { name: "Access Tower Ikoyi", type: "Commercial · 12,800 m²", img: officeImg },
   { name: "Banana Island Residence", type: "Residential · 620 m²", img: residenceImg },
+];
+
+const testimonials = [
+  { q: "They specified, supplied and installed 12,800 m² without a single day of programme slip.", n: "Tunde Ajayi", r: "Project Director, Access Facilities" },
+  { q: "The AI visualiser sold the scheme to our client in one meeting. Extraordinary tool.", n: "Ifeoma Nwosu", r: "Principal, Bricklane Studio" },
+  { q: "Three years of heavy hotel footfall and the oak still looks like week one.", n: "Grace Etim", r: "GM, Lagoon Hotels" },
 ];
 
 const stats = [
@@ -45,80 +62,62 @@ const stats = [
   ["98%", "On-time delivery"],
 ];
 
-const industries = [
-  "Residential", "Commercial", "Hospitality", "Healthcare", "Education", "Retail", "Sports", "Aviation",
-];
-
 function Home() {
+  const cart = useCart();
+  const bestsellers = PRODUCTS.slice(0, 4);
+
   return (
     <>
-      {/* HERO SLIDER */}
       <div className="pt-[72px] md:pt-[116px]">
         <HeroSlider />
       </div>
 
-      {/* TRUST / STATS BAR */}
-      <section className="bg-surface border-b border-border">
-        <div className="container-fluid py-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10">
-          {stats.map(([n, l]) => (
-            <div key={l} className="flex flex-col">
-              <div className="font-display text-2xl md:text-4xl tracking-tight">{n}</div>
-              <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{l}</div>
+      {/* TRUST BAR */}
+      <section className="bg-charcoal-dark text-primary-foreground">
+        <div className="container-fluid grid grid-cols-2 md:grid-cols-4 divide-x divide-white/10">
+          {[
+            { icon: Truck, t: "Nationwide delivery", s: "Free above ₦500,000" },
+            { icon: ShieldCheck, t: "Up to 25-yr warranty", s: "Residential & commercial" },
+            { icon: Award, t: "European sourcing", s: "Italy · Belgium · Germany" },
+            { icon: Ruler, t: "Certified installers", s: "5-yr workmanship cover" },
+          ].map((f) => (
+            <div key={f.t} className="flex items-center gap-3 px-4 py-6 first:pl-0">
+              <f.icon className="h-5 w-5 shrink-0 text-gold-light" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{f.t}</div>
+                <div className="truncate text-xs text-primary-foreground/60">{f.s}</div>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* MATERIAL CATEGORY RAIL */}
-      <section className="container-fluid pt-14">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground mr-2">Shop by material</span>
-          {["Engineered Wood", "SPC", "Luxury Vinyl", "Natural Stone", "Terrazzo", "Wall Panels", "Artificial Grass"].map((m) => (
-            <Link
-              key={m}
-              to="/products"
-              className="border border-border px-4 py-2 text-xs font-semibold uppercase tracking-[0.06em] hover:border-gold hover:text-gold transition"
-            >
-              {m}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-
-      {/* FEATURED COLLECTIONS */}
-      <section className="container-fluid py-24 md:py-32">
-        <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-          <div className="max-w-2xl">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">01 · Collections</p>
-            <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight text-balance">
-              Curated by architects.<br /> Chosen by connoisseurs.
+      {/* SHOP BY MATERIAL */}
+      <section className="container-fluid py-20 md:py-28">
+        <Reveal className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:justify-between">
+          <div className="min-w-0 max-w-2xl">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">01 · Shop by material</p>
+            <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
+              Six material families. One standard.
             </h2>
           </div>
-          <Link to="/collections" className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-gold transition">
-            View all collections <ArrowUpRight className="h-4 w-4" />
+          <Link to="/products" className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold hover:text-gold transition">
+            All products <ArrowUpRight className="h-4 w-4" />
           </Link>
         </Reveal>
 
-        <div className="grid md:grid-cols-3 gap-5 md:gap-6">
-          {collections.map((c, i) => (
-            <Reveal key={c.name} delay={i * 0.1}>
-              <Link to="/products" className="group block">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-muted">
-                  <img src={c.img} alt={c.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-[1.06]" />
-                  <div className="absolute top-4 left-4 rounded-full bg-white/85 backdrop-blur px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-charcoal-dark">
-                    {c.tag}
+        <div className="mt-10 grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+          {materials.map((m, i) => (
+            <Reveal key={m.name} delay={(i % 3) * 0.06}>
+              <Link to="/products" className="group relative block aspect-[5/4] overflow-hidden bg-muted">
+                <img src={m.img} alt={m.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-charcoal-dark/80 via-charcoal-dark/10 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5 text-primary-foreground">
+                  <div className="font-display text-xl md:text-2xl tracking-tight">{m.name}</div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="font-mono text-[11px] tracking-widest text-primary-foreground/75">FROM {naira(m.from)}/M²</span>
+                    <ArrowRight className="h-4 w-4 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition text-gold-light" />
                   </div>
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-6 text-white">
-                    <div className="font-mono text-[11px] tracking-widest opacity-80">{c.price}</div>
-                  </div>
-                </div>
-                <div className="pt-5 flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-display text-2xl tracking-tight">{c.name}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground max-w-xs">{c.desc}</p>
-                  </div>
-                  <ArrowUpRight className="h-5 w-5 mt-1 shrink-0 group-hover:text-gold group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition" />
                 </div>
               </Link>
             </Reveal>
@@ -126,222 +125,210 @@ function Home() {
         </div>
       </section>
 
-      {/* AI STUDIO */}
-      <section className="bg-charcoal-dark text-primary-foreground">
-        <div className="container-fluid py-24 md:py-36">
-          <div className="grid lg:grid-cols-12 gap-12 items-center">
-            <Reveal className="lg:col-span-5">
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-light">02 · AI Studio</p>
-              <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight text-balance">
-                See it in your space<br />before you commit.
-              </h2>
-              <p className="mt-6 text-primary-foreground/70 text-lg max-w-md">
-                Upload a photo of your room. Our AI renders every plank, tile and finish in
-                photoreal fidelity — with accurate lighting, joinery and material response.
-              </p>
+      {/* BESTSELLERS */}
+      <section className="bg-surface py-20 md:py-28 border-y border-border">
+        <div className="container-fluid">
+          <Reveal className="max-w-2xl">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">02 · Bestsellers</p>
+            <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
+              Specified most often this quarter.
+            </h2>
+          </Reveal>
 
-              <div className="mt-10 space-y-4">
-                {[
-                  { icon: Sparkles, title: "AI Room Visualizer", desc: "Photoreal previews in seconds" },
-                  { icon: Ruler, title: "Floor Calculator", desc: "Precise BOQ + installation cost" },
-                  { icon: MessageSquareText, title: "Design Assistant", desc: "Chat with a certified specifier" },
-                ].map((f) => (
-                  <Link key={f.title} to="/visualizer" className="group flex items-center gap-4 p-4 rounded-2xl border border-white/10 hover:bg-white/5 transition">
-                    <div className="h-11 w-11 grid place-items-center rounded-xl bg-gold/15 text-gold-light shrink-0">
-                      <f.icon className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">{f.title}</div>
-                      <div className="text-sm text-primary-foreground/60">{f.desc}</div>
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition" />
+          <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {bestsellers.map((p, i) => (
+              <Reveal key={p.slug} delay={(i % 4) * 0.06}>
+                <article className="group h-full flex flex-col bg-background border border-border hover:border-gold/60 hover:shadow-luxe transition">
+                  <Link to="/products/$slug" params={{ slug: p.slug }} className="relative block aspect-[4/3] overflow-hidden bg-muted">
+                    <img src={p.img} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
+                    {p.tag && (
+                      <span className="absolute top-3 left-3 bg-gold px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-charcoal-dark">{p.tag}</span>
+                    )}
                   </Link>
-                ))}
-              </div>
-            </Reveal>
-
-            <Reveal delay={0.15} className="lg:col-span-7">
-              <div className="relative rounded-3xl overflow-hidden shadow-elevated">
-                <img src={aiImg} alt="AI Visualizer preview" loading="lazy" className="w-full aspect-[5/4] object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-charcoal-dark/60 via-transparent to-transparent" />
-
-                <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
-                  <div className="flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-xl border border-white/25 px-3 py-1.5 text-[11px] font-mono tracking-wider">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE PREVIEW
-                  </div>
-                  <button className="h-10 w-10 grid place-items-center rounded-full bg-white/15 backdrop-blur-xl border border-white/25 hover:bg-white/25 transition">
-                    <Play className="h-4 w-4 pl-0.5" />
-                  </button>
-                </div>
-
-                <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 grid place-items-center rounded-full gradient-gold text-charcoal-dark">
-                      <Sparkles className="h-4 w-4" />
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      <span className="truncate">{p.category}</span>
+                      <span className="inline-flex items-center gap-1 text-foreground"><Star className="h-3 w-3 fill-gold text-gold" />{p.rating}</span>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm">Try <span className="italic">"warm oak, herringbone pattern, morning light"</span></div>
-                      <div className="mt-1 h-1 rounded-full bg-white/15 overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: "72%" }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 1.6, ease: "easeOut" }}
-                          className="h-full gradient-gold"
-                        />
+                    <Link to="/products/$slug" params={{ slug: p.slug }} className="mt-2 font-display text-xl tracking-tight hover:text-gold transition">
+                      {p.name}
+                    </Link>
+                    <div className="mt-auto pt-5 flex items-end justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-lg">{naira(p.price)}</div>
+                        <div className="text-[11px] text-muted-foreground">per m² excl. VAT</div>
                       </div>
+                      <button
+                        aria-label={`Add ${p.name} to cart`}
+                        onClick={() => {
+                          cart.add({ slug: p.slug, name: p.name, img: p.img, finish: p.finishes[0], price: p.price, qty: 10 });
+                          toast.success(`${p.name} added — 10 m²`);
+                        }}
+                        className="h-10 w-10 grid place-items-center border border-border hover:bg-charcoal-dark hover:text-primary-foreground transition"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                      </button>
                     </div>
-                    <span className="font-mono text-xs text-white/70">72%</span>
                   </div>
-                </div>
-              </div>
-            </Reveal>
+                </article>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* WHY */}
-      <section className="container-fluid py-24 md:py-32">
-        <Reveal className="max-w-3xl">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">03 · Why Floors NG</p>
-          <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight text-balance">
-            The country's most exacting spaces begin at the floor.
+      {/* SHOP BY ROOM */}
+      <section className="container-fluid py-20 md:py-28">
+        <Reveal className="max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">03 · Shop by space</p>
+          <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
+            The right floor for the room it lives in.
           </h2>
         </Reveal>
-
-        <div className="mt-16 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { icon: Award, title: "European sourcing", desc: "Direct partnerships with mills in Italy, Belgium, Germany and Turkey." },
-            { icon: ShieldCheck, title: "25-year warranty", desc: "Category-leading residential and commercial-grade guarantees." },
-            { icon: Truck, title: "Nationwide install", desc: "Certified crews in Lagos, Abuja and Port Harcourt — same-week mobilisation." },
-            { icon: Star, title: "Concierge specification", desc: "One dedicated specifier from mood board to snag list." },
-          ].map((f, i) => (
-            <Reveal key={f.title} delay={i * 0.08}>
-              <div className="group h-full p-8 rounded-3xl bg-surface border border-border hover-lift hover:border-gold/40 hover:shadow-luxe">
-                <div className="h-12 w-12 grid place-items-center rounded-2xl bg-background border border-border text-gold">
-                  <f.icon className="h-5 w-5" />
+        <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {rooms.map((r, i) => (
+            <Reveal key={r.name} delay={(i % 4) * 0.06}>
+              <Link to="/industries" className="group block">
+                <div className="aspect-[3/4] overflow-hidden bg-muted">
+                  <img src={r.img} alt={r.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
                 </div>
-                <h3 className="mt-6 font-display text-2xl tracking-tight">{f.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.desc}</p>
-              </div>
+                <div className="mt-4 border-t-2 border-charcoal-dark pt-3 group-hover:border-gold transition-colors">
+                  <div className="font-display text-xl tracking-tight">{r.name}</div>
+                  <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{r.note}</div>
+                </div>
+              </Link>
             </Reveal>
           ))}
         </div>
+      </section>
+
+      {/* AI STUDIO + TOOLS */}
+      <section className="bg-charcoal-dark text-primary-foreground">
+        <div className="container-fluid py-20 md:py-28 grid lg:grid-cols-12 gap-12 items-center">
+          <Reveal className="lg:col-span-5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-light">04 · Tools</p>
+            <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
+              Plan the floor before you lay a single plank.
+            </h2>
+            <p className="mt-5 text-primary-foreground/70 max-w-md">
+              Photoreal AI previews, square-metre calculators with wastage, and a specifier on call — every tool free to use.
+            </p>
+            <div className="mt-9 space-y-3">
+              {[
+                { icon: Sparkles, title: "AI Room Visualizer", desc: "Photoreal previews in seconds", to: "/visualizer" },
+                { icon: Ruler, title: "Floor Calculator", desc: "Precise BOQ + installation cost", to: "/calculator" },
+                { icon: Award, title: "Talk to a specifier", desc: "Free consultation, nationwide", to: "/contact" },
+              ].map((f) => (
+                <Link key={f.title} to={f.to} className="group flex items-center gap-4 p-4 border border-white/10 hover:border-gold/50 hover:bg-white/5 transition">
+                  <div className="h-11 w-11 shrink-0 grid place-items-center bg-gold/15 text-gold-light">
+                    <f.icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{f.title}</div>
+                    <div className="text-sm text-primary-foreground/60">{f.desc}</div>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition" />
+                </Link>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.15} className="lg:col-span-7">
+            <div className="relative overflow-hidden shadow-elevated">
+              <img src={aiImg} alt="AI Visualizer preview" loading="lazy" className="w-full aspect-[5/4] object-cover" />
+              <div className="absolute top-5 left-5 flex items-center gap-2 bg-charcoal-dark/70 backdrop-blur px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live preview
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* STATS */}
+      <section className="container-fluid py-16 grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-border">
+        {stats.map(([n, l]) => (
+          <div key={l}>
+            <div className="font-display text-3xl md:text-5xl tracking-tight">{n}</div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{l}</div>
+          </div>
+        ))}
       </section>
 
       {/* PROJECTS */}
-      <section className="bg-surface py-24 md:py-32">
-        <div className="container-fluid">
-          <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-            <div className="max-w-2xl">
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">04 · Projects</p>
-              <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight text-balance">Recent commissions.</h2>
-            </div>
-            <Link to="/projects" className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-gold transition">
-              Full portfolio <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </Reveal>
-
-          <div className="grid lg:grid-cols-12 gap-5 md:gap-6">
-            <Reveal className="lg:col-span-7">
-              <Link to="/projects" className="group block relative aspect-[16/11] overflow-hidden rounded-3xl">
-                <img src={projects[0].img} alt={projects[0].name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <div className="absolute bottom-8 left-8 right-8 text-white">
-                  <div className="font-mono text-[11px] uppercase tracking-widest opacity-80">{projects[0].type}</div>
-                  <div className="mt-1 font-display text-3xl md:text-4xl">{projects[0].name}</div>
-                </div>
-              </Link>
-            </Reveal>
-            <div className="lg:col-span-5 grid gap-5 md:gap-6">
-              {projects.slice(1).map((p, i) => (
-                <Reveal key={p.name} delay={0.1 + i * 0.08}>
-                  <Link to="/projects" className="group block relative aspect-[16/10] overflow-hidden rounded-3xl">
-                    <img src={p.img} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                    <div className="absolute bottom-6 left-6 right-6 text-white">
-                      <div className="font-mono text-[11px] uppercase tracking-widest opacity-80">{p.type}</div>
-                      <div className="mt-1 font-display text-2xl">{p.name}</div>
-                    </div>
-                  </Link>
-                </Reveal>
-              ))}
-            </div>
+      <section className="container-fluid py-20 md:py-28">
+        <Reveal className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:justify-between">
+          <div className="min-w-0 max-w-2xl">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">05 · Reference projects</p>
+            <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">Delivered across Nigeria.</h2>
           </div>
-        </div>
-      </section>
-
-      {/* INDUSTRIES */}
-      <section className="container-fluid py-24 md:py-32">
-        <Reveal>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">05 · Industries</p>
-          <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight max-w-3xl text-balance">
-            Specified across every serious sector.
-          </h2>
+          <Link to="/projects" className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold hover:text-gold transition">
+            All projects <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </Reveal>
-        <div className="mt-14 border-t border-border">
-          {industries.map((i, idx) => (
-            <Reveal key={i} delay={idx * 0.04}>
-              <Link to="/industries" className="group flex items-center justify-between py-6 md:py-8 border-b border-border hover:pl-4 transition-all duration-500">
-                <div className="flex items-baseline gap-6 md:gap-10">
-                  <span className="font-mono text-xs md:text-sm text-muted-foreground">0{idx + 1}</span>
-                  <span className="font-display text-3xl md:text-5xl tracking-tight group-hover:text-gold transition-colors">{i}</span>
+
+        <div className="mt-10 grid md:grid-cols-3 gap-5">
+          {projects.map((p, i) => (
+            <Reveal key={p.name} delay={i * 0.08}>
+              <Link to="/projects" className="group block">
+                <div className="aspect-[4/3] overflow-hidden bg-muted">
+                  <img src={p.img} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
                 </div>
-                <ArrowUpRight className="h-6 w-6 md:h-8 md:w-8 opacity-40 group-hover:opacity-100 group-hover:text-gold transition" />
+                <div className="pt-4">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{p.type}</div>
+                  <div className="mt-1 font-display text-2xl tracking-tight group-hover:text-gold transition">{p.name}</div>
+                </div>
               </Link>
             </Reveal>
           ))}
         </div>
       </section>
 
-      {/* TESTIMONIAL */}
-      <section className="bg-charcoal text-primary-foreground py-24 md:py-32">
-        <div className="container-fluid grid md:grid-cols-12 gap-10 items-center">
-          <Reveal className="md:col-span-2">
-            <div className="font-mono text-6xl text-gold-light leading-none">"</div>
+      {/* TESTIMONIALS */}
+      <section className="bg-surface border-y border-border py-20 md:py-28">
+        <div className="container-fluid">
+          <Reveal>
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">06 · Client word</p>
           </Reveal>
-          <Reveal delay={0.1} className="md:col-span-8">
-            <p className="font-display text-2xl md:text-4xl leading-tight text-balance">
-              Floors NG is the only house I trust for large-format commercial installs.
-              The specification is precise, the crews are disciplined, and the finish reads
-              exactly like the sample.
-            </p>
-            <div className="mt-8 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gold to-gold-light" />
-              <div>
-                <div className="font-medium">Arch. Adaora Nwosu</div>
-                <div className="text-sm text-primary-foreground/60">Principal, Cobalt Partners · Lagos</div>
-              </div>
-            </div>
-          </Reveal>
+          <div className="mt-10 grid md:grid-cols-3 gap-5">
+            {testimonials.map((t, i) => (
+              <Reveal key={t.n} delay={i * 0.08}>
+                <figure className="h-full bg-background border border-border p-7 flex flex-col">
+                  <Quote className="h-6 w-6 text-gold" />
+                  <blockquote className="mt-5 font-display text-xl leading-snug tracking-tight">"{t.q}"</blockquote>
+                  <figcaption className="mt-auto pt-6 text-sm">
+                    <div className="font-medium">{t.n}</div>
+                    <div className="text-muted-foreground text-xs">{t.r}</div>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="container-fluid py-24 md:py-36">
+      {/* TRADE CTA */}
+      <section className="container-fluid py-20 md:py-28">
         <Reveal>
-          <div className="relative overflow-hidden rounded-[2rem] md:rounded-[3rem] bg-gradient-to-br from-charcoal-dark via-charcoal to-charcoal-dark p-10 md:p-20 text-primary-foreground">
-            <div className="absolute inset-0 bg-grain opacity-40" />
-            <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full gradient-gold opacity-25 blur-3xl" />
-            <div className="relative grid md:grid-cols-2 gap-10 items-end">
-              <div>
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-light">Ready to specify</p>
-                <h2 className="mt-4 font-display text-4xl md:text-6xl tracking-tight text-balance">
-                  Book a private showroom visit.
-                </h2>
-                <p className="mt-4 text-primary-foreground/75 max-w-md">
-                  See every sample under natural light. Meet your specifier. Leave with a
-                  costed proposal.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3 md:justify-end">
-                <Link to="/contact" className="h-12 inline-flex items-center gap-2 rounded-full bg-white text-charcoal-dark px-6 text-sm font-medium hover:bg-gold-light transition">
-                  Book consultation <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link to="/calculator" className="h-12 inline-flex items-center gap-2 rounded-full border border-white/25 px-6 text-sm font-medium hover:bg-white/10 transition">
-                  Run the calculator
-                </Link>
-              </div>
+          <div className="grid lg:grid-cols-2">
+            <div className="bg-charcoal-dark text-primary-foreground p-10 md:p-14">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-light">For specifiers</p>
+              <h2 className="mt-4 font-display text-3xl md:text-4xl tracking-tight">Open a trade account.</h2>
+              <p className="mt-4 text-primary-foreground/70 max-w-md">
+                Project pricing, free sample boxes, BIM files and a dedicated account manager for architects, contractors and developers.
+              </p>
+              <Link to="/contact" className="mt-8 inline-flex h-12 items-center bg-gold px-7 text-xs font-semibold uppercase tracking-[0.1em] text-charcoal-dark hover:bg-primary-foreground transition">
+                Apply now
+              </Link>
+            </div>
+            <div className="bg-surface border border-border border-t-0 lg:border-t lg:border-l-0 p-10 md:p-14">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">Samples</p>
+              <h2 className="mt-4 font-display text-3xl md:text-4xl tracking-tight">Feel it before you buy.</h2>
+              <p className="mt-4 text-muted-foreground max-w-md">
+                Order up to five samples for ₦2,500 each — fully refunded against your first order above 50 m².
+              </p>
+              <Link to="/products" className="mt-8 inline-flex h-12 items-center border border-charcoal-dark px-7 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-charcoal-dark hover:text-primary-foreground transition">
+                Order samples
+              </Link>
             </div>
           </div>
         </Reveal>
