@@ -119,12 +119,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Header />
-      <main id="main" className="min-h-screen">
-        <Outlet />
-      </main>
-      <Footer />
-      <Toaster />
+      <CartProvider>
+        <Header />
+        <main id="main" className="min-h-screen">
+          <Outlet />
+        </main>
+        <Footer />
+        <Toaster />
+      </CartProvider>
     </QueryClientProvider>
   );
 }
