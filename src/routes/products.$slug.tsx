@@ -31,7 +31,8 @@ export const Route = createFileRoute("/products/$slug")({
 });
 
 function ProductDetails() {
-  const { product } = Route.useLoaderData();
+  const { slug } = Route.useParams();
+  const product = getProduct(slug)!;
   const [active, setActive] = useState(0);
   const [finish, setFinish] = useState(product.finishes[0]);
   const [qty, setQty] = useState(20);
