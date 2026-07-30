@@ -154,7 +154,7 @@ export function Header() {
           </button>
           <Link
             to="/contact"
-            className="hidden md:inline-flex ml-2 h-11 items-center bg-charcoal-dark px-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-primary-foreground hover:bg-gold hover:text-charcoal-dark transition"
+            className="hidden md:inline-flex ml-2 h-11 items-center whitespace-nowrap bg-charcoal-dark px-5 xl:px-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-primary-foreground hover:bg-gold hover:text-charcoal-dark transition"
           >
             Get a Quote
           </Link>
