@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type CartItem = {
@@ -51,7 +53,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       open,
       setOpen,
-      count: items.reduce((n, i) => n + 1, 0),
+      count: items.reduce((n, _i) => n + 1, 0),
       subtotal: items.reduce((n, i) => n + i.price * i.qty, 0),
       add: (item) =>
         setItems((prev) => {

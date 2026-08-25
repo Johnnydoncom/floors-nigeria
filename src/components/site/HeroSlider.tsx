@@ -1,11 +1,9 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import heroImg from "@/assets/hero-floor.jpg";
-import hotelImg from "@/assets/project-hotel.jpg";
-import stoneImg from "@/assets/collection-stone.jpg";
-import spcImg from "@/assets/collection-spc.jpg";
 
 type Slide = {
   eyebrow: string;
@@ -14,8 +12,8 @@ type Slide = {
   copy: string;
   img: string;
   alt: string;
-  cta: { label: string; to: string };
-  secondary: { label: string; to: string };
+  cta: { label: string; href: string };
+  secondary: { label: string; href: string };
   spec: [string, string][];
 };
 
@@ -25,10 +23,10 @@ const slides: Slide[] = [
     title: "Floors built for",
     accent: "a lifetime.",
     copy: "European white-oak planks and herringbone parquet, UV-oiled and acclimatised for the Nigerian climate.",
-    img: heroImg,
+    img: "/images/hero-floor.jpg",
     alt: "Wide-plank European oak herringbone flooring in a Lagos penthouse",
-    cta: { label: "Browse engineered wood", to: "/products" },
-    secondary: { label: "Request samples", to: "/contact" },
+    cta: { label: "Browse engineered wood", href: "/products" },
+    secondary: { label: "Request samples", href: "/contact" },
     spec: [["Wear layer", "4 mm oak"], ["Formats", "Plank · Chevron"], ["Warranty", "25 years"]],
   },
   {
@@ -36,10 +34,10 @@ const slides: Slide[] = [
     title: "Waterproof.",
     accent: "Commercial-grade.",
     copy: "Stone-polymer core planks rated for airports, hotels and hospitals — installed over any subfloor, in days not weeks.",
-    img: spcImg,
+    img: "/images/collection-spc.jpg",
     alt: "Modern hallway finished in wood-look SPC flooring",
-    cta: { label: "Explore SPC & LVT", to: "/products" },
-    secondary: { label: "Get a trade quote", to: "/contact" },
+    cta: { label: "Explore SPC & LVT", href: "/products" },
+    secondary: { label: "Get a trade quote", href: "/contact" },
     spec: [["Core", "5.5 mm SPC"], ["Rating", "Class 33/42"], ["Install", "Click-lock"]],
   },
   {
@@ -47,10 +45,10 @@ const slides: Slide[] = [
     title: "Quarried stone,",
     accent: "specified right.",
     copy: "Book-matched marble, honed limestone and terrazzo — sourced, templated and laid by our own installation crews.",
-    img: stoneImg,
+    img: "/images/collection-stone.jpg",
     alt: "Book-matched marble flooring in a hotel lobby",
-    cta: { label: "View stone collection", to: "/collections" },
-    secondary: { label: "Talk to a specifier", to: "/contact" },
+    cta: { label: "View stone collection", href: "/collections" },
+    secondary: { label: "Talk to a specifier", href: "/contact" },
     spec: [["Finishes", "Honed · Polished"], ["Slabs", "Book-matched"], ["Sealing", "Included"]],
   },
   {
@@ -58,10 +56,10 @@ const slides: Slide[] = [
     title: "Trusted on",
     accent: "1.4M m² installed.",
     copy: "From Radisson Blu Lagos to Access Tower Ikoyi — nationwide supply, installation and aftercare under one roof.",
-    img: hotelImg,
+    img: "/images/project-hotel.jpg",
     alt: "Herringbone wood flooring in a hotel interior",
-    cta: { label: "See our projects", to: "/projects" },
-    secondary: { label: "Start a project", to: "/contact" },
+    cta: { label: "See our projects", href: "/projects" },
+    secondary: { label: "Start a project", href: "/contact" },
     spec: [["Projects", "480+ delivered"], ["Coverage", "Nationwide"], ["Crews", "In-house"]],
   },
 ];
@@ -133,14 +131,14 @@ export function HeroSlider() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  to={slide.cta.to}
+                  href={slide.cta.href}
                   className="group h-12 inline-flex items-center gap-2 bg-gold px-6 text-sm font-semibold text-charcoal-dark hover:bg-gold-light transition"
                 >
                   {slide.cta.label}
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
                 <Link
-                  to={slide.secondary.to}
+                  href={slide.secondary.href}
                   className="h-12 inline-flex items-center px-6 text-sm font-semibold border border-white/35 hover:bg-white/10 transition"
                 >
                   {slide.secondary.label}

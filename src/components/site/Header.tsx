@@ -1,4 +1,7 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Menu,
@@ -26,7 +29,8 @@ export function Header() {
   const [q, setQ] = useState("");
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cart = useCart();
-  const navigate = useNavigate();
+  const router = useRouter();
+  const pathname = usePathname();
   const results = searchProducts(q);
 
   useEffect(() => {
@@ -63,6 +67,8 @@ export function Header() {
 
   const active = MEGA_MENU.find((m) => m.label === mega && m.columns);
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
       {/* Utility bar */}
@@ -77,10 +83,10 @@ export function Header() {
             </a>
           </div>
           <div className="flex items-center gap-5 text-primary-foreground/75">
-            <Link to="/industries" className="hover:text-gold-light transition">Trade & Specifiers</Link>
-            <Link to="/calculator" className="hover:text-gold-light transition">Floor Calculator</Link>
-            <Link to="/account" className="hover:text-gold-light transition">My Account</Link>
-            <Link to="/contact" className="hover:text-gold-light transition">Book a Showroom Visit</Link>
+            <Link href="/industries" className="hover:text-gold-light transition">Trade & Specifiers</Link>
+            <Link href="/calculator" className="hover:text-gold-light transition">Floor Calculator</Link>
+            <Link href="/account" className="hover:text-gold-light transition">My Account</Link>
+            <Link href="/contact" className="hover:text-gold-light transition">Book a Showroom Visit</Link>
           </div>
         </div>
       </div>
@@ -91,7 +97,7 @@ export function Header() {
           scrolled ? "h-16" : "h-[72px] md:h-20"
         }`}
       >
-        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Floors NG home">
+        <Link href="/" className="flex items-center gap-2 shrink-0" aria-label="Floors NG home">
           <Logo className="h-7 md:h-9 w-auto" />
         </Link>
 
@@ -99,11 +105,10 @@ export function Header() {
           {MEGA_MENU.map((n) => (
             <Link
               key={n.label}
-              to={n.to}
+              href={n.to}
               onMouseEnter={() => (n.columns ? openMega(n.label) : setMega(null))}
               onFocus={() => (n.columns ? openMega(n.label) : setMega(null))}
-              className="relative h-full px-4 inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground transition-colors group"
-              activeProps={{ className: "text-foreground" }}
+              className={`relative h-full px-4 inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground transition-colors group ${isActive(n.to) ? "text-foreground" : ""}`}
             >
               {n.label}
               {n.columns && (
@@ -127,14 +132,14 @@ export function Header() {
             <Search className="h-4 w-4" />
           </button>
           <Link
-            to="/visualizer"
+            href="/visualizer"
             className="hidden md:inline-flex items-center gap-1.5 h-10 px-3 hover:bg-muted transition text-sm font-medium"
           >
             <Sparkles className="h-3.5 w-3.5 text-gold" />
             AI
           </Link>
           <Link
-            to="/account"
+            href="/account"
             aria-label="Account"
             className="hidden md:inline-flex h-10 w-10 items-center justify-center hover:bg-muted transition"
           >
@@ -153,7 +158,7 @@ export function Header() {
             )}
           </button>
           <Link
-            to="/contact"
+            href="/contact"
             className="hidden md:inline-flex ml-2 h-11 items-center whitespace-nowrap bg-charcoal-dark px-5 xl:px-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-primary-foreground hover:bg-gold hover:text-charcoal-dark transition"
           >
             Get a Quote
@@ -183,7 +188,7 @@ export function Header() {
                   {col.links.map((l) => (
                     <li key={l.label}>
                       <Link
-                        to={l.to}
+                        href={l.to}
                         onClick={() => setMega(null)}
                         className="group inline-flex items-center gap-1.5 text-[15px] text-foreground/80 hover:text-foreground transition"
                       >
@@ -197,7 +202,7 @@ export function Header() {
             ))}
             {active.feature && (
               <Link
-                to={active.feature.to}
+                href={active.feature.to}
                 onClick={() => setMega(null)}
                 className="col-span-3 group block"
               >
@@ -229,7 +234,7 @@ export function Header() {
               onSubmit={(e) => {
                 e.preventDefault();
                 setSearchOpen(false);
-                navigate({ to: "/products" });
+                router.push("/products");
               }}
               className="flex items-center gap-3 border-b border-border px-5"
             >
@@ -247,13 +252,12 @@ export function Header() {
             </form>
             <div className="max-h-[50vh] overflow-y-auto">
               {q && results.length === 0 && (
-                <p className="px-5 py-8 text-sm text-muted-foreground">No products match "{q}".</p>
+                <p className="px-5 py-8 text-sm text-muted-foreground">No products match &quot;{q}&quot;.</p>
               )}
               {results.map((p) => (
                 <Link
                   key={p.slug}
-                  to="/products/$slug"
-                  params={{ slug: p.slug }}
+                  href={`/products/${p.slug}`}
                   onClick={() => {
                     setSearchOpen(false);
                     setQ("");
@@ -302,7 +306,7 @@ export function Header() {
               {cart.items.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   Your cart is empty.
-                  <Link to="/products" onClick={() => cart.setOpen(false)} className="mt-4 block text-gold font-medium">
+                  <Link href="/products" onClick={() => cart.setOpen(false)} className="mt-4 block text-gold font-medium">
                     Browse the catalogue →
                   </Link>
                 </div>
@@ -337,14 +341,14 @@ export function Header() {
                 <span className="font-mono text-lg">{naira(cart.subtotal)}</span>
               </div>
               <Link
-                to="/cart"
+                href="/cart"
                 onClick={() => cart.setOpen(false)}
                 className="mt-4 flex h-12 items-center justify-center bg-charcoal-dark text-primary-foreground text-sm font-semibold uppercase tracking-[0.08em] hover:bg-gold hover:text-charcoal-dark transition"
               >
                 View cart
               </Link>
               <Link
-                to="/checkout"
+                href="/checkout"
                 onClick={() => cart.setOpen(false)}
                 className="mt-2 flex h-12 items-center justify-center border border-border text-sm font-semibold uppercase tracking-[0.08em] hover:border-gold hover:text-gold transition"
               >
@@ -372,7 +376,7 @@ export function Header() {
               <div key={n.label} className="border-b border-border/60">
                 <div className="flex items-center justify-between">
                   <Link
-                    to={n.to}
+                    href={n.to}
                     onClick={() => setOpen(false)}
                     className="py-3.5 text-base font-semibold uppercase tracking-[0.06em] text-foreground"
                   >
@@ -395,7 +399,7 @@ export function Header() {
                         <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">{c.title}</div>
                         <div className="mt-2 grid gap-1.5">
                           {c.links.map((l) => (
-                            <Link key={l.label} to={l.to} onClick={() => setOpen(false)} className="text-sm text-muted-foreground">
+                            <Link key={l.label} href={l.to} onClick={() => setOpen(false)} className="text-sm text-muted-foreground">
                               {l.label}
                             </Link>
                           ))}
@@ -407,14 +411,14 @@ export function Header() {
               </div>
             ))}
             <Link
-              to="/contact"
+              href="/contact"
               onClick={() => setOpen(false)}
               className="mt-5 inline-flex justify-center h-12 items-center bg-charcoal-dark text-primary-foreground font-semibold uppercase tracking-[0.08em] text-sm"
             >
               Get a Quote
             </Link>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <Link to="/account" onClick={() => setOpen(false)} className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2">
+              <Link href="/account" onClick={() => setOpen(false)} className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2">
                 <User className="h-4 w-4 text-gold" /> Account
               </Link>
               <a href="tel:+2348000000000" className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2">

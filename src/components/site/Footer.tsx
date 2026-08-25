@@ -1,4 +1,6 @@
-import { Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
 import { Instagram, Linkedin, Youtube, ArrowRight, Phone, Mail, MapPin } from "lucide-react";
 import { Logo } from "./Logo";
 
@@ -89,8 +91,8 @@ export function Footer() {
           <div className="lg:col-span-4 space-y-6">
             <Logo invert className="h-9 w-auto" />
             <p className="text-sm text-primary-foreground/70 max-w-sm text-pretty">
-              Nigeria's premium flooring house — engineered surfaces, natural stone,
-              luxury vinyl and architectural finishes for the country's most demanding
+              Nigeria&apos;s premium flooring house — engineered surfaces, natural stone,
+              luxury vinyl and architectural finishes for the country&apos;s most demanding
               residential and commercial spaces.
             </p>
             <ul className="space-y-2.5 text-sm text-primary-foreground/75">
@@ -119,9 +121,9 @@ export function Footer() {
               <div key={c.title}>
                 <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-gold-light mb-4">{c.title}</h4>
                 <ul className="space-y-2.5">
-                  {c.links.map(([label, to]) => (
+                  {c.links.map(([label, href]) => (
                     <li key={label}>
-                      <Link to={to as string} className="text-sm text-primary-foreground/75 hover:text-gold-light transition">
+                      <Link href={href as string} className="text-sm text-primary-foreground/75 hover:text-gold-light transition">
                         {label}
                       </Link>
                     </li>

@@ -1,11 +1,12 @@
-import oakImg from "@/assets/collection-oak.jpg";
-import spcImg from "@/assets/collection-spc.jpg";
-import stoneImg from "@/assets/collection-stone.jpg";
-import hotelImg from "@/assets/project-hotel.jpg";
-import officeImg from "@/assets/project-office.jpg";
-import residenceImg from "@/assets/project-residence.jpg";
-import heroFloor from "@/assets/hero-floor.jpg";
-import materialsStrip from "@/assets/materials-strip.jpg";
+// Image paths — served from public/images/
+const oakImg = "/images/collection-oak.jpg";
+const spcImg = "/images/collection-spc.jpg";
+const stoneImg = "/images/collection-stone.jpg";
+const hotelImg = "/images/project-hotel.jpg";
+const officeImg = "/images/project-office.jpg";
+const residenceImg = "/images/project-residence.jpg";
+const heroFloor = "/images/hero-floor.jpg";
+const materialsStrip = "/images/materials-strip.jpg";
 
 export type Product = {
   slug: string;
