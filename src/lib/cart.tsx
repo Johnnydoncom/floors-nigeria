@@ -30,9 +30,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [open, setOpen] = useState(false);
 
+  // Hydrate after mount: localStorage does not exist on the server, so reading
+  // it during render would desync the server and client trees.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from browser storage
       if (raw) setItems(JSON.parse(raw));
     } catch {
       /* ignore */
@@ -48,7 +51,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const value = useMemo<CartCtx>(() => {
-    const same = (i: CartItem, slug: string, finish: string) => i.slug === slug && i.finish === finish;
+    const same = (i: CartItem, slug: string, finish: string) =>
+      i.slug === slug && i.finish === finish;
     return {
       items,
       open,
@@ -65,7 +69,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }),
       remove: (slug, finish) => setItems((prev) => prev.filter((i) => !same(i, slug, finish))),
       setQty: (slug, finish, qty) =>
-        setItems((prev) => prev.map((i) => (same(i, slug, finish) ? { ...i, qty: Math.max(1, qty) } : i))),
+        setItems((prev) =>
+          prev.map((i) => (same(i, slug, finish) ? { ...i, qty: Math.max(1, qty) } : i)),
+        ),
       clear: () => setItems([]),
     };
   }, [items, open]);

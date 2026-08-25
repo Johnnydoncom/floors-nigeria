@@ -9,11 +9,42 @@ export const metadata: Metadata = {
 };
 
 const posts = [
-  { title: "Specifying oak for Lagos humidity: a definitive guide", cat: "Craft", date: "12 Jul 2026", read: "8 min", img: "/images/project-hotel.jpg", feature: true },
-  { title: "The return of book-matched marble", cat: "Materials", date: "04 Jul 2026", read: "6 min", img: "/images/collection-stone.jpg" },
-  { title: "Why SPC is winning the contract market", cat: "Trends", date: "28 Jun 2026", read: "5 min", img: "/images/project-office.jpg" },
-  { title: "Inside a Banana Island commission", cat: "Projects", date: "19 Jun 2026", read: "10 min", img: "/images/project-residence.jpg" },
-  { title: "AI in the flooring specification workflow", cat: "Studio", date: "10 Jun 2026", read: "7 min", img: "/images/ai-visualizer.jpg" },
+  {
+    title: "Specifying oak for Lagos humidity: a definitive guide",
+    cat: "Craft",
+    date: "12 Jul 2026",
+    read: "8 min",
+    img: "/images/project-hotel.jpg",
+    feature: true,
+  },
+  {
+    title: "The return of book-matched marble",
+    cat: "Materials",
+    date: "04 Jul 2026",
+    read: "6 min",
+    img: "/images/collection-stone.jpg",
+  },
+  {
+    title: "Why SPC is winning the contract market",
+    cat: "Trends",
+    date: "28 Jun 2026",
+    read: "5 min",
+    img: "/images/project-office.jpg",
+  },
+  {
+    title: "Inside a Banana Island commission",
+    cat: "Projects",
+    date: "19 Jun 2026",
+    read: "10 min",
+    img: "/images/project-residence.jpg",
+  },
+  {
+    title: "AI in the flooring specification workflow",
+    cat: "Studio",
+    date: "10 Jun 2026",
+    read: "7 min",
+    img: "/images/ai-visualizer.jpg",
+  },
 ];
 
 export default function Blog() {
@@ -33,15 +64,29 @@ export default function Blog() {
         <Reveal>
           <Link href="/blog" className="group grid lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7 relative aspect-[16/10] rounded-3xl overflow-hidden bg-muted">
-              <img src={feat.img} alt={feat.title} className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
+              <img
+                src={feat.img}
+                alt={feat.title}
+                className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+              />
             </div>
             <div className="lg:col-span-5">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-gold">{feat.cat} · Featured</div>
-              <h2 className="mt-3 font-display text-4xl md:text-5xl tracking-tight group-hover:text-gold transition">{feat.title}</h2>
-              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{feat.date}</span><span>·</span><span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {feat.read}</span>
+              <div className="font-mono text-[11px] uppercase tracking-widest text-gold">
+                {feat.cat} · Featured
               </div>
-              <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium">Read article <ArrowUpRight className="h-4 w-4" /></div>
+              <h2 className="mt-3 font-display text-4xl md:text-5xl tracking-tight group-hover:text-gold transition">
+                {feat.title}
+              </h2>
+              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{feat.date}</span>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {feat.read}
+                </span>
+              </div>
+              <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium">
+                Read article <ArrowUpRight className="h-4 w-4" />
+              </div>
             </div>
           </Link>
         </Reveal>
@@ -51,12 +96,22 @@ export default function Blog() {
             <Reveal key={p.title} delay={(i % 4) * 0.05}>
               <Link href="/blog" className="group block">
                 <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted">
-                  <img src={p.img} alt={p.title} className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
+                  <img
+                    src={p.img}
+                    alt={p.title}
+                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                  />
                 </div>
                 <div className="pt-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{p.cat}</div>
-                  <h3 className="mt-1 font-display text-xl tracking-tight group-hover:text-gold transition">{p.title}</h3>
-                  <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">{p.date} · <Clock className="h-3 w-3" /> {p.read}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {p.cat}
+                  </div>
+                  <h3 className="mt-1 font-display text-xl tracking-tight group-hover:text-gold transition">
+                    {p.title}
+                  </h3>
+                  <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+                    {p.date} · <Clock className="h-3 w-3" /> {p.read}
+                  </div>
                 </div>
               </Link>
             </Reveal>

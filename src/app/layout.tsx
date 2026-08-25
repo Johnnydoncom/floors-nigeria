@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Manrope, JetBrains_Mono } from "next/font/google";
 import "../styles.css";
@@ -58,20 +59,22 @@ export const viewport: Viewport = {
   themeColor: "#56554D",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${archivo.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="en" className={`${archivo.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       <body>
         <CartProvider>
-          <ScrollToTop />
-          <Header />
+          {/*
+            Header and ScrollToTop read the current URL, which is only known at
+            request time. Suspending them keeps the rest of every page in the
+            prerendered static shell (§19, §28).
+          */}
+          <Suspense fallback={null}>
+            <ScrollToTop />
+          </Suspense>
+          <Suspense fallback={<div className="h-[72px] md:h-[116px]" aria-hidden />}>
+            <Header />
+          </Suspense>
           <main id="main" className="min-h-screen">
             {children}
           </main>

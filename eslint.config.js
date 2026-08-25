@@ -1,40 +1,30 @@
-import js from "@eslint/js";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
-import globals from "globals";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
-import tseslint from "typescript-eslint";
+// Next.js 16 ships native flat configs: App Router conventions, Core Web
+// Vitals rules, the React Hooks rules and TypeScript support.
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypeScript from "eslint-config-next/typescript";
 
-export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+export default [
+  { ignores: [".next/**", "out/**", "node_modules/**", "next-env.d.ts"] },
+  ...nextCoreWebVitals,
+  ...nextTypeScript,
   {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
-    },
-    plugins: {
-      "react-hooks": reactHooks,
-      "react-refresh": reactRefresh,
-    },
     rules: {
-      ...reactHooks.configs.recommended.rules,
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "server-only",
-              message:
-                "TanStack Start does not use the Next.js `server-only` package. Rename the module to `*.server.ts` or mark it with `@tanstack/react-start/server-only`.",
-            },
-          ],
-        },
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    // Vendored shadcn/ui primitives are generated upstream; hold them to the
+    // formatting rules but not to our hook conventions.
+    files: ["src/components/ui/**"],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
     },
   },
   eslintPluginPrettier,
-);
+];

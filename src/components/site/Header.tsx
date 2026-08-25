@@ -17,7 +17,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { MEGA_MENU, naira, searchProducts } from "@/lib/catalog";
+import { MEGA_MENU } from "@/lib/catalog";
+import { naira } from "@/lib/format";
+import { useProductSearch } from "@/hooks/use-product-search";
 import { useCart } from "@/lib/cart";
 
 export function Header() {
@@ -31,7 +33,7 @@ export function Header() {
   const cart = useCart();
   const router = useRouter();
   const pathname = usePathname();
-  const results = searchProducts(q);
+  const { results, isSearching } = useProductSearch(q);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -78,15 +80,26 @@ export function Header() {
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-3 w-3 text-gold-light" /> Lagos · Abuja · Port Harcourt
             </span>
-            <a href="tel:+2348000000000" className="inline-flex items-center gap-1.5 hover:text-gold-light transition">
+            <a
+              href="tel:+2348000000000"
+              className="inline-flex items-center gap-1.5 hover:text-gold-light transition"
+            >
               <Phone className="h-3 w-3 text-gold-light" /> +234 800 000 0000
             </a>
           </div>
           <div className="flex items-center gap-5 text-primary-foreground/75">
-            <Link href="/industries" className="hover:text-gold-light transition">Trade & Specifiers</Link>
-            <Link href="/calculator" className="hover:text-gold-light transition">Floor Calculator</Link>
-            <Link href="/account" className="hover:text-gold-light transition">My Account</Link>
-            <Link href="/contact" className="hover:text-gold-light transition">Book a Showroom Visit</Link>
+            <Link href="/industries" className="hover:text-gold-light transition">
+              Trade & Specifiers
+            </Link>
+            <Link href="/calculator" className="hover:text-gold-light transition">
+              Floor Calculator
+            </Link>
+            <Link href="/account" className="hover:text-gold-light transition">
+              My Account
+            </Link>
+            <Link href="/contact" className="hover:text-gold-light transition">
+              Book a Showroom Visit
+            </Link>
           </div>
         </div>
       </div>
@@ -112,7 +125,9 @@ export function Header() {
             >
               {n.label}
               {n.columns && (
-                <ChevronDown className={`h-3 w-3 transition-transform ${mega === n.label ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${mega === n.label ? "rotate-180" : ""}`}
+                />
               )}
               <span
                 className={`absolute inset-x-3 bottom-0 h-[3px] bg-gold origin-left transition-transform ${
@@ -183,7 +198,9 @@ export function Header() {
           <div className="container-fluid grid grid-cols-12 gap-10 py-10">
             {active.columns!.map((col) => (
               <div key={col.title} className="col-span-3">
-                <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">{col.title}</div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">
+                  {col.title}
+                </div>
                 <ul className="mt-4 space-y-2.5">
                   {col.links.map((l) => (
                     <li key={l.label}>
@@ -246,15 +263,22 @@ export function Header() {
                 placeholder="Search oak, SPC, marble, wall panels…"
                 className="h-16 flex-1 bg-transparent outline-none text-lg"
               />
-              <button type="button" onClick={() => setSearchOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="h-5 w-5" />
               </button>
             </form>
             <div className="max-h-[50vh] overflow-y-auto">
-              {q && results.length === 0 && (
-                <p className="px-5 py-8 text-sm text-muted-foreground">No products match &quot;{q}&quot;.</p>
+              {isSearching && <p className="px-5 py-8 text-sm text-muted-foreground">Searching…</p>}
+              {q && !isSearching && results.products.length === 0 && (
+                <p className="px-5 py-8 text-sm text-muted-foreground">
+                  No products match &quot;{q}&quot;.
+                </p>
               )}
-              {results.map((p) => (
+              {results.products.map((p) => (
                 <Link
                   key={p.slug}
                   href={`/products/${p.slug}`}
@@ -264,17 +288,23 @@ export function Header() {
                   }}
                   className="flex items-center gap-4 px-5 py-3 hover:bg-muted transition"
                 >
-                  <img src={p.img} alt="" className="h-12 w-12 object-cover" />
+                  {p.thumb_url ? (
+                    <img src={p.thumb_url} alt="" className="h-12 w-12 object-cover" />
+                  ) : (
+                    <span className="h-12 w-12 bg-muted" aria-hidden />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">{p.category}</div>
+                    <div className="text-xs text-muted-foreground">{p.category?.name}</div>
                   </div>
-                  <span className="font-mono text-xs">{naira(p.price)}/m²</span>
+                  <span className="font-mono text-xs">{naira(p.price_from)}/m²</span>
                 </Link>
               ))}
               {!q && (
                 <div className="px-5 py-5">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Popular</div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                    Popular
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {["Oak", "Herringbone", "SPC", "Marble", "Wall panels"].map((t) => (
                       <button
@@ -296,17 +326,27 @@ export function Header() {
       {/* Cart drawer */}
       {cart.open && (
         <div className="fixed inset-0 z-[60]">
-          <button aria-label="Close cart" onClick={() => cart.setOpen(false)} className="absolute inset-0 bg-charcoal-dark/50" />
+          <button
+            aria-label="Close cart"
+            onClick={() => cart.setOpen(false)}
+            className="absolute inset-0 bg-charcoal-dark/50"
+          />
           <aside className="absolute right-0 top-0 h-full w-[min(28rem,94vw)] bg-background flex flex-col shadow-elevated">
             <div className="flex items-center justify-between border-b border-border px-5 h-16">
               <span className="font-display text-lg">Your cart ({cart.count})</span>
-              <button onClick={() => cart.setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button>
+              <button onClick={() => cart.setOpen(false)} aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto">
               {cart.items.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   Your cart is empty.
-                  <Link href="/products" onClick={() => cart.setOpen(false)} className="mt-4 block text-gold font-medium">
+                  <Link
+                    href="/products"
+                    onClick={() => cart.setOpen(false)}
+                    className="mt-4 block text-gold font-medium"
+                  >
                     Browse the catalogue →
                   </Link>
                 </div>
@@ -324,9 +364,19 @@ export function Header() {
                       <div className="text-xs text-muted-foreground">{i.finish}</div>
                       <div className="mt-2 flex items-center justify-between">
                         <div className="inline-flex items-center border border-border">
-                          <button className="h-8 w-8" onClick={() => cart.setQty(i.slug, i.finish, i.qty - 1)}>−</button>
+                          <button
+                            className="h-8 w-8"
+                            onClick={() => cart.setQty(i.slug, i.finish, i.qty - 1)}
+                          >
+                            −
+                          </button>
                           <span className="w-14 text-center font-mono text-xs">{i.qty} m²</span>
-                          <button className="h-8 w-8" onClick={() => cart.setQty(i.slug, i.finish, i.qty + 1)}>+</button>
+                          <button
+                            className="h-8 w-8"
+                            onClick={() => cart.setQty(i.slug, i.finish, i.qty + 1)}
+                          >
+                            +
+                          </button>
                         </div>
                         <span className="font-mono text-sm">{naira(i.price * i.qty)}</span>
                       </div>
@@ -388,7 +438,9 @@ export function Header() {
                       onClick={() => setMobileSub((s) => (s === n.label ? null : n.label))}
                       className="h-10 w-10 grid place-items-center"
                     >
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition ${mobileSub === n.label ? "rotate-180" : ""}`} />
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition ${mobileSub === n.label ? "rotate-180" : ""}`}
+                      />
                     </button>
                   )}
                 </div>
@@ -396,10 +448,17 @@ export function Header() {
                   <div className="pb-4 pl-1 grid gap-4">
                     {n.columns.map((c) => (
                       <div key={c.title}>
-                        <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">{c.title}</div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">
+                          {c.title}
+                        </div>
                         <div className="mt-2 grid gap-1.5">
                           {c.links.map((l) => (
-                            <Link key={l.label} href={l.to} onClick={() => setOpen(false)} className="text-sm text-muted-foreground">
+                            <Link
+                              key={l.label}
+                              href={l.to}
+                              onClick={() => setOpen(false)}
+                              className="text-sm text-muted-foreground"
+                            >
                               {l.label}
                             </Link>
                           ))}
@@ -418,10 +477,17 @@ export function Header() {
               Get a Quote
             </Link>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <Link href="/account" onClick={() => setOpen(false)} className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2">
+              <Link
+                href="/account"
+                onClick={() => setOpen(false)}
+                className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2"
+              >
                 <User className="h-4 w-4 text-gold" /> Account
               </Link>
-              <a href="tel:+2348000000000" className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2">
+              <a
+                href="tel:+2348000000000"
+                className="h-12 inline-flex justify-center items-center border border-border text-sm font-semibold gap-2"
+              >
                 <Phone className="h-4 w-4 text-gold" /> Call us
               </a>
             </div>

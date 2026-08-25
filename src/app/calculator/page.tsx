@@ -13,10 +13,20 @@ const rate: Record<string, number> = {
 };
 const install = 3500;
 
-function Field({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
   return (
     <label className="block">
-      <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
       <input
         type="number"
         min={0}
@@ -41,14 +51,17 @@ export default function Calculator() {
   const installation = Math.round(area * install);
   const total = material + installation;
 
-  const rows = useMemo(() => [
-    ["Room area", `${area.toFixed(2)} m²`],
-    ["Waste allowance", `+${waste}%`],
-    ["Order quantity", `${areaWithWaste.toFixed(2)} m²`],
-    ["Material rate", `₦${rate[product].toLocaleString()} /m²`],
-    ["Material subtotal", `₦${material.toLocaleString()}`],
-    [`Installation (₦${install.toLocaleString()}/m²)`, `₦${installation.toLocaleString()}`],
-  ], [area, waste, areaWithWaste, product, material, installation]);
+  const rows = useMemo(
+    () => [
+      ["Room area", `${area.toFixed(2)} m²`],
+      ["Waste allowance", `+${waste}%`],
+      ["Order quantity", `${areaWithWaste.toFixed(2)} m²`],
+      ["Material rate", `₦${rate[product].toLocaleString()} /m²`],
+      ["Material subtotal", `₦${material.toLocaleString()}`],
+      [`Installation (₦${install.toLocaleString()}/m²)`, `₦${installation.toLocaleString()}`],
+    ],
+    [area, waste, areaWithWaste, product, material, installation],
+  );
 
   return (
     <>
@@ -59,7 +72,8 @@ export default function Calculator() {
             Precise budgets. Zero guesswork.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Configure your space, choose a product, and generate a fully-costed BOQ with installation.
+            Configure your space, choose a product, and generate a fully-costed BOQ with
+            installation.
           </p>
         </Reveal>
       </section>
@@ -68,10 +82,14 @@ export default function Calculator() {
         <div className="lg:col-span-7">
           <div className="rounded-3xl border border-border bg-surface p-8 md:p-10">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 grid place-items-center rounded-2xl bg-background border border-border text-gold"><Ruler className="h-5 w-5" /></div>
+              <div className="h-11 w-11 grid place-items-center rounded-2xl bg-background border border-border text-gold">
+                <Ruler className="h-5 w-5" />
+              </div>
               <div>
                 <div className="font-display text-2xl">Configure your project</div>
-                <div className="text-sm text-muted-foreground">Rectangular room · imperial coming soon</div>
+                <div className="text-sm text-muted-foreground">
+                  Rectangular room · imperial coming soon
+                </div>
               </div>
             </div>
 
@@ -83,7 +101,9 @@ export default function Calculator() {
             </div>
 
             <div className="mt-6">
-              <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Product</label>
+              <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+                Product
+              </label>
               <div className="mt-2 grid sm:grid-cols-2 gap-2">
                 {Object.keys(rate).map((p) => (
                   <button
@@ -101,9 +121,15 @@ export default function Calculator() {
 
         <div className="lg:col-span-5">
           <div className="sticky top-24 rounded-3xl bg-charcoal-dark text-primary-foreground p-8 md:p-10 shadow-elevated">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-gold-light">Live estimate</div>
-            <div className="mt-3 font-display text-5xl tracking-tight">₦{total.toLocaleString()}</div>
-            <div className="text-primary-foreground/60 text-sm mt-1">Excludes VAT · Valid 14 days</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-gold-light">
+              Live estimate
+            </div>
+            <div className="mt-3 font-display text-5xl tracking-tight">
+              ₦{total.toLocaleString()}
+            </div>
+            <div className="text-primary-foreground/60 text-sm mt-1">
+              Excludes VAT · Valid 14 days
+            </div>
 
             <dl className="mt-8 divide-y divide-white/10 border-y border-white/10">
               {rows.map(([k, v]) => (
@@ -115,13 +141,22 @@ export default function Calculator() {
             </dl>
 
             <div className="mt-8 grid gap-2">
-              <Link href="/contact" className="h-12 inline-flex items-center justify-center gap-2 rounded-full bg-white text-charcoal-dark text-sm font-medium hover:bg-gold-light transition">
+              <Link
+                href="/contact"
+                className="h-12 inline-flex items-center justify-center gap-2 rounded-full bg-white text-charcoal-dark text-sm font-medium hover:bg-gold-light transition"
+              >
                 Send me a formal quote <ArrowRight className="h-4 w-4" />
               </Link>
               <div className="grid grid-cols-3 gap-2">
-                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10"><Download className="h-3.5 w-3.5" /> PDF</button>
-                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10"><Mail className="h-3.5 w-3.5" /> Email</button>
-                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10"><Save className="h-3.5 w-3.5" /> Save</button>
+                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10">
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </button>
+                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </button>
+                <button className="h-11 rounded-full border border-white/25 text-xs inline-flex items-center justify-center gap-1.5 hover:bg-white/10">
+                  <Save className="h-3.5 w-3.5" /> Save
+                </button>
               </div>
             </div>
           </div>

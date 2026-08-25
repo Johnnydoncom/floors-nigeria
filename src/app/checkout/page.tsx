@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Check, CreditCard, Landmark, Lock, Truck } from "lucide-react";
 import { useCart } from "@/lib/cart";
-import { naira } from "@/lib/catalog";
+import { naira } from "@/lib/format";
 
 const steps = ["Delivery", "Installation", "Payment"];
-const field = "h-12 w-full border border-border bg-background px-4 text-sm outline-none focus:border-gold";
+const field =
+  "h-12 w-full border border-border bg-background px-4 text-sm outline-none focus:border-gold";
 
 export default function Checkout() {
   const cart = useCart();
@@ -15,7 +16,9 @@ export default function Checkout() {
   const [placed, setPlaced] = useState(false);
   const [install, setInstall] = useState(true);
   const [pay, setPay] = useState("card");
-  const [orderRef] = useState(() => Math.floor(100000 + Math.random() * 899999));
+  // Placeholder reference until checkout posts a real quote; generated on
+  // submit rather than during render so the page still prerenders.
+  const [orderRef, setOrderRef] = useState<string | null>(null);
 
   const installFee = install ? Math.round(cart.subtotal * 0.12) : 0;
   const vat = (cart.subtotal + installFee) * 0.075;
@@ -30,14 +33,20 @@ export default function Checkout() {
         </div>
         <h1 className="mt-8 font-display text-4xl md:text-5xl tracking-tight">Order confirmed</h1>
         <p className="mt-4 text-muted-foreground">
-          Reference <span className="font-mono text-foreground">FN-{orderRef}</span>. A specifier will call
-          within 24 hours to confirm your site survey.
+          Reference <span className="font-mono text-foreground">FN-{orderRef}</span>. A specifier
+          will call within 24 hours to confirm your site survey.
         </p>
         <div className="mt-10 flex justify-center gap-3">
-          <Link href="/account" className="h-12 inline-flex items-center bg-charcoal-dark px-6 text-sm font-semibold uppercase tracking-[0.08em] text-primary-foreground hover:bg-gold hover:text-charcoal-dark transition">
+          <Link
+            href="/account"
+            className="h-12 inline-flex items-center bg-charcoal-dark px-6 text-sm font-semibold uppercase tracking-[0.08em] text-primary-foreground hover:bg-gold hover:text-charcoal-dark transition"
+          >
             Track in dashboard
           </Link>
-          <Link href="/products" className="h-12 inline-flex items-center border border-border px-6 text-sm font-medium hover:border-gold hover:text-gold transition">
+          <Link
+            href="/products"
+            className="h-12 inline-flex items-center border border-border px-6 text-sm font-medium hover:border-gold hover:text-gold transition"
+          >
             Continue shopping
           </Link>
         </div>
@@ -48,16 +57,22 @@ export default function Checkout() {
   return (
     <div className="pt-[104px] md:pt-[148px] pb-24">
       <div className="container-fluid">
-        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">Checkout step 2 of 2</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">
+          Checkout step 2 of 2
+        </p>
         <h1 className="mt-3 font-display text-4xl md:text-5xl tracking-tight">Secure checkout</h1>
 
         <div className="mt-8 flex items-center gap-3">
           {steps.map((s, i) => (
             <button key={s} onClick={() => setStep(i)} className="flex items-center gap-2">
-              <span className={`h-8 w-8 grid place-items-center font-mono text-xs ${i <= step ? "bg-charcoal-dark text-primary-foreground" : "border border-border text-muted-foreground"}`}>
+              <span
+                className={`h-8 w-8 grid place-items-center font-mono text-xs ${i <= step ? "bg-charcoal-dark text-primary-foreground" : "border border-border text-muted-foreground"}`}
+              >
                 {i + 1}
               </span>
-              <span className={`text-sm ${i === step ? "font-semibold" : "text-muted-foreground"}`}>{s}</span>
+              <span className={`text-sm ${i === step ? "font-semibold" : "text-muted-foreground"}`}>
+                {s}
+              </span>
               {i < steps.length - 1 && <span className="mx-2 h-px w-8 bg-border" />}
             </button>
           ))}
@@ -74,19 +89,36 @@ export default function Checkout() {
                 <input className={`${field} sm:col-span-2`} placeholder="Delivery address" />
                 <input className={field} placeholder="City" />
                 <select className={field} defaultValue="Lagos">
-                  {["Lagos", "Abuja (FCT)", "Rivers", "Oyo", "Kano", "Other state"].map((s) => <option key={s}>{s}</option>)}
+                  {["Lagos", "Abuja (FCT)", "Rivers", "Oyo", "Kano", "Other state"].map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
                 </select>
-                <textarea className="sm:col-span-2 min-h-28 w-full border border-border bg-background p-4 text-sm outline-none focus:border-gold" placeholder="Delivery notes (gate access, floor level, preferred time)" />
+                <textarea
+                  className="sm:col-span-2 min-h-28 w-full border border-border bg-background p-4 text-sm outline-none focus:border-gold"
+                  placeholder="Delivery notes (gate access, floor level, preferred time)"
+                />
               </div>
             )}
 
             {step === 1 && (
               <div className="space-y-4">
                 {[
-                  { key: true, title: "Professional installation", desc: "Certified Floors NG crew, subfloor prep, 5-year workmanship warranty. 12% of material value." },
-                  { key: false, title: "Supply only", desc: "We deliver to site; your contractor installs. Installation guides included." },
+                  {
+                    key: true,
+                    title: "Professional installation",
+                    desc: "Certified Floors NG crew, subfloor prep, 5-year workmanship warranty. 12% of material value.",
+                  },
+                  {
+                    key: false,
+                    title: "Supply only",
+                    desc: "We deliver to site; your contractor installs. Installation guides included.",
+                  },
                 ].map((o) => (
-                  <button key={String(o.key)} onClick={() => setInstall(o.key)} className={`w-full text-left border p-5 transition ${install === o.key ? "border-gold bg-gold/5" : "border-border hover:border-foreground/30"}`}>
+                  <button
+                    key={String(o.key)}
+                    onClick={() => setInstall(o.key)}
+                    className={`w-full text-left border p-5 transition ${install === o.key ? "border-gold bg-gold/5" : "border-border hover:border-foreground/30"}`}
+                  >
                     <div className="flex items-center gap-3">
                       <Truck className="h-4 w-4 text-gold" />
                       <span className="font-display text-lg">{o.title}</span>
@@ -101,10 +133,24 @@ export default function Checkout() {
             {step === 2 && (
               <div className="space-y-4">
                 {[
-                  { id: "card", icon: CreditCard, title: "Card payment", desc: "Visa, Mastercard, Verve — processed by Paystack." },
-                  { id: "transfer", icon: Landmark, title: "Bank transfer", desc: "Account details issued on order confirmation." },
+                  {
+                    id: "card",
+                    icon: CreditCard,
+                    title: "Card payment",
+                    desc: "Visa, Mastercard, Verve — processed by Paystack.",
+                  },
+                  {
+                    id: "transfer",
+                    icon: Landmark,
+                    title: "Bank transfer",
+                    desc: "Account details issued on order confirmation.",
+                  },
                 ].map((o) => (
-                  <button key={o.id} onClick={() => setPay(o.id)} className={`w-full text-left border p-5 transition ${pay === o.id ? "border-gold bg-gold/5" : "border-border hover:border-foreground/30"}`}>
+                  <button
+                    key={o.id}
+                    onClick={() => setPay(o.id)}
+                    className={`w-full text-left border p-5 transition ${pay === o.id ? "border-gold bg-gold/5" : "border-border hover:border-foreground/30"}`}
+                  >
                     <div className="flex items-center gap-3">
                       <o.icon className="h-4 w-4 text-gold" />
                       <span className="font-display text-lg">{o.title}</span>
@@ -114,7 +160,11 @@ export default function Checkout() {
                 ))}
                 {pay === "card" && (
                   <div className="grid sm:grid-cols-2 gap-4 pt-2">
-                    <input className={`${field} sm:col-span-2`} placeholder="Card number" inputMode="numeric" />
+                    <input
+                      className={`${field} sm:col-span-2`}
+                      placeholder="Card number"
+                      inputMode="numeric"
+                    />
                     <input className={field} placeholder="MM / YY" />
                     <input className={field} placeholder="CVC" inputMode="numeric" />
                   </div>
@@ -123,15 +173,29 @@ export default function Checkout() {
             )}
 
             <div className="mt-8 flex justify-between gap-3">
-              <button onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className="h-12 px-6 border border-border text-sm disabled:opacity-40">
+              <button
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
+                disabled={step === 0}
+                className="h-12 px-6 border border-border text-sm disabled:opacity-40"
+              >
                 Back
               </button>
               {step < 2 ? (
-                <button onClick={() => setStep((s) => s + 1)} className="h-12 px-8 bg-charcoal-dark text-primary-foreground text-sm font-semibold uppercase tracking-[0.08em] hover:bg-gold hover:text-charcoal-dark transition">
+                <button
+                  onClick={() => setStep((s) => s + 1)}
+                  className="h-12 px-8 bg-charcoal-dark text-primary-foreground text-sm font-semibold uppercase tracking-[0.08em] hover:bg-gold hover:text-charcoal-dark transition"
+                >
                   Continue
                 </button>
               ) : (
-                <button onClick={() => { setPlaced(true); cart.clear(); }} className="h-12 px-8 inline-flex items-center gap-2 bg-gold text-charcoal-dark text-sm font-semibold uppercase tracking-[0.08em] hover:bg-charcoal-dark hover:text-primary-foreground transition">
+                <button
+                  onClick={() => {
+                    setOrderRef(String(Math.floor(100000 + Math.random() * 899999)));
+                    setPlaced(true);
+                    cart.clear();
+                  }}
+                  className="h-12 px-8 inline-flex items-center gap-2 bg-gold text-charcoal-dark text-sm font-semibold uppercase tracking-[0.08em] hover:bg-charcoal-dark hover:text-primary-foreground transition"
+                >
                   <Lock className="h-4 w-4" /> Pay {naira(Math.round(total))}
                 </button>
               )}
@@ -146,19 +210,38 @@ export default function Checkout() {
                   <img src={i.img} alt="" className="h-14 w-14 object-cover" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{i.name}</div>
-                    <div className="text-xs text-muted-foreground">{i.finish} · {i.qty} m²</div>
+                    <div className="text-xs text-muted-foreground">
+                      {i.finish} · {i.qty} m²
+                    </div>
                   </div>
                   <span className="font-mono text-sm">{naira(i.price * i.qty)}</span>
                 </div>
               ))}
-              {cart.items.length === 0 && <p className="text-sm text-muted-foreground">Cart is empty.</p>}
+              {cart.items.length === 0 && (
+                <p className="text-sm text-muted-foreground">Cart is empty.</p>
+              )}
             </div>
             <dl className="mt-6 space-y-3 border-t border-border pt-5 text-sm">
-              <div className="flex justify-between"><dt className="text-muted-foreground">Materials</dt><dd className="font-mono">{naira(cart.subtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Installation</dt><dd className="font-mono">{installFee ? naira(installFee) : "—"}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Delivery</dt><dd className="font-mono">{delivery ? naira(delivery) : "Free"}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">VAT (7.5%)</dt><dd className="font-mono">{naira(Math.round(vat))}</dd></div>
-              <div className="flex justify-between border-t border-border pt-3"><dt className="font-medium">Total</dt><dd className="font-mono text-xl">{naira(Math.round(total))}</dd></div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Materials</dt>
+                <dd className="font-mono">{naira(cart.subtotal)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Installation</dt>
+                <dd className="font-mono">{installFee ? naira(installFee) : "—"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Delivery</dt>
+                <dd className="font-mono">{delivery ? naira(delivery) : "Free"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">VAT (7.5%)</dt>
+                <dd className="font-mono">{naira(Math.round(vat))}</dd>
+              </div>
+              <div className="flex justify-between border-t border-border pt-3">
+                <dt className="font-medium">Total</dt>
+                <dd className="font-mono text-xl">{naira(Math.round(total))}</dd>
+              </div>
             </dl>
           </aside>
         </div>

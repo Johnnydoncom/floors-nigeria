@@ -5,16 +5,41 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Industries",
-  description: "Flooring solutions engineered for residential, hospitality, commercial, healthcare, education and retail.",
+  description:
+    "Flooring solutions engineered for residential, hospitality, commercial, healthcare, education and retail.",
 };
 
 const industries = [
-  { name: "Residential", desc: "Wide-plank oak, herringbone parquet and stone for homes.", img: "/images/hero-living.jpg" },
-  { name: "Commercial", desc: "LVT, SPC and carpet-tile for Grade-A office towers.", img: "/images/project-office.jpg" },
-  { name: "Hospitality", desc: "Statement floors for hotels, restaurants and lounges.", img: "/images/project-hotel.jpg" },
-  { name: "Healthcare", desc: "Hygienic, sound-absorbing surfaces for clinical spaces.", img: "/images/collection-spc.jpg" },
-  { name: "Education", desc: "Impact-rated flooring for schools and universities.", img: "/images/project-residence.jpg" },
-  { name: "Retail", desc: "Luxury display floors that outlast the traffic.", img: "/images/collection-stone.jpg" },
+  {
+    name: "Residential",
+    desc: "Wide-plank oak, herringbone parquet and stone for homes.",
+    img: "/images/hero-living.jpg",
+  },
+  {
+    name: "Commercial",
+    desc: "LVT, SPC and carpet-tile for Grade-A office towers.",
+    img: "/images/project-office.jpg",
+  },
+  {
+    name: "Hospitality",
+    desc: "Statement floors for hotels, restaurants and lounges.",
+    img: "/images/project-hotel.jpg",
+  },
+  {
+    name: "Healthcare",
+    desc: "Hygienic, sound-absorbing surfaces for clinical spaces.",
+    img: "/images/collection-spc.jpg",
+  },
+  {
+    name: "Education",
+    desc: "Impact-rated flooring for schools and universities.",
+    img: "/images/project-residence.jpg",
+  },
+  {
+    name: "Retail",
+    desc: "Luxury display floors that outlast the traffic.",
+    img: "/images/collection-stone.jpg",
+  },
 ];
 
 export default function Industries() {
@@ -34,12 +59,18 @@ export default function Industries() {
           <Reveal key={ind.name} delay={(idx % 3) * 0.06}>
             <Link href="/products" className="group block">
               <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-muted">
-                <img src={ind.img} alt={ind.name} className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" />
+                <img
+                  src={ind.img}
+                  alt={ind.name}
+                  className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">
                   <h3 className="font-display text-3xl">{ind.name}</h3>
                   <p className="mt-1 text-sm opacity-85">{ind.desc}</p>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-sm">Explore <ArrowUpRight className="h-4 w-4" /></div>
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-sm">
+                    Explore <ArrowUpRight className="h-4 w-4" />
+                  </div>
                 </div>
               </div>
             </Link>

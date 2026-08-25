@@ -1,23 +1,26 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { laravelLogin } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
-export async function POST(req: NextRequest) {
+/**
+ * Exchanges credentials for a Sanctum token server-side and stores it in an
+ * HTTP-only cookie, so the token never reaches browser JavaScript (§27).
+ */
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { ok, setCookieHeaders } = await laravelLogin(body);
+    const body = (await request.json()) as { email: string; password: string };
+    const { user } = await login(body);
 
-    if (!ok) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+    return NextResponse.json({ user });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json(
+        { message: error.userMessage, errors: error.validationErrors },
+        { status: error.status },
+      );
     }
 
-    // Mirror Laravel's session cookies to the browser
-    const response = NextResponse.json({ ok: true }, { status: 200 });
-    for (const cookie of setCookieHeaders) {
-      response.headers.append("Set-Cookie", cookie);
-    }
-    return response;
-  } catch (err) {
-    console.error("[auth/login]", err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    console.error("[auth/login]", error);
+    return NextResponse.json({ message: "Sign-in is unavailable right now." }, { status: 502 });
   }
 }

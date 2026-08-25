@@ -27,7 +27,11 @@ const slides: Slide[] = [
     alt: "Wide-plank European oak herringbone flooring in a Lagos penthouse",
     cta: { label: "Browse engineered wood", href: "/products" },
     secondary: { label: "Request samples", href: "/contact" },
-    spec: [["Wear layer", "4 mm oak"], ["Formats", "Plank · Chevron"], ["Warranty", "25 years"]],
+    spec: [
+      ["Wear layer", "4 mm oak"],
+      ["Formats", "Plank · Chevron"],
+      ["Warranty", "25 years"],
+    ],
   },
   {
     eyebrow: "Luxury Vinyl & SPC",
@@ -38,7 +42,11 @@ const slides: Slide[] = [
     alt: "Modern hallway finished in wood-look SPC flooring",
     cta: { label: "Explore SPC & LVT", href: "/products" },
     secondary: { label: "Get a trade quote", href: "/contact" },
-    spec: [["Core", "5.5 mm SPC"], ["Rating", "Class 33/42"], ["Install", "Click-lock"]],
+    spec: [
+      ["Core", "5.5 mm SPC"],
+      ["Rating", "Class 33/42"],
+      ["Install", "Click-lock"],
+    ],
   },
   {
     eyebrow: "Natural Stone",
@@ -49,7 +57,11 @@ const slides: Slide[] = [
     alt: "Book-matched marble flooring in a hotel lobby",
     cta: { label: "View stone collection", href: "/collections" },
     secondary: { label: "Talk to a specifier", href: "/contact" },
-    spec: [["Finishes", "Honed · Polished"], ["Slabs", "Book-matched"], ["Sealing", "Included"]],
+    spec: [
+      ["Finishes", "Honed · Polished"],
+      ["Slabs", "Book-matched"],
+      ["Sealing", "Included"],
+    ],
   },
   {
     eyebrow: "Contract & Hospitality",
@@ -60,7 +72,11 @@ const slides: Slide[] = [
     alt: "Herringbone wood flooring in a hotel interior",
     cta: { label: "See our projects", href: "/projects" },
     secondary: { label: "Start a project", href: "/contact" },
-    spec: [["Projects", "480+ delivered"], ["Coverage", "Nationwide"], ["Crews", "In-house"]],
+    spec: [
+      ["Projects", "480+ delivered"],
+      ["Coverage", "Nationwide"],
+      ["Crews", "In-house"],
+    ],
   },
 ];
 
@@ -123,8 +139,7 @@ export function HeroSlider() {
                 {slide.eyebrow}
               </div>
               <h1 className="mt-5 font-display text-[clamp(2.5rem,6.2vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
-                {slide.title}{" "}
-                <span className="text-gold-light">{slide.accent}</span>
+                {slide.title} <span className="text-gold-light">{slide.accent}</span>
               </h1>
               <p className="mt-5 max-w-xl text-base md:text-lg text-white/75 leading-relaxed">
                 {slide.copy}
@@ -189,7 +204,9 @@ export function HeroSlider() {
           <div className="flex flex-wrap gap-x-10 gap-y-3">
             {slide.spec.map(([k, v]) => (
               <div key={k}>
-                <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">{k}</div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">
+                  {k}
+                </div>
                 <div className="mt-1 text-sm font-medium text-white/90">{v}</div>
               </div>
             ))}

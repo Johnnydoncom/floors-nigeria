@@ -1,3 +1,10 @@
+/**
+ * Legacy demo catalogue.
+ *
+ * The storefront reads live data from the Laravel API (`lib/api/catalog.ts`).
+ * What remains here backs the navigation menu and the account/admin screens
+ * that have not been migrated yet — delete it as those move over.
+ */
 // Image paths — served from public/images/
 const oakImg = "/images/collection-oak.jpg";
 const spcImg = "/images/collection-spc.jpg";
@@ -236,19 +243,6 @@ export const PRODUCTS: Product[] = [
 export function getProduct(slug: string) {
   return PRODUCTS.find((p) => p.slug === slug);
 }
-
-export function searchProducts(q: string) {
-  const s = q.trim().toLowerCase();
-  if (!s) return [];
-  return PRODUCTS.filter(
-    (p) =>
-      p.name.toLowerCase().includes(s) ||
-      p.category.toLowerCase().includes(s) ||
-      p.collection.toLowerCase().includes(s),
-  ).slice(0, 6);
-}
-
-export const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 
 export const MEGA_MENU: {
   label: string;

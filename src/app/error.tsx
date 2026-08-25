@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function Error({
   error,
@@ -17,9 +18,7 @@ export default function Error({
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-3xl">This page didn&apos;t load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Try again, or head back home.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Try again, or head back home.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={reset}
@@ -27,12 +26,12 @@ export default function Error({
           >
             Try again
           </button>
-          <a
+          <Link
             href="/"
-            className="h-11 inline-flex items-center rounded-full border border-border px-6 text-sm font-medium hover:bg-muted transition"
+            className="inline-flex h-11 items-center rounded-full border border-border px-6 text-sm font-medium transition hover:bg-muted"
           >
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

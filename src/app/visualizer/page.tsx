@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles, Upload, ImageIcon, Wand2, Send, RotateCcw, Download, Share2 } from "lucide-react";
+import {
+  Sparkles,
+  Upload,
+  ImageIcon,
+  Wand2,
+  Send,
+  RotateCcw,
+  Download,
+  Share2,
+} from "lucide-react";
 import { useState } from "react";
 import { Reveal } from "@/components/site/Reveal";
 
@@ -44,8 +53,8 @@ export default function Visualizer() {
             Design in your room, before we deliver it.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Upload a photo. Pick a floor. Our AI renders the space in photoreal fidelity —
-            with correct lighting, plank orientation and grout depth.
+            Upload a photo. Pick a floor. Our AI renders the space in photoreal fidelity — with
+            correct lighting, plank orientation and grout depth.
           </p>
         </Reveal>
       </section>
@@ -55,17 +64,25 @@ export default function Visualizer() {
           {/* Canvas */}
           <div className="lg:col-span-8">
             <div className="relative aspect-[16/10] rounded-3xl overflow-hidden bg-charcoal-dark shadow-elevated">
-              <img src="/images/hero-living.jpg" alt="Room preview" className="h-full w-full object-cover" />
+              <img
+                src="/images/hero-living.jpg"
+                alt="Room preview"
+                className="h-full w-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
 
               {/* top bar */}
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-xl border border-white/25 px-3 py-1.5 text-[11px] font-mono tracking-wider text-white">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> RENDERING · 72%
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
+                  RENDERING · 72%
                 </div>
                 <div className="flex items-center gap-2">
                   {[RotateCcw, Download, Share2].map((Icon, i) => (
-                    <button key={i} className="h-10 w-10 grid place-items-center rounded-full bg-white/15 backdrop-blur-xl border border-white/25 text-white hover:bg-white/25 transition">
+                    <button
+                      key={i}
+                      className="h-10 w-10 grid place-items-center rounded-full bg-white/15 backdrop-blur-xl border border-white/25 text-white hover:bg-white/25 transition"
+                    >
                       <Icon className="h-4 w-4" />
                     </button>
                   ))}
@@ -79,7 +96,9 @@ export default function Visualizer() {
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute top-0 bottom-0 w-px bg-white/70 shadow-[0_0_20px_rgba(255,255,255,0.6)]"
               >
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-10 w-10 rounded-full bg-white text-charcoal-dark grid place-items-center text-xs font-mono">↔</div>
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-10 w-10 rounded-full bg-white text-charcoal-dark grid place-items-center text-xs font-mono">
+                  ↔
+                </div>
               </motion.div>
 
               {/* prompt input */}
@@ -100,7 +119,11 @@ export default function Visualizer() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {prompts.map((p) => (
-                    <button key={p} onClick={() => setPrompt(p)} className="text-xs rounded-full bg-white/10 backdrop-blur px-3 py-1.5 text-white/85 hover:bg-white/20 border border-white/15 transition">
+                    <button
+                      key={p}
+                      onClick={() => setPrompt(p)}
+                      className="text-xs rounded-full bg-white/10 backdrop-blur px-3 py-1.5 text-white/85 hover:bg-white/20 border border-white/15 transition"
+                    >
                       {p}
                     </button>
                   ))}
@@ -115,7 +138,10 @@ export default function Visualizer() {
                 { icon: ImageIcon, title: "Sample rooms", desc: "24 pre-lit interiors" },
                 { icon: Wand2, title: "AI enhance", desc: "One-click perfection" },
               ].map((a) => (
-                <button key={a.title} className="text-left p-5 rounded-2xl border border-border hover:border-gold/40 hover:bg-surface transition group">
+                <button
+                  key={a.title}
+                  className="text-left p-5 rounded-2xl border border-border hover:border-gold/40 hover:bg-surface transition group"
+                >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 grid place-items-center rounded-xl bg-surface border border-border group-hover:border-gold/40">
                       <a.icon className="h-4 w-4 text-gold" />
@@ -133,35 +159,57 @@ export default function Visualizer() {
           {/* Sidebar */}
           <div className="lg:col-span-4 space-y-4">
             <div className="rounded-3xl border border-border bg-surface p-6">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Selected material</div>
+              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                Selected material
+              </div>
               <div className="mt-4 grid grid-cols-4 gap-2">
                 {swatches.map((s, i) => (
-                  <button key={s.name} onClick={() => setSwatch(i)} className={`relative aspect-square rounded-xl overflow-hidden transition ${swatch === i ? "ring-2 ring-gold ring-offset-2 ring-offset-surface" : ""}`}>
+                  <button
+                    key={s.name}
+                    onClick={() => setSwatch(i)}
+                    className={`relative aspect-square rounded-xl overflow-hidden transition ${swatch === i ? "ring-2 ring-gold ring-offset-2 ring-offset-surface" : ""}`}
+                  >
                     <img src={s.img} alt={s.name} className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
               <div className="mt-4">
                 <div className="font-display text-xl">{swatches[swatch].name}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Suitable · Living, dining, bedroom</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Suitable · Living, dining, bedroom
+                </div>
               </div>
 
               <div className="mt-6 space-y-4">
-                {[["Warmth", "72%", "72"], ["Contrast", "44%", "44"], ["Grain intensity", "60%", "60"]].map(([label, pct, w]) => (
+                {[
+                  ["Warmth", "72%", "72"],
+                  ["Contrast", "44%", "44"],
+                  ["Grain intensity", "60%", "60"],
+                ].map(([label, pct, w]) => (
                   <div key={label}>
-                    <div className="flex justify-between text-xs font-mono text-muted-foreground mb-2"><span>{label}</span><span>{pct}</span></div>
-                    <div className="h-1 rounded-full bg-border overflow-hidden"><div className={`h-full w-[${w}%] gradient-gold`} /></div>
+                    <div className="flex justify-between text-xs font-mono text-muted-foreground mb-2">
+                      <span>{label}</span>
+                      <span>{pct}</span>
+                    </div>
+                    <div className="h-1 rounded-full bg-border overflow-hidden">
+                      <div className={`h-full w-[${w}%] gradient-gold`} />
+                    </div>
                   </div>
                 ))}
               </div>
 
-              <Link href="/products" className="mt-6 h-11 w-full inline-flex items-center justify-center rounded-full bg-charcoal text-primary-foreground text-sm font-medium hover:bg-charcoal-dark transition">
+              <Link
+                href="/products"
+                className="mt-6 h-11 w-full inline-flex items-center justify-center rounded-full bg-charcoal text-primary-foreground text-sm font-medium hover:bg-charcoal-dark transition"
+              >
                 Add to project
               </Link>
             </div>
 
             <div className="rounded-3xl border border-border p-6">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Recent renders</div>
+              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                Recent renders
+              </div>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {recentImgs.map((g, i) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">

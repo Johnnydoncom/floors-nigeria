@@ -1,6 +1,12 @@
 import Image from "next/image";
 
-export function Logo({ className = "h-8 w-auto", invert = false }: { className?: string; invert?: boolean }) {
+export function Logo({
+  className = "h-8 w-auto",
+  invert = false,
+}: {
+  className?: string;
+  invert?: boolean;
+}) {
   return (
     <Image
       src="/floors-ng-logo.png"
