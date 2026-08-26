@@ -45,7 +45,7 @@ export default function Admin() {
   const [tab, setTab] = useState("overview");
 
   return (
-    <div className="pt-[72px] md:pt-[116px] min-h-screen bg-surface">
+    <div className="pt-header min-h-screen bg-surface">
       <div className="container-fluid grid lg:grid-cols-[220px_minmax(0,1fr)] gap-8 py-10">
         <aside>
           <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground mb-3">

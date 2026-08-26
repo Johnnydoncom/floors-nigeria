@@ -9,9 +9,14 @@
  */
 
 @theme inline {
-  --font-display: var(--font-display), "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-sans), "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-display), "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans), "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  /*
+   * Prices, SKUs and measurements previously used a monospace face, which read
+   * as technical rather than premium. They now use the display face with
+   * tabular figures, so numbers still align in a column.
+   */
+  --font-mono: var(--font-display), "Montserrat", ui-sans-serif, system-ui, sans-serif;
 
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -126,11 +131,10 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "ss02", "cv11";
   }
   h1, h2, h3, h4, h5 {
     font-family: var(--font-display);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
     font-weight: 600;
   }
 
@@ -146,8 +150,33 @@
 }
 
 @layer utilities {
+  /*
+   * The fixed header changes height by breakpoint: one row on phones, a
+   * utility bar above it from `md`, and a navigation row from `lg`. Pages
+   * offset their content with `pt-header` instead of magic pixel values.
+   */
+  :root {
+    --header-height: 68px;
+  }
+  @media (min-width: 768px) {
+    :root { --header-height: 116px; }
+  }
+  @media (min-width: 1024px) {
+    :root { --header-height: 164px; }
+  }
+
+  .h-header { height: var(--header-height); }
+  .pt-header { padding-top: var(--header-height); }
+  .top-header { top: var(--header-height); }
+  .top-header-offset { top: calc(var(--header-height) + 1rem); }
+  .min-h-header-screen { min-height: calc(100vh - var(--header-height)); }
+
   .font-display { font-family: var(--font-display); font-weight: 600; }
-  .font-mono { font-family: var(--font-mono); }
+  .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
 

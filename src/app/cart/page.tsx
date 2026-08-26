@@ -13,7 +13,7 @@ export default function CartPage() {
   const total = cart.subtotal + vat + delivery;
 
   return (
-    <div className="pt-[104px] md:pt-[148px] pb-24">
+    <div className="pt-header pb-24">
       <div className="container-fluid">
         <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">
           Checkout step 1 of 2

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Instagram, Linkedin, Youtube, Phone, Mail, MapPin } from "lucide-react";
 import { SampleRequestForm } from "./SampleRequestForm";
 import { Logo } from "./Logo";
+import { getNavigation } from "@/lib/api/navigation";
 
 /**
  * Evaluated once when the server module loads, so the copyright line never
@@ -9,18 +10,11 @@ import { Logo } from "./Logo";
  */
 const COPYRIGHT_YEAR = new Date().getFullYear();
 
+/**
+ * Static columns. The products column is built from the live catalogue in
+ * {@link Footer} so it never drifts from what is actually for sale.
+ */
 const cols = [
-  {
-    title: "Products",
-    links: [
-      ["Engineered Wood", "/products"],
-      ["SPC Flooring", "/products"],
-      ["Luxury Vinyl", "/products"],
-      ["Natural Stone", "/products"],
-      ["Artificial Grass", "/products"],
-      ["Wall Panels", "/products"],
-    ],
-  },
   {
     title: "Solutions",
     links: [
@@ -56,7 +50,25 @@ const cols = [
   },
 ];
 
-export function Footer() {
+export async function Footer() {
+  // A catalogue outage should not take the footer down with it.
+  const categories = await getNavigation()
+    .then((navigation) => navigation.categories)
+    .catch(() => []);
+
+  const columns = [
+    {
+      title: "Shop Flooring",
+      links: categories
+        .slice(0, 6)
+        .map((category): [string, string] => [
+          category.name,
+          `/products?categories=${category.slug}`,
+        ]),
+    },
+    ...cols,
+  ];
+
   return (
     <footer className="bg-charcoal-dark text-primary-foreground mt-24">
       {/* Gold rule */}
@@ -129,8 +141,8 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-            {cols.map((c) => (
+          <div className="lg:col-span-8 grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-5">
+            {columns.map((c) => (
               <div key={c.title}>
                 <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-gold-light mb-4">
                   {c.title}

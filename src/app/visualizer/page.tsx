@@ -44,7 +44,7 @@ export default function Visualizer() {
 
   return (
     <>
-      <section className="pt-32 md:pt-40 container-fluid">
+      <section className="pt-header md:pt-[calc(var(--header-height)+2rem)] container-fluid">
         <Reveal>
           <div className="inline-flex items-center gap-2 rounded-full bg-gold/10 border border-gold/30 px-3 py-1 text-xs font-mono uppercase tracking-widest text-gold">
             <Sparkles className="h-3 w-3" /> AI Studio · Beta

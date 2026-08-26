@@ -58,7 +58,7 @@ export default async function ProductPage({ params }: PageProps) {
     <>
       <JsonLd data={[productSchema(product), breadcrumbSchema(crumbs)]} />
 
-      <nav aria-label="Breadcrumb" className="container-fluid pt-28 md:pt-36">
+      <nav aria-label="Breadcrumb" className="container-fluid pt-header">
         <ol className="flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted-foreground">
           {crumbs.map((crumb, index) => (
             <li key={crumb.url} className="flex items-center gap-2">

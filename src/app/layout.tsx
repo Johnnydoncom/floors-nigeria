@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Archivo, Manrope, JetBrains_Mono } from "next/font/google";
+import { Montserrat, Nunito_Sans } from "next/font/google";
 import "../styles.css";
 import { SiteHeader } from "@/components/site/header/SiteHeader";
 import { Footer } from "@/components/site/Footer";
@@ -8,24 +8,23 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { ScrollToTop } from "@/components/site/ScrollToTop";
 
-const archivo = Archivo({
+/**
+ * Montserrat carries headings, navigation and the small uppercase labels —
+ * geometric and confident without being decorative. Nunito Sans handles body
+ * copy: open counters and a tall x-height keep long specification text
+ * comfortable on the small screens most Nigerian visitors arrive on.
+ */
+const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
   display: "swap",
 });
 
-const manrope = Manrope({
+const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "600", "700"],
   variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -61,7 +60,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${montserrat.variable} ${nunitoSans.variable}`}>
       <body>
         <CartProvider>
           {/*
@@ -72,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <ScrollToTop />
           </Suspense>
-          <Suspense fallback={<div className="h-[72px] md:h-[116px]" aria-hidden />}>
+          <Suspense fallback={<div className="h-header" aria-hidden />}>
             <SiteHeader />
           </Suspense>
           <main id="main" className="min-h-screen">

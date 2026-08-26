@@ -77,7 +77,7 @@ const stats = [
 export default function Home() {
   return (
     <>
-      <div className="pt-[72px] md:pt-[116px]">
+      <div className="pt-header">
         <HeroSlider />
       </div>
 

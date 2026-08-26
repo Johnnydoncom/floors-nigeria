@@ -27,7 +27,7 @@ export default function Checkout() {
 
   if (placed) {
     return (
-      <div className="pt-[140px] md:pt-[180px] pb-32 container-fluid text-center">
+      <div className="pt-header pb-32 container-fluid text-center">
         <div className="mx-auto h-16 w-16 grid place-items-center bg-gold text-charcoal-dark">
           <Check className="h-7 w-7" />
         </div>
@@ -55,7 +55,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="pt-[104px] md:pt-[148px] pb-24">
+    <div className="pt-header pb-24">
       <div className="container-fluid">
         <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">
           Checkout step 2 of 2

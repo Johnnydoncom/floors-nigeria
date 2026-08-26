@@ -26,7 +26,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <section className="bg-charcoal-dark pt-[104px] pb-14 text-primary-foreground md:pt-[148px]">
+      <section className="bg-charcoal-dark pt-header pb-14 text-primary-foreground">
         <div className="container-fluid">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-light">
             Catalogue
@@ -43,7 +43,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
       <div className="container-fluid grid gap-10 py-12 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <div className="sticky top-[132px]">
+          <div className="sticky top-header-offset">
             <Suspense fallback={<FilterRailSkeleton />}>
               <FilterRailSection activeCount={activeCount} />
             </Suspense>

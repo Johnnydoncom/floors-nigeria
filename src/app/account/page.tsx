@@ -61,7 +61,7 @@ export default function Account() {
   const [tab, setTab] = useState("overview");
 
   return (
-    <div className="pt-[104px] md:pt-[148px] pb-24">
+    <div className="pt-header pb-24">
       <div className="bg-charcoal-dark text-primary-foreground">
         <div className="container-fluid py-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">

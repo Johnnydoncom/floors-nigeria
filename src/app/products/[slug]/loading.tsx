@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="container-fluid grid gap-10 pb-16 pt-28 md:pt-36 lg:grid-cols-12" aria-hidden>
+    <div className="container-fluid grid gap-10 pb-16 pt-header lg:grid-cols-12" aria-hidden>
       <div className="lg:col-span-7">
         <div className="aspect-[4/3] animate-pulse bg-muted" />
         <div className="mt-4 grid grid-cols-4 gap-3">

@@ -1,173 +1,256 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ChevronDown, MessageCircle, Phone, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronLeft, MessageCircle, Phone, X } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import type { NavigationData } from "@/lib/api/navigation";
+import type { Category } from "@/lib/api/types";
 import { whatsAppLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { NavItem } from "./HeaderBar";
+import { NAV_ITEMS } from "./HeaderBar";
 
 const SHOWROOM_PHONE = "+2348000000000";
 
 /**
- * Full-screen mobile navigation (§32): thumb-friendly targets, materials
- * behind one tap, and the two calls to action always in reach.
+ * Full-screen mobile navigation (§32).
+ *
+ * Materials are browsed as a drill-down rather than a long accordion: tapping
+ * a category replaces the list with its children, which keeps every level one
+ * thumb-height tall on a phone.
  */
 export function MobileNav({
   navigation,
-  navItems,
   onClose,
 }: {
   navigation: NavigationData;
-  navItems: NavItem[];
   onClose: () => void;
 }) {
-  const [openSection, setOpenSection] = useState<string | null>("Flooring");
+  const [drilledInto, setDrilledInto] = useState<Category | null>(null);
+  const [openSection, setOpenSection] = useState<"materials" | "rooms" | null>("materials");
+
+  // The page behind the drawer must not scroll while it is open.
+  useEffect(() => {
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, []);
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-background lg:hidden"
+      className="fixed inset-0 z-[70] flex flex-col bg-background lg:hidden"
       role="dialog"
       aria-modal
       aria-label="Menu"
     >
-      <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-border px-4">
-        <Logo className="h-7 w-auto" />
+      <div className="flex h-[68px] shrink-0 items-center justify-between border-b border-border px-4">
+        {drilledInto ? (
+          <button
+            type="button"
+            onClick={() => setDrilledInto(null)}
+            className="-ml-2 inline-flex h-11 items-center gap-1 px-2 font-display text-sm font-semibold uppercase tracking-[0.06em]"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            All materials
+          </button>
+        ) : (
+          <Logo className="h-7 w-auto" />
+        )}
+
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close menu"
-          className="grid h-10 w-10 place-items-center"
+          className="-mr-2 grid h-11 w-11 place-items-center"
         >
-          <X className="h-5 w-5" aria-hidden />
+          <X className="h-6 w-6" aria-hidden />
         </button>
       </div>
 
-      <nav aria-label="Mobile" className="flex-1 overflow-y-auto">
-        <ul>
-          {navItems.map((item) =>
-            item.hasMegaMenu ? (
-              <li key={item.href} className="border-b border-border">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenSection((current) => (current === item.label ? null : item.label))
-                  }
-                  aria-expanded={openSection === item.label}
-                  className="flex h-14 w-full items-center justify-between px-4 text-left text-base font-semibold uppercase tracking-[0.06em]"
-                >
-                  {item.label}
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 transition-transform",
-                      openSection === item.label && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                </button>
-
-                {openSection === item.label && (
-                  <div className="space-y-6 bg-surface px-4 pb-6 pt-2">
-                    <MobileGroup
-                      title="Shop by material"
-                      links={navigation.categories.map((category) => ({
-                        label: category.name,
-                        href: `/products?categories=${category.slug}`,
-                      }))}
-                      onNavigate={onClose}
-                    />
-                    <MobileGroup
-                      title="Shop by room"
-                      links={navigation.rooms.slice(0, 6).map((room) => ({
-                        label: room.name,
-                        href: `/products?taxonomies=${room.slug}`,
-                      }))}
-                      onNavigate={onClose}
-                    />
-                  </div>
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        {drilledInto ? (
+          <ul>
+            <MobileRow href={`/products?categories=${drilledInto.slug}`} onClose={onClose} emphasis>
+              All {drilledInto.name}
+            </MobileRow>
+            {(drilledInto.children ?? []).map((child) => (
+              <MobileRow
+                key={child.slug}
+                href={`/products?categories=${child.slug}`}
+                onClose={onClose}
+              >
+                {child.name}
+              </MobileRow>
+            ))}
+          </ul>
+        ) : (
+          <>
+            <MobileSection
+              title="Shop by material"
+              isOpen={openSection === "materials"}
+              onToggle={() => setOpenSection(openSection === "materials" ? null : "materials")}
+            >
+              <ul>
+                {navigation.categories.map((category) =>
+                  category.children && category.children.length > 0 ? (
+                    <li key={category.slug} className="border-b border-border">
+                      <button
+                        type="button"
+                        onClick={() => setDrilledInto(category)}
+                        className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left text-[15px]"
+                      >
+                        <span>{category.name}</span>
+                        <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                          <span className="font-mono text-xs">{category.children.length}</span>
+                          <ChevronDown className="h-4 w-4 -rotate-90" aria-hidden />
+                        </span>
+                      </button>
+                    </li>
+                  ) : (
+                    <MobileRow
+                      key={category.slug}
+                      href={`/products?categories=${category.slug}`}
+                      onClose={onClose}
+                    >
+                      {category.name}
+                    </MobileRow>
+                  ),
                 )}
-              </li>
-            ) : (
-              <li key={item.href} className="border-b border-border">
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className="flex h-14 items-center px-4 text-base font-semibold uppercase tracking-[0.06em]"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ),
-          )}
-        </ul>
+              </ul>
+            </MobileSection>
 
-        <div className="space-y-3 p-4">
-          <a
-            href={`tel:${SHOWROOM_PHONE}`}
-            className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
-          >
-            <Phone className="h-4 w-4 text-gold" aria-hidden />
-            {SHOWROOM_PHONE}
-          </a>
-          <a
-            href={whatsAppLink(
-              SHOWROOM_PHONE,
-              "Hello Floor Nigeria, I would like a flooring quote.",
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
-          >
-            <MessageCircle className="h-4 w-4 text-gold" aria-hidden />
-            Chat on WhatsApp
-          </a>
-        </div>
-      </nav>
+            <MobileSection
+              title="Shop by room"
+              isOpen={openSection === "rooms"}
+              onToggle={() => setOpenSection(openSection === "rooms" ? null : "rooms")}
+            >
+              <ul className="grid grid-cols-2 gap-x-4 px-4 py-2">
+                {navigation.rooms.map((room) => (
+                  <li key={room.slug}>
+                    <Link
+                      href={`/products?taxonomies=${room.slug}`}
+                      onClick={onClose}
+                      className="block py-2.5 text-[15px]"
+                    >
+                      {room.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </MobileSection>
+
+            <ul className="border-t border-border">
+              {NAV_ITEMS.filter((item) => !item.panel).map((item) => (
+                <MobileRow key={item.label} href={item.href} onClose={onClose} emphasis>
+                  {item.label}
+                </MobileRow>
+              ))}
+            </ul>
+
+            <div className="space-y-3 p-4">
+              <a
+                href={`tel:${SHOWROOM_PHONE}`}
+                className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
+              >
+                <Phone className="h-4 w-4 text-gold" aria-hidden />
+                {SHOWROOM_PHONE}
+              </a>
+              <a
+                href={whatsAppLink(
+                  SHOWROOM_PHONE,
+                  "Hello Floor Nigeria, I would like a flooring quote.",
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
+              >
+                <MessageCircle className="h-4 w-4 text-gold" aria-hidden />
+                Chat on WhatsApp
+              </a>
+              <p className="pt-2 text-xs text-muted-foreground">
+                Showrooms in Lekki, Ikeja and Abuja · Free site survey across Lagos
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border p-4">
         <Link
-          href="/visualizer"
+          href="/account"
           onClick={onClose}
-          className="inline-flex h-12 items-center justify-center border border-border text-sm font-semibold uppercase tracking-[0.06em]"
+          className="inline-flex h-12 items-center justify-center border border-border font-display text-[13px] font-semibold uppercase tracking-[0.06em]"
         >
-          Visualise
+          Account
         </Link>
         <Link
           href="/contact"
           onClick={onClose}
-          className="inline-flex h-12 items-center justify-center bg-charcoal-dark text-sm font-semibold uppercase tracking-[0.06em] text-primary-foreground"
+          className="inline-flex h-12 items-center justify-center bg-charcoal-dark font-display text-[13px] font-semibold uppercase tracking-[0.06em] text-primary-foreground"
         >
-          Get a quote
+          Get a Quote
         </Link>
       </div>
     </div>
   );
 }
 
-function MobileGroup({
+function MobileSection({
   title,
-  links,
-  onNavigate,
+  isOpen,
+  onToggle,
+  children,
 }: {
   title: string;
-  links: { label: string; href: string }[];
-  onNavigate: () => void;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
 }) {
-  if (links.length === 0) return null;
-
   return (
-    <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-gold">{title}</p>
-      <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-        {links.map((link) => (
-          <li key={link.href}>
-            <Link href={link.href} onClick={onNavigate} className="block py-1 text-[15px]">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="border-b border-border">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="flex h-14 w-full items-center justify-between px-4 font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+      >
+        {title}
+        <ChevronDown
+          className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {isOpen && children}
+    </section>
+  );
+}
+
+function MobileRow({
+  href,
+  children,
+  onClose,
+  emphasis = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  emphasis?: boolean;
+}) {
+  return (
+    <li className="border-b border-border">
+      <Link
+        href={href}
+        onClick={onClose}
+        className={cn(
+          "flex min-h-14 items-center px-4 py-3 text-[15px]",
+          emphasis && "font-display font-semibold uppercase tracking-[0.06em]",
+        )}
+      >
+        {children}
+      </Link>
+    </li>
   );
 }

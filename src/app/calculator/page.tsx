@@ -65,7 +65,7 @@ export default function Calculator() {
 
   return (
     <>
-      <section className="pt-32 md:pt-40 container-fluid">
+      <section className="pt-header md:pt-[calc(var(--header-height)+2rem)] container-fluid">
         <Reveal>
           <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">Studio</p>
           <h1 className="mt-4 font-display text-5xl md:text-7xl tracking-tight max-w-3xl text-balance">

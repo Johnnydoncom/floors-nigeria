@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, MessageCircle, Phone, Ruler } from "lucide-react";
+import { MapPin, MessageCircle, Phone, Ruler, Truck } from "lucide-react";
 import { getNavigation } from "@/lib/api/navigation";
 import { whatsAppLink } from "@/lib/format";
 import { HeaderBar } from "./HeaderBar";
@@ -10,10 +10,10 @@ const SHOWROOM_PHONE = "+2348000000000";
  * The site header (§32).
  *
  * A flooring business sells on trust and material, so the chrome leads with
- * where we are, how to reach a consultant, and the materials themselves —
- * the navigation is built from the live catalogue rather than a hardcoded list.
+ * where we are, how to reach a consultant, and the materials themselves — the
+ * navigation is built from the live catalogue rather than a hardcoded list.
  *
- * Server Component: the nav data is fetched and cached here, and only the
+ * Server Component: the navigation is fetched and cached here, and only the
  * interactive shell below it ships JavaScript.
  */
 export async function SiteHeader() {
@@ -22,15 +22,19 @@ export async function SiteHeader() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
       <div className="hidden bg-charcoal-dark text-primary-foreground md:block">
-        <div className="container-fluid flex h-9 items-center justify-between font-mono text-[11px] uppercase tracking-[0.16em]">
+        <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-semibold uppercase tracking-[0.14em]">
           <div className="flex items-center gap-6 text-primary-foreground/75">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-3 w-3 text-gold-light" aria-hidden />
-              Showrooms: Lekki · Ikeja · Abuja
+              Lekki · Ikeja · Abuja
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="hidden items-center gap-1.5 lg:inline-flex">
               <Ruler className="h-3 w-3 text-gold-light" aria-hidden />
-              Free site survey across Lagos
+              Free site survey in Lagos
+            </span>
+            <span className="hidden items-center gap-1.5 xl:inline-flex">
+              <Truck className="h-3 w-3 text-gold-light" aria-hidden />
+              Nationwide delivery &amp; installation
             </span>
           </div>
 
@@ -54,11 +58,8 @@ export async function SiteHeader() {
               <MessageCircle className="h-3 w-3 text-gold-light" aria-hidden />
               WhatsApp
             </a>
-            <Link href="/calculator" className="transition hover:text-gold-light">
-              Floor Calculator
-            </Link>
-            <Link href="/account" className="transition hover:text-gold-light">
-              My Account
+            <Link href="/projects" className="hidden transition hover:text-gold-light lg:inline">
+              Our Work
             </Link>
           </div>
         </div>
