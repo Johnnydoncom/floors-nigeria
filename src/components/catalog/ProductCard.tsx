@@ -34,8 +34,13 @@ export function ProductCard({
   const href = `/products/${product.slug}`;
   const image = selected?.preview_image_url ?? product.image_url;
   const price = selected?.preview_price ?? product.price_from;
+  const compareAtPrice = selected
+    ? (selected.preview_compare_at_price ?? null)
+    : product.compare_at_price;
+  const isOnSale = compareAtPrice !== null && price !== null && compareAtPrice > price;
+  const savedPercentage = isOnSale ? Math.round((1 - price / compareAtPrice) * 100) : null;
   const showFromPrice = product.has_price_range && selected === null;
-  const badge = badgeFor(product);
+  const badge = badgeFor(product, savedPercentage);
 
   return (
     <article
@@ -104,9 +109,20 @@ export function ProductCard({
         )}
 
         <div className="mt-auto pt-4">
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {showFromPrice && <span className="text-xs text-muted-foreground">from</span>}
             <span className="font-mono text-xl font-semibold">{naira(price)}</span>
+
+            {isOnSale && (
+              <>
+                <span className="font-mono text-sm text-muted-foreground line-through">
+                  {naira(compareAtPrice)}
+                </span>
+                <span className="sr-only">
+                  reduced from {naira(compareAtPrice)}, saving {savedPercentage}%
+                </span>
+              </>
+            )}
           </div>
 
           <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -213,8 +229,12 @@ function SwatchRow({
   );
 }
 
-function badgeFor(product: ProductCardData): string | null {
-  if (product.default_variant?.pricing.is_on_sale) return "On offer";
+/**
+ * A discount is worth naming precisely; everything else is a soft signal.
+ */
+function badgeFor(product: ProductCardData, savedPercentage: number | null): string | null {
+  if (savedPercentage !== null && savedPercentage > 0) return `Save ${savedPercentage}%`;
+  if (product.is_on_sale) return "On offer";
   if (product.is_featured) return "Bestseller";
   if (product.default_variant?.availability.status === "made_to_order") return "Made to order";
   return null;

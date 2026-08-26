@@ -107,6 +107,7 @@ export type AttributeTerm = {
   /** The variation's own photograph and price, when the term names one. */
   preview_image_url?: string | null;
   preview_price?: number | null;
+  preview_compare_at_price?: number | null;
   is_orderable?: boolean;
 };
 
@@ -182,6 +183,10 @@ export type ProductCard = {
   price_from: number | null;
   price_to: number | null;
   has_price_range: boolean;
+  /** What `price_from` was reduced from, when the quoted variation is on sale. */
+  compare_at_price: number | null;
+  is_on_sale: boolean;
+  discount_percentage: number | null;
   currency: string;
   variant_count?: number;
   /** Colour or décor terms shown on the card, capped server-side. */

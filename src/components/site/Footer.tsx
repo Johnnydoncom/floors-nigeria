@@ -67,7 +67,7 @@ export async function Footer() {
   ];
 
   return (
-    <footer className="bg-charcoal-dark text-primary-foreground mt-24">
+    <footer className="bg-charcoal-dark text-primary-foreground">
       {/* Gold rule */}
       <div className="h-1 gradient-gold" />
 
