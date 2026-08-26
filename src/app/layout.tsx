@@ -73,13 +73,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <ScrollToTop />
           </Suspense>
-          <Suspense fallback={<div className="h-header" aria-hidden />}>
-            <SiteHeader />
-          </Suspense>
-          <main id="main" className="min-h-screen">
-            {children}
-          </main>
-          <Footer />
+
+          {children}
+
           <Toaster />
         </CartProvider>
       </body>

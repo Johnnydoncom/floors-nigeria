@@ -10,7 +10,7 @@ import { soleCategoryRefinement } from "@/lib/catalog-filters";
  * the page is too late, because Partial Prerendering has already sent the
  * static shell with a 200 (§18).
  */
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const params = Object.fromEntries(request.nextUrl.searchParams.entries());
   const category = soleCategoryRefinement(params);
 
