@@ -180,6 +180,8 @@ export type ProductCard = {
   is_featured: boolean;
   image_url: string | null;
   thumb_url: string | null;
+  /** Rendering asset the room visualizer tiles across a floor. */
+  visualizer_texture_url: string | null;
   price_from: number | null;
   price_to: number | null;
   has_price_range: boolean;

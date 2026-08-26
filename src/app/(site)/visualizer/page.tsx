@@ -1,226 +1,128 @@
-"use client";
+import type { Metadata } from "next";
+import { Camera, MousePointerClick, Ruler } from "lucide-react";
+import { getProducts } from "@/lib/api/catalog";
+import type { ProductCard } from "@/lib/api/types";
+import type { TextureChoice } from "@/lib/visualizer/types";
+import { VisualizerStudio, type DemoRoom } from "@/components/visualizer/VisualizerStudio";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import {
-  Sparkles,
-  Upload,
-  ImageIcon,
-  Wand2,
-  Send,
-  RotateCcw,
-  Download,
-  Share2,
-} from "lucide-react";
-import { useState } from "react";
-import { Reveal } from "@/components/site/Reveal";
+export const metadata: Metadata = {
+  title: "Room Visualizer",
+  description:
+    "See any Floor Nigeria floor in your own room. Upload a photo, mark the floor and try real products to scale before you buy.",
+  alternates: { canonical: "/visualizer" },
+};
 
-const swatches = [
-  { name: "Engineered Oak", img: "/images/collection-oak.jpg" },
-  { name: "Metropolis SPC", img: "/images/collection-spc.jpg" },
-  { name: "Savoy Marble", img: "/images/collection-stone.jpg" },
-  { name: "Walnut Heritage", img: "/images/ai-visualizer.jpg" },
+/** Rooms to try when a visitor has not photographed their own yet. */
+const DEMO_ROOMS: DemoRoom[] = [
+  { src: "/images/hero-living.jpg", label: "Living room" },
+  { src: "/images/project-residence.jpg", label: "Residence" },
+  { src: "/images/project-office.jpg", label: "Office" },
+  { src: "/images/project-hotel.jpg", label: "Hotel lobby" },
 ];
 
-const prompts = [
-  "Warm oak, herringbone, morning light",
-  "Polished marble, minimal Lagos penthouse",
-  "Matte walnut for a mid-century study",
-  "Ivory limestone for a spa bathroom",
-];
+/** Materials offered in the studio, enough to compare without overwhelming. */
+const MATERIAL_LIMIT = 24;
 
-const recentImgs = [
-  "/images/hero-living.jpg",
-  "/images/ai-visualizer.jpg",
-  "/images/collection-stone.jpg",
-  "/images/collection-spc.jpg",
-  "/images/collection-oak.jpg",
-  "/images/project-hotel.jpg",
-];
-
-export default function Visualizer() {
-  const [prompt, setPrompt] = useState("");
-  const [swatch, setSwatch] = useState(0);
+/**
+ * The room visualizer (§10).
+ *
+ * The catalogue is fetched here and handed to the studio, so the materials on
+ * offer are the ones actually for sale — with their prices — rather than a
+ * separate set of demo textures.
+ */
+export default async function VisualizerPage() {
+  const { data: products } = await getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" });
+  const materials = products.flatMap(toTextureChoices);
 
   return (
     <>
-      <section className="pt-header md:pt-[calc(var(--header-height)+2rem)] container-fluid">
-        <Reveal>
-          <div className="inline-flex items-center gap-2 rounded-full bg-gold/10 border border-gold/30 px-3 py-1 text-xs font-mono uppercase tracking-widest text-gold">
-            <Sparkles className="h-3 w-3" /> AI Studio · Beta
-          </div>
-          <h1 className="mt-6 font-display text-5xl md:text-7xl tracking-tight max-w-4xl text-balance">
-            Design in your room, before we deliver it.
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Upload a photo. Pick a floor. Our AI renders the space in photoreal fidelity — with
-            correct lighting, plank orientation and grout depth.
+      <section className="bg-charcoal-dark pt-header text-primary-foreground">
+        <div className="container-fluid py-10 lg:py-14">
+          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-light">
+            Room Visualizer
           </p>
-        </Reveal>
-      </section>
+          <h1 className="mt-2 max-w-3xl text-balance font-display text-4xl tracking-tight md:text-5xl">
+            See it on your own floor before you buy.
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-primary-foreground/70">
+            Photograph your room, mark where the floor is, and try any of our materials on it to
+            scale. Nothing is uploaded until you choose to save.
+          </p>
 
-      <section className="container-fluid mt-12 pb-24">
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* Canvas */}
-          <div className="lg:col-span-8">
-            <div className="relative aspect-[16/10] rounded-3xl overflow-hidden bg-charcoal-dark shadow-elevated">
-              <img
-                src="/images/hero-living.jpg"
-                alt="Room preview"
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/50" />
-
-              {/* top bar */}
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-xl border border-white/25 px-3 py-1.5 text-[11px] font-mono tracking-wider text-white">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
-                  RENDERING · 72%
-                </div>
-                <div className="flex items-center gap-2">
-                  {[RotateCcw, Download, Share2].map((Icon, i) => (
-                    <button
-                      key={i}
-                      className="h-10 w-10 grid place-items-center rounded-full bg-white/15 backdrop-blur-xl border border-white/25 text-white hover:bg-white/25 transition"
-                    >
-                      <Icon className="h-4 w-4" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* before/after divider */}
-              <motion.div
-                initial={{ left: "60%" }}
-                animate={{ left: ["60%", "40%", "60%"] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-0 bottom-0 w-px bg-white/70 shadow-[0_0_20px_rgba(255,255,255,0.6)]"
-              >
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-10 w-10 rounded-full bg-white text-charcoal-dark grid place-items-center text-xs font-mono">
-                  ↔
-                </div>
-              </motion.div>
-
-              {/* prompt input */}
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="flex items-center gap-2 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/25 p-2">
-                  <div className="h-10 w-10 grid place-items-center rounded-xl gradient-gold text-charcoal-dark shrink-0">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <input
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Describe the mood you want…"
-                    className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/50 px-2"
-                  />
-                  <button className="h-10 px-4 rounded-xl bg-white text-charcoal-dark text-sm font-medium hover:bg-gold-light transition inline-flex items-center gap-1.5">
-                    Render <Send className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {prompts.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPrompt(p)}
-                      className="text-xs rounded-full bg-white/10 backdrop-blur px-3 py-1.5 text-white/85 hover:bg-white/20 border border-white/15 transition"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Upload row */}
-            <div className="mt-6 grid sm:grid-cols-3 gap-4">
-              {[
-                { icon: Upload, title: "Upload photo", desc: "Any room, any angle" },
-                { icon: ImageIcon, title: "Sample rooms", desc: "24 pre-lit interiors" },
-                { icon: Wand2, title: "AI enhance", desc: "One-click perfection" },
-              ].map((a) => (
-                <button
-                  key={a.title}
-                  className="text-left p-5 rounded-2xl border border-border hover:border-gold/40 hover:bg-surface transition group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 grid place-items-center rounded-xl bg-surface border border-border group-hover:border-gold/40">
-                      <a.icon className="h-4 w-4 text-gold" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{a.title}</div>
-                      <div className="text-xs text-muted-foreground">{a.desc}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="rounded-3xl border border-border bg-surface p-6">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                Selected material
-              </div>
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {swatches.map((s, i) => (
-                  <button
-                    key={s.name}
-                    onClick={() => setSwatch(i)}
-                    className={`relative aspect-square rounded-xl overflow-hidden transition ${swatch === i ? "ring-2 ring-gold ring-offset-2 ring-offset-surface" : ""}`}
-                  >
-                    <img src={s.img} alt={s.name} className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4">
-                <div className="font-display text-xl">{swatches[swatch].name}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Suitable · Living, dining, bedroom
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {[
-                  ["Warmth", "72%", "72"],
-                  ["Contrast", "44%", "44"],
-                  ["Grain intensity", "60%", "60"],
-                ].map(([label, pct, w]) => (
-                  <div key={label}>
-                    <div className="flex justify-between text-xs font-mono text-muted-foreground mb-2">
-                      <span>{label}</span>
-                      <span>{pct}</span>
-                    </div>
-                    <div className="h-1 rounded-full bg-border overflow-hidden">
-                      <div className={`h-full w-[${w}%] gradient-gold`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Link
-                href="/products"
-                className="mt-6 h-11 w-full inline-flex items-center justify-center rounded-full bg-charcoal text-primary-foreground text-sm font-medium hover:bg-charcoal-dark transition"
-              >
-                Add to project
-              </Link>
-            </div>
-
-            <div className="rounded-3xl border border-border p-6">
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                Recent renders
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {recentImgs.map((g, i) => (
-                  <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img src={g} alt="" className="h-full w-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
+            <Step icon={<Camera className="h-4 w-4" aria-hidden />} title="Add your room">
+              Upload a photo, or start from one of ours.
+            </Step>
+            <Step
+              icon={<MousePointerClick className="h-4 w-4" aria-hidden />}
+              title="Mark the floor"
+            >
+              Drag the four corners onto the floor area.
+            </Step>
+            <Step icon={<Ruler className="h-4 w-4" aria-hidden />} title="Try materials">
+              Switch floors, sizes and direction until it looks right.
+            </Step>
+          </ol>
         </div>
       </section>
+
+      <VisualizerStudio materials={materials} demoRooms={DEMO_ROOMS} />
     </>
   );
+}
+
+function Step({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="border border-white/10 p-4">
+      <p className="flex items-center gap-2 font-display text-sm font-semibold text-gold-light">
+        {icon}
+        {title}
+      </p>
+      <p className="mt-1.5 text-sm text-primary-foreground/65">{children}</p>
+    </li>
+  );
+}
+
+/**
+ * A product becomes one material per colour or décor it comes in, so switching
+ * finish in the studio is the same act as switching it on the product page.
+ */
+function toTextureChoices(product: ProductCard): TextureChoice[] {
+  const texture = product.visualizer_texture_url ?? product.image_url;
+
+  if (!texture) return [];
+
+  const terms = product.swatch_preview.terms.filter((term) => term.preview_image_url);
+
+  if (terms.length === 0) {
+    return [
+      {
+        productSlug: product.slug,
+        productName: product.name,
+        variantId: product.default_variant?.id ?? null,
+        variantName: null,
+        textureUrl: texture,
+        swatchUrl: product.thumb_url,
+        price: product.price_from,
+      },
+    ];
+  }
+
+  return terms.map((term) => ({
+    productSlug: product.slug,
+    productName: product.name,
+    variantId: null,
+    variantName: term.label,
+    textureUrl: term.preview_image_url ?? texture,
+    swatchUrl: term.image_url ?? term.preview_image_url ?? product.thumb_url,
+    price: term.preview_price ?? product.price_from,
+  }));
 }

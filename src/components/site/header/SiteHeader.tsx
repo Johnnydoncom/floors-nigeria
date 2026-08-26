@@ -20,7 +20,7 @@ export async function SiteHeader() {
   const navigation = await getNavigation();
 
   return (
-    <header className="inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
+    <header className="sticky inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
       <UtilityBar>
         <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-semibold uppercase tracking-[0.14em]">
           <div className="flex items-center gap-6 text-primary-foreground/75">
