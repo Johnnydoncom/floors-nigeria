@@ -31,7 +31,8 @@ export function productSchema(product: Product): Record<string, unknown> {
     name: product.name,
     description: product.short_description ?? product.description ?? undefined,
     sku: product.sku_family ?? undefined,
-    image: product.image_url ? [product.image_url] : undefined,
+    // Media is served from our own origin, so schema.org needs it absolute.
+    image: product.image_url ? [absoluteUrl(product.image_url)] : undefined,
     brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
     category: product.category?.name,
     ...(offers.length > 0

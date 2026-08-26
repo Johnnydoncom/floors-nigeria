@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct } from "@/lib/api/catalog";
-import { breadcrumbSchema, productSchema } from "@/lib/structured-data";
+import { absoluteUrl, breadcrumbSchema, productSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { ProductPurchasePanel } from "@/components/catalog/ProductPurchasePanel";
@@ -32,8 +32,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: seo.title,
       description: seo.description ?? undefined,
       type: "website",
+      // Open Graph consumers fetch the image themselves, so it must be absolute.
       images:
-        (seo.og_image ?? product.image_url) ? [seo.og_image ?? product.image_url!] : undefined,
+        (seo.og_image ?? product.image_url)
+          ? [absoluteUrl((seo.og_image ?? product.image_url)!)]
+          : undefined,
     },
   };
 }

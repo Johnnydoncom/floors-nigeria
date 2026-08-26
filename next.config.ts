@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { MEDIA_PROXY_PREFIX, MEDIA_SOURCE_PATH, mediaOrigin } from "./src/lib/api/media";
 
 const nextConfig: NextConfig = {
   /**
@@ -9,13 +10,29 @@ const nextConfig: NextConfig = {
    */
   cacheComponents: true,
 
+  /**
+   * Product imagery is served from this app's own origin and proxied to
+   * wherever the media actually lives — Laravel in development, a CDN or
+   * object store in production.
+   *
+   * That keeps `next/image` working on a private-network API without
+   * `dangerouslyAllowLocalIP`, which would opt the whole app out of Next.js's
+   * SSRF protection just to unblock localhost (§24, §27).
+   */
+  async rewrites() {
+    return [
+      {
+        source: `${MEDIA_PROXY_PREFIX}/:path*`,
+        destination: `${mediaOrigin()}${MEDIA_SOURCE_PATH}/:path*`,
+      },
+    ];
+  },
+
   images: {
-    remotePatterns: [
-      // Laravel media library in local development.
-      { protocol: "http", hostname: "localhost", port: "8000" },
-      { protocol: "http", hostname: "127.0.0.1", port: "8000" },
-      // Production media/CDN host.
-      { protocol: "https", hostname: "**" },
+    // Only these local paths may be optimized; everything else is rejected.
+    localPatterns: [
+      { pathname: `${MEDIA_PROXY_PREFIX}/**`, search: "" },
+      { pathname: "/images/**", search: "" },
     ],
     formats: ["image/avif", "image/webp"],
   },
