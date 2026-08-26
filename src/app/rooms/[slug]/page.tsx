@@ -60,7 +60,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
       <CategoryHero
         eyebrow="Shop by room"
         title={`${room.name} Flooring`}
-        description={
+        lede={
           room.description ??
           `Durable, good-looking floors chosen for the ${room.name.toLowerCase()} — with delivery and professional installation nationwide.`
         }

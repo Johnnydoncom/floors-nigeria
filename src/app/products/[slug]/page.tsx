@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getProduct } from "@/lib/api/catalog";
 import { absoluteUrl, breadcrumbSchema, productSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
+import { RichText } from "@/components/site/RichText";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { ProductPurchasePanel } from "@/components/catalog/ProductPurchasePanel";
 import { ProductSpecifications } from "@/components/catalog/ProductSpecifications";
@@ -86,11 +87,7 @@ export default async function ProductPage({ params }: PageProps) {
         <section className="container-fluid grid gap-10 border-t border-border py-14 lg:grid-cols-12">
           <div className="lg:col-span-7">
             <h2 className="font-display text-2xl tracking-tight">About this product</h2>
-            {product.description && (
-              <p className="mt-4 whitespace-pre-line text-muted-foreground">
-                {product.description}
-              </p>
-            )}
+            {product.description && <RichText text={product.description} className="mt-4" />}
             {product.installation_notes && (
               <>
                 <h3 className="mt-8 font-display text-lg">Installation</h3>

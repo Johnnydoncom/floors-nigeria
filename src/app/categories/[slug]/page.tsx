@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCategory } from "@/lib/api/catalog";
 import { absoluteUrl, breadcrumbSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
+import { CategoryDescription } from "@/components/catalog/CategoryDescription";
 import { CategoryHero } from "@/components/catalog/CategoryHero";
 import { hasRefinements, type SearchParamsRecord } from "@/lib/catalog-filters";
 
@@ -64,28 +64,13 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       <CategoryHero
         eyebrow={category.parent?.name ?? "Category"}
         title={category.name}
-        description={category.description ?? category.short_description}
+        lede={category.short_description}
         imageUrl={category.image_url}
         productCount={category.products_count}
         trail={trail}
+        links={category.children ?? []}
+        linksLabel="In this category"
       />
-
-      {category.children && category.children.length > 0 && (
-        <nav aria-label="Subcategories" className="container-fluid border-b border-border py-6">
-          <ul className="flex flex-wrap gap-2">
-            {category.children.map((child) => (
-              <li key={child.slug}>
-                <Link
-                  href={`/categories/${child.slug}`}
-                  className="inline-flex h-10 items-center border border-border px-4 text-sm transition hover:border-gold hover:text-gold"
-                >
-                  {child.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
 
       <CatalogBrowser
         basePath={`/categories/${category.slug}`}
@@ -94,6 +79,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         hiddenGroups={["categories"]}
         emptyMessage={`Nothing in ${category.name} matches these filters yet.`}
       />
+
+      <CategoryDescription title={category.name} text={category.description} />
     </>
   );
 }
