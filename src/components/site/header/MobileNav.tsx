@@ -73,15 +73,11 @@ export function MobileNav({
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {drilledInto ? (
           <ul>
-            <MobileRow href={`/products?categories=${drilledInto.slug}`} onClose={onClose} emphasis>
+            <MobileRow href={`/categories/${drilledInto.slug}`} onClose={onClose} emphasis>
               All {drilledInto.name}
             </MobileRow>
             {(drilledInto.children ?? []).map((child) => (
-              <MobileRow
-                key={child.slug}
-                href={`/products?categories=${child.slug}`}
-                onClose={onClose}
-              >
+              <MobileRow key={child.slug} href={`/categories/${child.slug}`} onClose={onClose}>
                 {child.name}
               </MobileRow>
             ))}
@@ -112,7 +108,7 @@ export function MobileNav({
                   ) : (
                     <MobileRow
                       key={category.slug}
-                      href={`/products?categories=${category.slug}`}
+                      href={`/categories/${category.slug}`}
                       onClose={onClose}
                     >
                       {category.name}
@@ -131,7 +127,7 @@ export function MobileNav({
                 {navigation.rooms.map((room) => (
                   <li key={room.slug}>
                     <Link
-                      href={`/products?taxonomies=${room.slug}`}
+                      href={`/rooms/${room.slug}`}
                       onClick={onClose}
                       className="block py-2.5 text-[15px]"
                     >

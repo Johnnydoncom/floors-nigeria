@@ -52,7 +52,7 @@ export default async function ProductPage({ params }: PageProps) {
     { name: "Products", url: "/products" },
     ...product.breadcrumbs.map((crumb) => ({
       name: crumb.name,
-      url: `/products?categories=${crumb.slug}`,
+      url: `/categories/${crumb.slug}`,
     })),
     { name: product.name, url: `/products/${product.slug}` },
   ];

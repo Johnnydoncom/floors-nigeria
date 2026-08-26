@@ -29,6 +29,8 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
+  // Resolves every relative canonical and Open Graph URL to an absolute one.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: {
     default: "Floors NG — Premium Flooring Solutions in Nigeria",
     template: "%s — Floors NG",

@@ -32,12 +32,17 @@ const TAXONOMY_LABELS: Record<TaxonomyType, string> = {
 export function FilterRail({
   options,
   activeCount,
+  hiddenGroups = [],
   className,
 }: {
   options: FilterOptions;
   activeCount: number;
+  /** Group keys to omit — a category page fixes its own category. */
+  hiddenGroups?: string[];
   className?: string;
 }) {
+  const isHidden = (group: string) => hiddenGroups.includes(group);
+
   const { toggle, set, clearAll, isActive, searchParams, isPending } = useFilterNavigation();
 
   const priceBands = buildPriceBands(options.price.min, options.price.max);
@@ -62,31 +67,33 @@ export function FilterRail({
         defaultValue={["categories", "price", "room"]}
         className="border-t border-border"
       >
-        <FilterGroup value="categories" label="Category">
-          {options.categories.map((category) => (
-            <div key={category.slug} className="space-y-2">
-              <FilterCheckbox
-                id={`categories-${category.slug}`}
-                label={category.name}
-                checked={isActive("categories", category.slug)}
-                onToggle={() => toggle("categories", category.slug)}
-              />
-              {category.children.length > 0 && (
-                <div className="ml-5 space-y-2">
-                  {category.children.map((child) => (
-                    <FilterCheckbox
-                      key={child.slug}
-                      id={`categories-${child.slug}`}
-                      label={child.name}
-                      checked={isActive("categories", child.slug)}
-                      onToggle={() => toggle("categories", child.slug)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </FilterGroup>
+        {!isHidden("categories") && (
+          <FilterGroup value="categories" label="Category">
+            {options.categories.map((category) => (
+              <div key={category.slug} className="space-y-2">
+                <FilterCheckbox
+                  id={`categories-${category.slug}`}
+                  label={category.name}
+                  checked={isActive("categories", category.slug)}
+                  onToggle={() => toggle("categories", category.slug)}
+                />
+                {category.children.length > 0 && (
+                  <div className="ml-5 space-y-2">
+                    {category.children.map((child) => (
+                      <FilterCheckbox
+                        key={child.slug}
+                        id={`categories-${child.slug}`}
+                        label={child.name}
+                        checked={isActive("categories", child.slug)}
+                        onToggle={() => toggle("categories", child.slug)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </FilterGroup>
+        )}
 
         <FilterGroup value="price" label="Price per m²">
           <div className="space-y-2">
@@ -115,7 +122,8 @@ export function FilterRail({
           Object.entries(options.taxonomies) as [TaxonomyType, { slug: string; name: string }[]][]
         ).map(
           ([type, entries]) =>
-            entries.length > 0 && (
+            entries.length > 0 &&
+            !isHidden(type) && (
               <FilterGroup key={type} value={type} label={TAXONOMY_LABELS[type] ?? type}>
                 {entries.map((entry) => (
                   <FilterCheckbox

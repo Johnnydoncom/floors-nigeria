@@ -61,10 +61,7 @@ export async function Footer() {
       title: "Shop Flooring",
       links: categories
         .slice(0, 6)
-        .map((category): [string, string] => [
-          category.name,
-          `/products?categories=${category.slug}`,
-        ]),
+        .map((category): [string, string] => [category.name, `/categories/${category.slug}`]),
     },
     ...cols,
   ];

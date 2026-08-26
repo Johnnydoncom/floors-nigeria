@@ -117,6 +117,48 @@ export function isParamValueActive(params: URLSearchParams, key: string, value: 
   return toList(params.get(key) ?? undefined).includes(value);
 }
 
+/**
+ * Keys that merely re-present the same set of products rather than changing
+ * which products the page is about.
+ */
+const PRESENTATION_KEYS = ["page", "sort", "per_page"];
+
+/**
+ * Whether the URL narrows the page to a subset of what it represents.
+ *
+ * A refined view is a useful tool for a visitor but not a page worth indexing
+ * in its own right: it competes with the clean URL for the same intent. Callers
+ * mark these `noindex, follow` and canonicalise them back to the path (§18).
+ */
+export function hasRefinements(searchParams: SearchParamsRecord): boolean {
+  return Object.entries(searchParams).some(
+    ([key, value]) => !PRESENTATION_KEYS.includes(key) && filled(value),
+  );
+}
+
+function filled(value: string | string[] | undefined): boolean {
+  return Array.isArray(value) ? value.length > 0 : (value ?? "") !== "";
+}
+
+/**
+ * The single category a legacy `?categories=` URL points at, when that is the
+ * only thing it refines. Those URLs now have a page of their own, so callers
+ * redirect to it permanently rather than serving the same products twice.
+ */
+export function soleCategoryRefinement(searchParams: SearchParamsRecord): string | null {
+  const refinedKeys = Object.entries(searchParams)
+    .filter(([key, value]) => !PRESENTATION_KEYS.includes(key) && filled(value))
+    .map(([key]) => key);
+
+  if (refinedKeys.length !== 1 || refinedKeys[0] !== "categories") {
+    return null;
+  }
+
+  const categories = toList(searchParams.categories);
+
+  return categories.length === 1 ? categories[0] : null;
+}
+
 export const SORT_LABELS: Record<string, string> = {
   newest: "Newest",
   price_asc: "Price: low to high",

@@ -3,6 +3,7 @@ import { MapPin, MessageCircle, Phone, Ruler, Truck } from "lucide-react";
 import { getNavigation } from "@/lib/api/navigation";
 import { whatsAppLink } from "@/lib/format";
 import { HeaderBar } from "./HeaderBar";
+import { UtilityBar } from "./UtilityBar";
 
 const SHOWROOM_PHONE = "+2348000000000";
 
@@ -21,7 +22,7 @@ export async function SiteHeader() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
-      <div className="hidden bg-charcoal-dark text-primary-foreground md:block">
+      <UtilityBar>
         <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-semibold uppercase tracking-[0.14em]">
           <div className="flex items-center gap-6 text-primary-foreground/75">
             <span className="inline-flex items-center gap-1.5">
@@ -63,7 +64,7 @@ export async function SiteHeader() {
             </Link>
           </div>
         </div>
-      </div>
+      </UtilityBar>
 
       <HeaderBar navigation={navigation} />
     </header>

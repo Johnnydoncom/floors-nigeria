@@ -112,6 +112,24 @@ export async function getTaxonomies(type?: TaxonomyType): Promise<Taxonomy[]> {
   return data;
 }
 
+/**
+ * One tag's landing page data. Slugs are unique per type, so the type is part
+ * of the lookup.
+ */
+export async function getTaxonomy(type: TaxonomyType, slug: string): Promise<Taxonomy | null> {
+  "use cache";
+  cacheLife("days");
+  cacheTag(CacheTags.taxonomies);
+
+  try {
+    const { data } = await api.get<Envelope<Taxonomy>>(`/v1/taxonomies/${type}/${slug}`);
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 export async function getFilterOptions(): Promise<FilterOptions> {
   "use cache";
   cacheLife("hours");

@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
-import { getCategories, getCollections, getProducts } from "@/lib/api/catalog";
+import { getCategories, getCollections, getProducts, getTaxonomies } from "@/lib/api/catalog";
 import { absoluteUrl } from "@/lib/structured-data";
 
 const STATIC_ROUTES = [
   "/",
   "/products",
+  "/categories",
   "/collections",
   "/visualizer",
   "/calculator",
@@ -23,12 +24,13 @@ const MAX_PRODUCTS = 1000;
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // A catalogue outage should degrade the sitemap, never fail the build.
-  const [products, categories, collections] = await Promise.all([
+  const [products, categories, collections, rooms] = await Promise.all([
     getProducts({ per_page: 60, sort: "newest" })
       .then((page) => page.data)
       .catch(() => []),
     getCategories().catch(() => []),
     getCollections().catch(() => []),
+    getTaxonomies("room").catch(() => []),
   ]);
 
   return [
@@ -37,10 +39,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: route === "/" ? 1 : 0.7,
     })),
-    ...categories.map((category) => ({
-      url: absoluteUrl(`/products?categories=${category.slug}`),
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
+    // Parents and their children each get a landing page.
+    ...categories
+      .flatMap((category) => [category, ...(category.children ?? [])])
+      .map((category) => ({
+        url: absoluteUrl(`/categories/${category.slug}`),
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      })),
+    ...rooms.map((room) => ({
+      url: absoluteUrl(`/rooms/${room.slug}`),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
     })),
     ...collections.map((collection) => ({
       url: absoluteUrl(`/collections/${collection.slug}`),

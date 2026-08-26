@@ -17,10 +17,12 @@ export function CatalogToolbar({
   options,
   activeCount,
   resultCount,
+  hiddenGroups = [],
 }: {
   options: FilterOptions;
   activeCount: number;
   resultCount: number;
+  hiddenGroups?: string[];
 }) {
   const { searchParams, set, isPending } = useFilterNavigation();
   const paramTerm = searchParams.get("q") ?? "";
@@ -102,7 +104,7 @@ export function CatalogToolbar({
               <SheetTitle>Filter products</SheetTitle>
             </SheetHeader>
             <div className="px-4 pb-8">
-              <FilterRail options={options} activeCount={activeCount} />
+              <FilterRail options={options} activeCount={activeCount} hiddenGroups={hiddenGroups} />
             </div>
           </SheetContent>
         </Sheet>

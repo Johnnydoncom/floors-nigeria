@@ -31,7 +31,7 @@ export function CategoryMenu({
         {columns.map((category) => (
           <div key={category.slug}>
             <Link
-              href={`/products?categories=${category.slug}`}
+              href={`/categories/${category.slug}`}
               onClick={onNavigate}
               className="font-display text-[13px] font-semibold uppercase tracking-[0.08em] transition hover:text-gold"
             >
@@ -43,18 +43,14 @@ export function CategoryMenu({
                 {category.children.slice(0, CHILDREN_PER_COLUMN).map((child) => (
                   <MenuLink
                     key={child.slug}
-                    href={`/products?categories=${child.slug}`}
+                    href={`/categories/${child.slug}`}
                     onNavigate={onNavigate}
                   >
                     {child.name}
                   </MenuLink>
                 ))}
                 {category.children.length > CHILDREN_PER_COLUMN && (
-                  <MenuLink
-                    href={`/products?categories=${category.slug}`}
-                    onNavigate={onNavigate}
-                    subdued
-                  >
+                  <MenuLink href={`/categories/${category.slug}`} onNavigate={onNavigate} subdued>
                     View all {category.children.length}
                   </MenuLink>
                 )}
@@ -144,7 +140,7 @@ function MenuShell({ children }: { children: React.ReactNode }) {
 
 function RoomTile({ room, onNavigate }: { room: Taxonomy; onNavigate: () => void }) {
   return (
-    <Link href={`/products?taxonomies=${room.slug}`} onClick={onNavigate} className="group">
+    <Link href={`/rooms/${room.slug}`} onClick={onNavigate} className="group">
       <div className="relative aspect-square overflow-hidden bg-muted">
         {room.image_url ? (
           <Image

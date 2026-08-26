@@ -100,7 +100,7 @@ export function SearchSuggestions({
             {results.categories.map((category) => (
               <Link
                 key={category.slug}
-                href={`/products?categories=${category.slug}`}
+                href={`/categories/${category.slug}`}
                 onClick={onSelect}
                 className="border border-border px-3 py-1.5 text-xs transition hover:border-gold hover:text-gold"
               >
