@@ -118,6 +118,39 @@ export function project(homography: Homography, u: number, v: number): Point {
 }
 
 /**
+ * The reverse mapping: where a pixel in the photograph falls on the material.
+ *
+ * Obtained by inverting the 3×3 matrix, which for a homography is just its
+ * adjugate — any scalar multiple describes the same projective map, so the
+ * determinant can be ignored.
+ */
+export function unproject(homography: Homography): (x: number, y: number) => Point | null {
+  const { a, b, c, d, e, f, g, h } = homography;
+
+  // Adjugate of ⎡a b c; d e f; g h 1⎤.
+  const A = e - f * h;
+  const B = c * h - b;
+  const C = b * f - c * e;
+  const D = f * g - d;
+  const E = a - c * g;
+  const F = c * d - a * f;
+  const G = d * h - e * g;
+  const H = b * g - a * h;
+  const I = a * e - b * d;
+
+  return (x, y) => {
+    const w = G * x + H * y + I;
+
+    if (Math.abs(w) < PARALLEL_EPSILON) return null;
+
+    return {
+      x: (A * x + B * y + C) / w,
+      y: (D * x + E * y + F) / w,
+    };
+  };
+}
+
+/**
  * The perspective divisor at a point — how strongly the material is compressed
  * there. Used to decide how finely to subdivide: the far end of a floor needs
  * far more subdivision than the near end to stay smooth.

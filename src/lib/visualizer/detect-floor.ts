@@ -1,4 +1,5 @@
-import type { Quad } from "./types";
+import { project, unitSquareToQuad, unproject } from "./homography";
+import type { Point, Quad } from "./types";
 
 /**
  * Automatic floor detection (§10, "AI-assisted floor/wall boundary detection").
@@ -28,6 +29,14 @@ const EDGE_BAND = 0.12;
 
 /** The far edge never narrows below this share of the near edge. */
 const MIN_FAR_WIDTH_RATIO = 0.25;
+
+/**
+ * How far past its own edges the quad may be stretched to swallow the mask.
+ * Far enough to reach floor in the corners of a wide shot; not so far that a
+ * near-horizon corner shoots off to infinity, or that the drag handles end up
+ * somewhere the visitor cannot reach.
+ */
+const MAX_EXPANSION = { u: 1.6, v: 1.1 };
 
 /** A row counts as open floor at this share of the floor's widest row. */
 const BODY_WIDTH_RATIO = 0.45;
@@ -120,7 +129,81 @@ export async function detectFloor(
 
   const quad = quadFromRegion(region, width, height);
 
-  return quad === null ? null : { quad, mask: toAlphaMask(mask, width, height) };
+  if (quad === null) return null;
+
+  return {
+    quad: expandQuadOverMask(quad, region, width, height),
+    mask: toAlphaMask(mask, width, height),
+  };
+}
+
+/**
+ * Stretch the quad along its own plane until it contains every floor pixel.
+ *
+ * The quad found above describes the floor's perspective but only spans its
+ * middle, and material is drawn within the quad — so floor out at the edges of
+ * the room would keep its old covering, which is exactly what a customer
+ * notices.
+ *
+ * Rather than guess at a bigger quad, the mask's own outline is mapped back
+ * onto the material through the inverse homography. That gives the range of
+ * material the floor actually occupies; the image of that rectangle is a quad
+ * on the same plane, with the same perspective, that covers all of it.
+ */
+function expandQuadOverMask(quad: Quad, region: Region, width: number, height: number): Quad {
+  const homography = unitSquareToQuad(toPixels(quad, width, height));
+  const toMaterial = unproject(homography);
+
+  let minU = 0;
+  let maxU = 1;
+  let minV = 0;
+  let maxV = 1;
+
+  const consider = (x: number, y: number) => {
+    const material = toMaterial(x, y);
+
+    // Points near the horizon invert to enormous coordinates; ignoring them
+    // keeps one stray pixel from stretching the quad to the sky.
+    if (
+      !material ||
+      !Number.isFinite(material.x) ||
+      !Number.isFinite(material.y) ||
+      material.x < -MAX_EXPANSION.u ||
+      material.x > 1 + MAX_EXPANSION.u ||
+      material.y < -MAX_EXPANSION.v ||
+      material.y > 1 + MAX_EXPANSION.v
+    ) {
+      return;
+    }
+
+    minU = Math.min(minU, material.x);
+    maxU = Math.max(maxU, material.x);
+    minV = Math.min(minV, material.y);
+    maxV = Math.max(maxV, material.y);
+  };
+
+  // The extremes of a region lie on its outline, and the per-row extents are
+  // that outline.
+  for (let y = region.top; y <= region.bottom; y++) {
+    if (region.left[y] === -1) continue;
+    consider(region.left[y], y);
+    consider(region.right[y], y);
+  }
+
+  return [
+    fromPixels(project(homography, minU, minV), width, height),
+    fromPixels(project(homography, maxU, minV), width, height),
+    fromPixels(project(homography, maxU, maxV), width, height),
+    fromPixels(project(homography, minU, maxV), width, height),
+  ];
+}
+
+function toPixels(quad: Quad, width: number, height: number): Quad {
+  return quad.map((point) => ({ x: point.x * width, y: point.y * height })) as Quad;
+}
+
+function fromPixels(point: Point, width: number, height: number): Point {
+  return { x: point.x / width, y: point.y / height };
 }
 
 /**

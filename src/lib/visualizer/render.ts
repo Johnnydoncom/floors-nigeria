@@ -35,6 +35,19 @@ const MAX_COLUMNS = 64;
 /** Cells are drawn fractionally oversized so no seam shows between them. */
 const SEAM_BLEED_PX = 1.5;
 
+/**
+ * Share of a product photograph used as the repeating tile.
+ *
+ * Catalogue photography is staged: a plank propped on a pallet, a tile on a
+ * showroom floor, a sprig of greenery for scale. Tiling the whole frame
+ * repeats the props across the floor. Taking a square from the middle gets
+ * closer to the material itself, which is where photographers put it.
+ *
+ * This is damage limitation. A product with a proper seamless texture uploaded
+ * against it looks better than any crop of a marketing shot can (§24).
+ */
+const TILE_CROP = 0.62;
+
 export type RenderOptions = {
   photo: CanvasImageSource;
   photoWidth: number;
@@ -144,15 +157,15 @@ function buildMaterialPlane(
   plane.height = PLANE_SIZE;
 
   const context = plane.getContext("2d");
-  const pattern = context?.createPattern(texture, "repeat");
+  const tile = cropToTile(texture);
+  const pattern = tile && context?.createPattern(tile, "repeat");
 
-  if (!context || !pattern) return null;
+  if (!context || !pattern || !tile) return null;
 
   // A "tile" is the plane divided by how many the visitor asked to see across
   // the room, so the control reads as plank size rather than as a scale factor.
   const tilePixels = PLANE_SIZE / Math.max(1, placement.tiles);
-  const textureWidth = naturalWidth(texture);
-  const scale = textureWidth > 0 ? tilePixels / textureWidth : 1;
+  const scale = tile.width > 0 ? tilePixels / tile.width : 1;
 
   if (placement.brightness !== 1 && "filter" in context) {
     context.filter = `brightness(${placement.brightness})`;
@@ -169,6 +182,42 @@ function buildMaterialPlane(
   context.restore();
 
   return plane;
+}
+
+/**
+ * A square from the middle of the product photograph, to repeat as the tile.
+ *
+ * Squaring it also stops a portrait or landscape photo from stretching into
+ * planks that are the wrong shape.
+ */
+function cropToTile(texture: CanvasImageSource): HTMLCanvasElement | null {
+  const width = naturalWidth(texture);
+  const height = naturalHeight(texture);
+
+  if (width === 0 || height === 0) return null;
+
+  const side = Math.round(Math.min(width, height) * TILE_CROP);
+  const tile = document.createElement("canvas");
+  tile.width = side;
+  tile.height = side;
+
+  const context = tile.getContext("2d");
+
+  if (!context) return null;
+
+  context.drawImage(
+    texture,
+    Math.round((width - side) / 2),
+    Math.round((height - side) / 2),
+    side,
+    side,
+    0,
+    0,
+    side,
+    side,
+  );
+
+  return tile;
 }
 
 /**
@@ -305,6 +354,22 @@ function isFinitePoint(point: Point): boolean {
 
 function distance(from: Point, to: Point): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
+}
+
+function naturalHeight(source: CanvasImageSource): number {
+  if (typeof HTMLImageElement !== "undefined" && source instanceof HTMLImageElement) {
+    return source.naturalHeight;
+  }
+
+  if (typeof HTMLCanvasElement !== "undefined" && source instanceof HTMLCanvasElement) {
+    return source.height;
+  }
+
+  if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
+    return source.height;
+  }
+
+  return 0;
 }
 
 function naturalWidth(source: CanvasImageSource): number {

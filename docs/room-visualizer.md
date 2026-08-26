@@ -76,6 +76,12 @@ From the model's per-pixel labels:
    recedes to. The near edge spans the floor's width at the bottom of frame;
    the far edge is centred on the middle of its furthest rows, narrowed by how
    much the floor has closed in by then.
+4. That quad is then stretched along its own plane until it contains every
+   floor pixel. Material is only drawn inside the quad, so a quad spanning the
+   floor's middle leaves the edges of the room on their old covering. Mapping
+   the mask's outline back through the *inverse* homography gives the range of
+   material the floor actually occupies; the image of that rectangle is a quad
+   with the same perspective that covers all of it.
 
 Step 3 deserves its scars. Fitting straight lines to the mask's left and right
 boundaries seems obvious and is wrong: on a real room it latches onto a sliver
@@ -85,6 +91,19 @@ right because the mask handles containment.
 
 Detection never blocks: the room and material render immediately against a
 default floor area, and the detected result replaces it when ready.
+
+## Textures
+
+The material tiled across the floor is a square taken from the middle of the
+product photograph. Catalogue photography is staged — a plank propped on a
+pallet, a tile in shrink wrap, a sprig of greenery for scale — and tiling the
+whole frame repeats those props across the room.
+
+The crop is damage limitation, not a fix. Products carry a dedicated
+`visualizer_texture` media collection for a seamless, render-optimised asset,
+and it takes precedence over the hero image whenever one is uploaded (§24).
+Until a product has one, its preview is only as good as the middle of its
+marketing shot.
 
 ## The homography
 
