@@ -1,14 +1,22 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Star } from "lucide-react";
-import { naira } from "@/lib/format";
-import { SwatchPreview } from "./Swatch";
-import type { ProductCard as ProductCardData } from "@/lib/api/types";
+import { useState } from "react";
+import { ArrowUpRight, MessageCircle, Star } from "lucide-react";
+import { naira, whatsAppLink } from "@/lib/format";
+import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
+import { absoluteUrl } from "@/lib/structured-data";
+import type { AttributeTerm, ProductCard as ProductCardData } from "@/lib/api/types";
+import { Swatch } from "./Swatch";
 import { cn } from "@/lib/utils";
 
 /**
- * The single product card used by the catalogue, category pages, search and
- * recommendations. Server component: no client JavaScript ships for a grid.
+ * The product card used by listings, search and recommendations.
+ *
+ * A client component because picking a colour swaps the photograph and the
+ * price in place — the expectation a shopper brings from any modern store, and
+ * far quicker than opening each product to compare finishes (§7).
  */
 export function ProductCard({
   product,
@@ -20,45 +28,55 @@ export function ProductCard({
   priority?: boolean;
   className?: string;
 }) {
+  const terms = product.swatch_preview.terms;
+  const [selected, setSelected] = useState<AttributeTerm | null>(null);
+
   const href = `/products/${product.slug}`;
-  const variant = product.default_variant;
+  const image = selected?.preview_image_url ?? product.image_url;
+  const price = selected?.preview_price ?? product.price_from;
+  const showFromPrice = product.has_price_range && selected === null;
   const badge = badgeFor(product);
 
   return (
     <article
       className={cn(
-        "group flex h-full flex-col border border-border bg-card transition hover:border-gold/50 hover:shadow-luxe",
+        "group flex h-full flex-col border border-border bg-card transition duration-300 hover:border-gold/60 hover:shadow-luxe",
         className,
       )}
     >
-      <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-muted">
-        {product.image_url ? (
-          <Image
-            src={product.image_url}
-            alt={product.name}
-            fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            priority={priority}
-            className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
-          />
-        ) : (
-          <div className="grid h-full place-items-center text-xs text-muted-foreground">
-            Image coming soon
-          </div>
-        )}
+      <div className="relative aspect-square overflow-hidden bg-muted">
+        <Link href={href} className="absolute inset-0" aria-label={product.name}>
+          {image ? (
+            <Image
+              src={image}
+              alt={product.name}
+              fill
+              sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              priority={priority}
+              className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <span className="grid h-full place-items-center text-xs text-muted-foreground">
+              Image coming soon
+            </span>
+          )}
+        </Link>
 
         {badge && (
-          <span className="absolute left-3 top-3 bg-gold px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-charcoal-dark">
+          <span className="pointer-events-none absolute left-3 top-3 bg-charcoal-dark/90 px-2.5 py-1 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-light backdrop-blur-sm">
             {badge}
           </span>
         )}
-      </Link>
+      </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          <span>{product.category?.name ?? product.brand?.name ?? "Flooring"}</span>
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="truncate font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {product.category?.name ?? product.brand?.name ?? "Flooring"}
+          </span>
+
           {product.rating.count > 0 && (
-            <span className="inline-flex items-center gap-1 text-foreground">
+            <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px]">
               <Star className="h-3 w-3 fill-gold text-gold" aria-hidden />
               {product.rating.average.toFixed(1)}
               <span className="sr-only">out of 5 from {product.rating.count} reviews</span>
@@ -66,58 +84,138 @@ export function ProductCard({
           )}
         </div>
 
-        <h3 className="mt-2 font-display text-xl tracking-tight">
-          <Link href={href} className="transition hover:text-gold">
+        {/* Imported titles run past 200 characters; two lines is the most a
+            card can carry before the grid stops being scannable. */}
+        <h3 className="mt-2 min-h-[2.75rem] font-display text-[15px] leading-snug tracking-tight">
+          <Link href={href} className="line-clamp-2 transition hover:text-gold">
             {product.name}
           </Link>
         </h3>
 
-        {product.short_description && (
-          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-            {product.short_description}
-          </p>
-        )}
-
-        {product.swatch_preview.terms.length > 0 && (
-          <SwatchPreview
-            terms={product.swatch_preview.terms}
+        {terms.length > 0 && (
+          <SwatchRow
+            terms={terms}
             total={product.swatch_preview.total}
-            className="mt-4"
+            selected={selected}
+            onSelect={setSelected}
+            optionName={product.swatch_preview.option ?? "Finish"}
+            productName={product.name}
           />
         )}
 
-        <div className="mt-auto flex items-end justify-between pt-5">
-          <div>
-            <div className="font-mono text-lg">
-              {product.has_price_range && (
-                <span className="mr-1 text-xs text-muted-foreground">from</span>
-              )}
-              {naira(product.price_from)}
-            </div>
-            {variant && (
-              <div className="text-[11px] text-muted-foreground">
-                {variant.pricing.unit_label} · {variant.availability.label}
-              </div>
-            )}
+        <div className="mt-auto pt-4">
+          <div className="flex items-baseline gap-2">
+            {showFromPrice && <span className="text-xs text-muted-foreground">from</span>}
+            <span className="font-mono text-xl font-semibold">{naira(price)}</span>
           </div>
 
-          <Link
-            href={href}
-            className="inline-flex h-10 items-center gap-1 bg-charcoal-dark px-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary-foreground transition hover:bg-gold hover:text-charcoal-dark"
-          >
-            View
-            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-            <span className="sr-only">{product.name}</span>
-          </Link>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {product.default_variant?.pricing.unit_label ?? "per m²"}
+            {selected && !selected.is_orderable
+              ? " · Made to order"
+              : product.default_variant
+                ? ` · ${product.default_variant.availability.label}`
+                : ""}
+          </p>
+
+          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+            <Link
+              href={href}
+              className="inline-flex h-10 items-center justify-center gap-1.5 bg-charcoal-dark px-4 font-display text-[12px] font-semibold uppercase tracking-[0.08em] text-primary-foreground transition hover:bg-gold hover:text-charcoal-dark"
+            >
+              View details
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+
+            <a
+              href={whatsAppLink(
+                WHATSAPP_NUMBER,
+                orderEnquiry({
+                  productName: product.name,
+                  variantName: selected?.label,
+                  url: absoluteUrl(href),
+                }),
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Order ${product.name} on WhatsApp`}
+              title="Order on WhatsApp"
+              className="inline-flex h-10 w-10 items-center justify-center border border-border text-[#25D366] transition hover:border-[#25D366] hover:bg-[#25D366]/10"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+            </a>
+          </div>
         </div>
       </div>
     </article>
   );
 }
 
+/**
+ * Colour and material choices. Selecting one previews that finish on the card
+ * rather than navigating, so finishes can be compared without leaving the grid.
+ */
+function SwatchRow({
+  terms,
+  total,
+  selected,
+  onSelect,
+  optionName,
+  productName,
+}: {
+  terms: AttributeTerm[];
+  total: number;
+  selected: AttributeTerm | null;
+  onSelect: (term: AttributeTerm | null) => void;
+  optionName: string;
+  productName: string;
+}) {
+  const remaining = total - terms.length;
+
+  return (
+    <div className="mt-3">
+      <div
+        role="radiogroup"
+        aria-label={`${optionName} for ${productName}`}
+        className="flex items-center gap-1.5"
+      >
+        {terms.map((term) => {
+          const isSelected = selected?.id === term.id;
+
+          return (
+            <button
+              key={term.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              aria-label={term.label}
+              title={term.label}
+              onClick={() => onSelect(isSelected ? null : term)}
+              className={cn(
+                "rounded-full p-0.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+                isSelected ? "ring-2 ring-gold" : "hover:ring-1 hover:ring-border",
+              )}
+            >
+              <Swatch term={term} size="sm" className="rounded-full" />
+            </button>
+          );
+        })}
+
+        {remaining > 0 && (
+          <span className="ml-0.5 font-mono text-[10px] text-muted-foreground">+{remaining}</span>
+        )}
+      </div>
+
+      <p className="mt-1.5 h-4 truncate text-[11px] text-muted-foreground" aria-live="polite">
+        {selected ? selected.label : `${total} ${total === 1 ? "finish" : "finishes"}`}
+      </p>
+    </div>
+  );
+}
+
 function badgeFor(product: ProductCardData): string | null {
   if (product.default_variant?.pricing.is_on_sale) return "On offer";
-  if (product.is_featured) return "Featured";
+  if (product.is_featured) return "Bestseller";
   if (product.default_variant?.availability.status === "made_to_order") return "Made to order";
   return null;
 }
@@ -128,11 +226,11 @@ function badgeFor(product: ProductCardData): string | null {
 export function ProductCardSkeleton() {
   return (
     <div className="flex h-full flex-col border border-border bg-card">
-      <div className="aspect-[4/3] animate-pulse bg-muted" />
-      <div className="flex flex-1 flex-col gap-3 p-5">
+      <div className="aspect-square animate-pulse bg-muted" />
+      <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="h-3 w-24 animate-pulse bg-muted" />
-        <div className="h-5 w-3/4 animate-pulse bg-muted" />
         <div className="h-4 w-full animate-pulse bg-muted" />
+        <div className="h-4 w-2/3 animate-pulse bg-muted" />
         <div className="mt-auto h-10 w-full animate-pulse bg-muted" />
       </div>
     </div>

@@ -104,6 +104,10 @@ export type AttributeTerm = {
   swatch_type: SwatchType;
   color_hex: string | null;
   image_url: string | null;
+  /** The variation's own photograph and price, when the term names one. */
+  preview_image_url?: string | null;
+  preview_price?: number | null;
+  is_orderable?: boolean;
 };
 
 /** A customer-facing option on a variable product. */

@@ -2,10 +2,9 @@ import Link from "next/link";
 import { MapPin, MessageCircle, Phone, Ruler, Truck } from "lucide-react";
 import { getNavigation } from "@/lib/api/navigation";
 import { whatsAppLink } from "@/lib/format";
+import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { HeaderBar } from "./HeaderBar";
 import { UtilityBar } from "./UtilityBar";
-
-const SHOWROOM_PHONE = "+2348000000000";
 
 /**
  * The site header (§32).
@@ -49,7 +48,7 @@ export async function SiteHeader() {
             </a>
             <a
               href={whatsAppLink(
-                SHOWROOM_PHONE,
+                WHATSAPP_NUMBER,
                 "Hello Floor Nigeria, I would like a flooring quote.",
               )}
               target="_blank"

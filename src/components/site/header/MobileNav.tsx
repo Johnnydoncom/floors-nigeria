@@ -7,10 +7,9 @@ import { Logo } from "@/components/site/Logo";
 import type { NavigationData } from "@/lib/api/navigation";
 import type { Category } from "@/lib/api/types";
 import { whatsAppLink } from "@/lib/format";
+import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./HeaderBar";
-
-const SHOWROOM_PHONE = "+2348000000000";
 
 /**
  * Full-screen mobile navigation (§32).
@@ -156,7 +155,7 @@ export function MobileNav({
               </a>
               <a
                 href={whatsAppLink(
-                  SHOWROOM_PHONE,
+                  WHATSAPP_NUMBER,
                   "Hello Floor Nigeria, I would like a flooring quote.",
                 )}
                 target="_blank"
