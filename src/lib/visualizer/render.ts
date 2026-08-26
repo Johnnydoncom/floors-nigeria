@@ -1,23 +1,39 @@
+import { perspectiveWeight, project, unitSquareToQuad, type Homography } from "./homography";
 import type { Placement, Point, Quad } from "./types";
 
 /**
  * Renders a floor material into a room photograph (§10).
  *
- * The floor is a plane, and a plane under perspective projects to the
- * quadrilateral the visitor marks out. Screen positions along its edges
- * interpolate linearly, but the material does not: a row near the far wall
- * covers far more of the floor than a row at your feet. Both are handled here
- * so planks converge the way they do in the room.
+ * The floor is a plane, so the mapping from material to photograph is a
+ * homography (see `homography.ts`). Canvas 2D cannot apply a projective
+ * transform directly — `setTransform` is affine — so the material is drawn as a
+ * mesh of small cells, each positioned by projecting its corners through the
+ * homography and filled with an affine transform. Across a cell a few pixels
+ * wide the difference between affine and projective is invisible, while the
+ * mesh as a whole is perspective-correct.
  *
- * Everything is 2D canvas work — no WebGL, no model download — so it runs on
- * the mid-range Android phones most visitors arrive on (§28).
+ * The mesh is denser towards the far wall, where the same screen distance
+ * covers far more floor. Rows are placed at even *screen* intervals by
+ * inverting the homography's depth relation, which puts subdivision exactly
+ * where foreshortening needs it.
+ *
+ * All 2D canvas: no WebGL, no model download, so it runs on the mid-range
+ * phones most visitors arrive on (§28).
  */
 
-/** Slices the floor is drawn in. More is smoother; 240 is past the point of noticing. */
-const SLICE_COUNT = 240;
-
-/** Size of the off-screen tiled material. Bigger costs memory for no visible gain. */
+/** Off-screen material size. Larger costs memory for no visible gain. */
 const PLANE_SIZE = 1024;
+
+/** Target screen size of a mesh cell, in CSS pixels. */
+const CELL_TARGET_PX = 12;
+
+const MIN_ROWS = 16;
+const MAX_ROWS = 160;
+const MIN_COLUMNS = 8;
+const MAX_COLUMNS = 64;
+
+/** Cells are drawn fractionally oversized so no seam shows between them. */
+const SEAM_BLEED_PX = 1.5;
 
 export type RenderOptions = {
   photo: CanvasImageSource;
@@ -29,7 +45,7 @@ export type RenderOptions = {
 };
 
 /**
- * Draw the room, then the material, then the room's own light back over it.
+ * Draw the room, the material, then the room's own light back over it.
  */
 export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): void {
   const { photo, photoWidth, photoHeight, texture, quad, placement } = options;
@@ -51,16 +67,18 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
 
   if (!plane) return;
 
+  const homography = unitSquareToQuad(corners);
+
   context.save();
   clipToQuad(context, corners);
   context.globalAlpha = placement.opacity;
-  drawPerspectiveFloor(context, plane, corners);
+  drawMaterialMesh(context, plane, homography, corners);
   context.restore();
 
   if (placement.lighting > 0) {
-    // Multiplying the original photo back over the new floor carries its
-    // shadows, reflections and falloff onto the material, which is most of
-    // what makes the result read as the same room.
+    // Multiplying the original photograph back over the new floor carries its
+    // shadows, reflections and falloff onto the material, which is most of what
+    // makes the result read as the same room rather than a flat sticker.
     context.save();
     clipToQuad(context, corners);
     context.globalCompositeOperation = "multiply";
@@ -85,8 +103,8 @@ function clipToQuad(context: CanvasRenderingContext2D, [a, b, c, d]: Quad): void
 }
 
 /**
- * The material, tiled and turned, on an off-screen canvas representing the
- * floor seen from directly above.
+ * The material, tiled, turned and brightened, on an off-screen canvas — the
+ * floor as it would look seen from directly above.
  */
 function buildMaterialPlane(
   texture: CanvasImageSource,
@@ -101,11 +119,15 @@ function buildMaterialPlane(
 
   if (!context || !pattern) return null;
 
-  // One "tile" spans the plane divided by how many the visitor asked to see
-  // across the room.
+  // A "tile" is the plane divided by how many the visitor asked to see across
+  // the room, so the control reads as plank size rather than as a scale factor.
   const tilePixels = PLANE_SIZE / Math.max(1, placement.tiles);
   const textureWidth = naturalWidth(texture);
   const scale = textureWidth > 0 ? tilePixels / textureWidth : 1;
+
+  if (placement.brightness !== 1 && "filter" in context) {
+    context.filter = `brightness(${placement.brightness})`;
+  }
 
   context.save();
   context.translate(PLANE_SIZE / 2, PLANE_SIZE / 2);
@@ -121,76 +143,135 @@ function buildMaterialPlane(
 }
 
 /**
- * Draw the tiled plane into the quad, slice by slice.
- *
- * Each slice is a thin band of the floor. Its screen position comes from
- * interpolating the quad's edges; how much material it covers comes from the
- * perspective relationship between the far and near widths, which is what
- * makes distant planks bunch together.
+ * Draw the material as a perspective-correct mesh.
  */
-function drawPerspectiveFloor(
+function drawMaterialMesh(
   context: CanvasRenderingContext2D,
   plane: HTMLCanvasElement,
-  [farLeft, farRight, nearRight, nearLeft]: Quad,
+  homography: Homography,
+  corners: Quad,
 ): void {
-  const farWidth = distance(farLeft, farRight);
-  const nearWidth = distance(nearLeft, nearRight);
+  const rows = rowCount(corners);
+  const columns = columnCount(corners);
+  const depths = depthSamples(homography, rows);
 
-  if (farWidth === 0 || nearWidth === 0) return;
+  for (let row = 0; row < rows; row++) {
+    const v0 = depths[row];
+    const v1 = depths[row + 1];
 
-  for (let slice = 0; slice < SLICE_COUNT; slice++) {
-    const t = slice / SLICE_COUNT;
-    const tNext = (slice + 1) / SLICE_COUNT;
+    for (let column = 0; column < columns; column++) {
+      const u0 = column / columns;
+      const u1 = (column + 1) / columns;
 
-    const v = materialDepth(t, farWidth, nearWidth);
-    const vNext = materialDepth(tNext, farWidth, nearWidth);
+      // A cell at or beyond the horizon has no image in front of the camera.
+      if (perspectiveWeight(homography, u0, v0) <= 0) continue;
 
-    const left = lerp(farLeft, nearLeft, t);
-    const right = lerp(farRight, nearRight, t);
-    const leftNext = lerp(farLeft, nearLeft, tNext);
+      const origin = project(homography, u0, v0);
+      const alongU = project(homography, u1, v0);
+      const alongV = project(homography, u0, v1);
 
-    const sourceY = v * plane.height;
-    const sourceHeight = Math.max((vNext - v) * plane.height, 0.5);
+      if (!isFinitePoint(origin) || !isFinitePoint(alongU) || !isFinitePoint(alongV)) continue;
 
-    // Map the slice's source rectangle onto the band between this row and the
-    // next. The band is treated as a parallelogram, which at this thickness is
-    // indistinguishable from the true trapezoid.
-    const across = { x: (right.x - left.x) / plane.width, y: (right.y - left.y) / plane.width };
-    const down = {
-      x: (leftNext.x - left.x) / sourceHeight,
-      y: (leftNext.y - left.y) / sourceHeight,
-    };
+      const sourceX = u0 * plane.width;
+      const sourceY = v0 * plane.height;
+      const sourceWidth = (u1 - u0) * plane.width;
+      const sourceHeight = (v1 - v0) * plane.height;
 
-    context.setTransform(across.x, across.y, down.x, down.y, left.x, left.y);
-    context.drawImage(
-      plane,
-      0,
-      sourceY,
-      plane.width,
-      sourceHeight,
-      0,
-      0,
-      plane.width,
-      sourceHeight,
-    );
+      if (sourceWidth <= 0 || sourceHeight <= 0) continue;
+
+      // Grow each cell by a fraction of a pixel so neighbours overlap and no
+      // background shows through the mesh. The clip keeps the bleed inside the
+      // floor area.
+      const bleedU = 1 + SEAM_BLEED_PX / Math.max(distance(origin, alongU), 1);
+      const bleedV = 1 + SEAM_BLEED_PX / Math.max(distance(origin, alongV), 1);
+
+      const across = {
+        x: ((alongU.x - origin.x) / sourceWidth) * bleedU,
+        y: ((alongU.y - origin.y) / sourceWidth) * bleedU,
+      };
+      const down = {
+        x: ((alongV.x - origin.x) / sourceHeight) * bleedV,
+        y: ((alongV.y - origin.y) / sourceHeight) * bleedV,
+      };
+
+      context.setTransform(across.x, across.y, down.x, down.y, origin.x, origin.y);
+      context.drawImage(
+        plane,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        sourceWidth,
+        sourceHeight,
+      );
+    }
   }
 
   context.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 /**
- * How far into the material a given screen row falls.
+ * Material depths whose *projected* positions are evenly spaced down the
+ * screen, so the mesh is fine near the far wall and coarse underfoot.
  *
- * Linear in screen space would leave every plank the same depth; this is the
- * projective mapping for a plane whose far edge is `farWidth` and near edge
- * `nearWidth` wide, so the material compresses towards the far wall.
+ * Along the quad's centre line the homography reduces to y = (A + Bv)/(C + Dv),
+ * which inverts to v = (A − yC)/(yD − B) — an exact way to ask "which part of
+ * the material lands on this screen row?".
  */
-function materialDepth(t: number, farWidth: number, nearWidth: number): number {
-  return (t * nearWidth) / (farWidth + t * (nearWidth - farWidth));
+function depthSamples(homography: Homography, rows: number): number[] {
+  const { d, e, f, g, h } = homography;
+  const centre = 0.5;
+
+  const a = d * centre + f;
+  const b = e;
+  const c = g * centre + 1;
+  const dd = h;
+
+  const yFar = a / c;
+  const yNear = (a + b) / (c + dd);
+
+  const samples: number[] = [];
+
+  for (let row = 0; row <= rows; row++) {
+    const y = yFar + ((yNear - yFar) * row) / rows;
+    const denominator = y * dd - b;
+
+    const v = Math.abs(denominator) < 1e-9 ? row / rows : (a - y * c) / denominator;
+
+    // Clamp and keep the sequence monotonic: a wildly dragged corner must not
+    // produce a mesh that folds back on itself.
+    const previous = samples[samples.length - 1] ?? 0;
+    samples.push(Math.min(1, Math.max(previous, Number.isFinite(v) ? v : row / rows)));
+  }
+
+  samples[0] = 0;
+  samples[rows] = 1;
+
+  return samples;
 }
 
-function lerp(from: Point, to: Point, t: number): Point {
-  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+function rowCount(corners: Quad): number {
+  const [topLeft, topRight, bottomRight, bottomLeft] = corners;
+  const height = Math.max(distance(topLeft, bottomLeft), distance(topRight, bottomRight));
+
+  return clampInteger(Math.round(height / CELL_TARGET_PX), MIN_ROWS, MAX_ROWS);
+}
+
+function columnCount(corners: Quad): number {
+  const [topLeft, topRight, bottomRight, bottomLeft] = corners;
+  const width = Math.max(distance(topLeft, topRight), distance(bottomLeft, bottomRight));
+
+  return clampInteger(Math.round(width / (CELL_TARGET_PX * 2)), MIN_COLUMNS, MAX_COLUMNS);
+}
+
+function clampInteger(value: number, min: number, max: number): number {
+  return Math.min(Math.max(Number.isFinite(value) ? value : min, min), max);
+}
+
+function isFinitePoint(point: Point): boolean {
+  return Number.isFinite(point.x) && Number.isFinite(point.y);
 }
 
 function distance(from: Point, to: Point): number {

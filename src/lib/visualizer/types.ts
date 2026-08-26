@@ -21,6 +21,8 @@ export type Placement = {
   rotation: number;
   /** How strongly the room's own light and shadow show through the material. */
   lighting: number;
+  /** Lightens or darkens the material, for matching a room's own exposure. */
+  brightness: number;
   /** Material opacity, for judging a subtle finish against the existing floor. */
   opacity: number;
 };
@@ -47,6 +49,7 @@ export const DEFAULT_PLACEMENT: Placement = {
   tiles: 6,
   rotation: 0,
   lighting: 0.75,
+  brightness: 1,
   opacity: 1,
 };
 

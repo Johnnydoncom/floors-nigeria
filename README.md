@@ -1,6 +1,75 @@
-# Floors Nigeria
+# Floor Nigeria — Storefront
 
-# PROJECT
+Next.js 16 storefront for Floor Nigeria, backed by a Laravel API. The catalogue,
+room visualizer, calculator and quote flow all read live data from that API.
+
+- **Frontend** — this repository. Next.js 16 (App Router, Cache Components),
+  React 19, Tailwind 4, TypeScript.
+- **Backend** — the `floorsng-backend` repository. Laravel 13 serving
+  `/api/v1`, with the catalogue imported from the live WooCommerce store.
+
+## Running locally
+
+Both applications run side by side. Start the API first — the storefront reads
+from it at build and request time.
+
+### 1. The API
+
+```bash
+cd ../backend
+composer install
+cp .env.example .env && php artisan key:generate
+php artisan migrate --seed          # roles, settings, then the catalogue import
+php artisan storage:link            # serves product media out of public/storage
+php artisan serve                   # http://localhost:8000
+```
+
+`migrate --seed` pulls real products from floornigeria.com's WooCommerce Store
+API. To re-import at any point:
+
+```bash
+php artisan catalog:import-woocommerce --limit=60
+```
+
+### 2. The storefront
+
+```bash
+npm install
+cp .env.example .env.local          # defaults point at http://localhost:8000
+npm run dev                         # http://localhost:3000
+```
+
+### Environment
+
+| Variable               | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `LARAVEL_API_URL`      | API base URL. Server-side only — never exposed to the browser. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URLs, sitemap and schema.org output.                 |
+| `REVALIDATE_SECRET`    | Shared secret Laravel sends to purge cache tags on publish.    |
+
+Product images are served through a same-origin `/media/*` proxy, so no CDN
+host or CORS configuration is needed in development.
+
+### Useful commands
+
+```bash
+npm run dev            # development server
+npm run build          # production build (needs the API running)
+npm start              # serve the production build
+npx tsc --noEmit       # type check
+npx eslint src         # lint
+```
+
+## Architecture notes
+
+- [Room visualizer](docs/room-visualizer.md) — how a floor material is mapped
+  into a photograph, and how to add automatic floor detection.
+
+---
+
+## The original design brief
+
+### PROJECT
 
 Create a complete world-class responsive UI for Floors Nigeria (Floors NG), Nigeria's premium flooring solutions company.
 

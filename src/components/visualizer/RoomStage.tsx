@@ -9,8 +9,11 @@ import { cn } from "@/lib/utils";
 const NUDGE = 0.005;
 
 export type RoomStageHandle = {
-  /** The rendered room, for downloading or saving. */
-  toBlob: () => Promise<Blob | null>;
+  /**
+   * The rendered room, for downloading or saving. PNG keeps a clean copy for
+   * the visitor; JPEG keeps the upload small when saving to the server.
+   */
+  toBlob: (type?: "image/png" | "image/jpeg") => Promise<Blob | null>;
 };
 
 /**
@@ -132,10 +135,10 @@ export function RoomStage({
 
   useEffect(() => {
     onReady?.({
-      toBlob: () =>
+      toBlob: (type = "image/jpeg") =>
         new Promise((resolve) =>
           canvasRef.current
-            ? canvasRef.current.toBlob((blob) => resolve(blob), "image/jpeg", 0.9)
+            ? canvasRef.current.toBlob((blob) => resolve(blob), type, 0.9)
             : resolve(null),
         ),
     });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Camera,
   Check,
   Copy,
   Download,
@@ -61,6 +62,7 @@ export function VisualizerStudio({
 
   const stageRef = useRef<RoomStageHandle | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
 
   const onStageReady = useCallback((handle: RoomStageHandle) => {
@@ -99,7 +101,9 @@ export function VisualizerStudio({
   };
 
   const download = async () => {
-    const blob = await stageRef.current?.toBlob();
+    // PNG for the keepsake: it is the visitor's copy of the room, and a second
+    // lossy pass over an already-compressed photo shows on flat floor colour.
+    const blob = await stageRef.current?.toBlob("image/png");
 
     if (!blob) {
       toast.error("The preview could not be exported. Try again.");
@@ -108,7 +112,7 @@ export function VisualizerStudio({
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `floor-nigeria-${material?.productSlug ?? "visualisation"}.jpg`;
+    link.download = `floor-nigeria-${material?.productSlug ?? "visualisation"}.png`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -131,6 +135,7 @@ export function VisualizerStudio({
       form.append("settings[scale]", String(placement.tiles / 10));
       form.append("settings[rotation]", String(placement.rotation));
       form.append("settings[opacity]", String(placement.opacity));
+      form.append("settings[brightness]", String(placement.brightness));
       quad.forEach((point, index) => {
         form.append(`settings[quad][${index}][x]`, String(point.x));
         form.append(`settings[quad][${index}][y]`, String(point.y));
@@ -232,12 +237,35 @@ export function VisualizerStudio({
             }}
           />
 
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) applyUpload(file);
+              event.target.value = "";
+            }}
+          />
+
           <Button
             className="mt-3 h-11 w-full rounded-none"
             onClick={() => uploadRef.current?.click()}
           >
             <Upload className="h-4 w-4" aria-hidden />
             Upload a photo of your space
+          </Button>
+
+          {/* Only offered where there is a camera to open. */}
+          <Button
+            variant="outline"
+            className="mt-2 hidden h-11 w-full rounded-none [@media(pointer:coarse)]:inline-flex"
+            onClick={() => cameraRef.current?.click()}
+          >
+            <Camera className="h-4 w-4" aria-hidden />
+            Take a photo now
           </Button>
 
           <p className="mt-2 text-[11px] text-muted-foreground">
@@ -307,6 +335,16 @@ export function VisualizerStudio({
               step={5}
               value={placement.rotation}
               onChange={(rotation) => setPlacement({ ...placement, rotation })}
+            />
+            <Slider
+              id="brightness"
+              label="Material brightness"
+              hint={`${Math.round(placement.brightness * 100)}%`}
+              min={60}
+              max={140}
+              step={5}
+              value={Math.round(placement.brightness * 100)}
+              onChange={(value) => setPlacement({ ...placement, brightness: value / 100 })}
             />
             <Slider
               id="lighting"
