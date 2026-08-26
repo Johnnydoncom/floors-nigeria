@@ -12,6 +12,7 @@ import {
   Move,
   RotateCcw,
   Ruler,
+  ScanLine,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ import {
 } from "@/lib/visualizer/types";
 import { MaterialPicker } from "./MaterialPicker";
 import { RoomStage, type RoomStageHandle } from "./RoomStage";
+import { useFloorDetection, type DetectionState } from "./useFloorDetection";
 
 /** Uploads are read in the browser; anything larger is a phone photo not worth its size. */
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
@@ -56,6 +58,7 @@ export function VisualizerStudio({
   const [material, setMaterial] = useState<TextureChoice | null>(materials[0] ?? null);
   const [quad, setQuad] = useState<Quad>(DEFAULT_QUAD);
   const [placement, setPlacement] = useState<Placement>(DEFAULT_PLACEMENT);
+  const [floorMask, setFloorMask] = useState<CanvasImageSource | null>(null);
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -68,6 +71,13 @@ export function VisualizerStudio({
   const onStageReady = useCallback((handle: RoomStageHandle) => {
     stageRef.current = handle;
   }, []);
+
+  const onDetected = useCallback((detectedQuad: Quad, mask: CanvasImageSource) => {
+    setQuad(detectedQuad);
+    setFloorMask(mask);
+  }, []);
+
+  const detection = useFloorDetection({ photoSrc: room.src, onDetected });
 
   // Release the previous upload's object URL rather than leaking it.
   useEffect(
@@ -95,9 +105,9 @@ export function VisualizerStudio({
 
     setRoom({ src: url, label: file.name, file });
     setQuad(DEFAULT_QUAD);
+    setFloorMask(null);
     setShareUrl(null);
-    setIsAdjusting(true);
-    toast.success("Room uploaded — drag the four corners onto your floor.");
+    toast.success("Room uploaded — finding your floor.");
   };
 
   const download = async () => {
@@ -165,10 +175,13 @@ export function VisualizerStudio({
           textureSrc={material?.textureUrl ?? null}
           quad={quad}
           placement={placement}
+          mask={floorMask}
           isAdjusting={isAdjusting}
           onQuadChange={setQuad}
           onReady={onStageReady}
         />
+
+        <DetectionNotice state={detection.state} onRetry={detection.retry} />
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button
@@ -186,6 +199,7 @@ export function VisualizerStudio({
             onClick={() => {
               setQuad(DEFAULT_QUAD);
               setPlacement(DEFAULT_PLACEMENT);
+              setFloorMask(null);
             }}
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
@@ -285,6 +299,7 @@ export function VisualizerStudio({
                     onClick={() => {
                       setRoom(demo);
                       setQuad(DEFAULT_QUAD);
+                      setFloorMask(null);
                       setShareUrl(null);
                     }}
                     aria-label={demo.label}
@@ -396,6 +411,49 @@ export function VisualizerStudio({
         )}
       </aside>
     </div>
+  );
+}
+
+/**
+ * What automatic detection is doing, and what to do when it cannot help.
+ *
+ * Detection is a refinement, never a gate: the room and material are already
+ * rendered against a default floor area while this runs, and the corners stay
+ * draggable throughout.
+ */
+function DetectionNotice({ state, onRetry }: { state: DetectionState; onRetry: () => void }) {
+  if (state.status === "done") return null;
+
+  if (state.status === "unavailable") {
+    return (
+      <p className="mt-3 flex flex-wrap items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-muted-foreground">
+        <ScanLine className="h-4 w-4 shrink-0" aria-hidden />
+        We could not pick out the floor in this photo. Use{" "}
+        <strong className="font-semibold text-foreground">Adjust floor area</strong> to mark it, or
+        <button
+          type="button"
+          onClick={onRetry}
+          className="underline underline-offset-2 hover:text-gold"
+        >
+          try again
+        </button>
+        .
+      </p>
+    );
+  }
+
+  const { progress } = state;
+
+  return (
+    <p
+      aria-live="polite"
+      className="mt-3 flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-muted-foreground"
+    >
+      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+      {progress.stage === "downloading"
+        ? `Loading floor detection… ${progress.percent ?? 0}% (one-time, about 3MB)`
+        : "Finding the floor in your photo…"}
+    </p>
   );
 }
 

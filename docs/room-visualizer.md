@@ -1,15 +1,16 @@
 # Room visualizer — architecture
 
 How a customer's room photograph gets a new floor, why the maths is what it is,
-and where automatic floor detection would slot in.
+and how the floor is found in the first place.
 
 ## The journey
 
 1. **Add a room.** Upload a photo, take one on a phone, or start from a demo
    room. An upload becomes an object URL and is read straight into a canvas —
    it never touches the network.
-2. **Mark the floor.** Four draggable corners, in the order far-left,
-   far-right, near-right, near-left. Touch, mouse and arrow keys all work.
+2. **The floor is found automatically.** A segmentation model labels the floor
+   pixels; the visitor can drag the four corners to correct the perspective at
+   any point, and marks the floor by hand if detection cannot help.
 3. **Choose a material.** The picker is the live catalogue, one entry per
    colour a product comes in, each with its real price.
 4. **Fine-tune.** Plank size, direction, material brightness, and how strongly
@@ -21,24 +22,76 @@ and where automatic floor detection would slot in.
 | Path                                        | Responsibility                                            |
 | ------------------------------------------- | --------------------------------------------------------- |
 | `src/lib/visualizer/homography.ts`          | The projective map from material to photograph.           |
+| `src/lib/visualizer/detect-floor.ts`        | Segmentation model → floor mask and perspective quad.     |
 | `src/lib/visualizer/render.ts`              | Canvas rendering: tiling, the mesh, and light blending.   |
 | `src/lib/visualizer/types.ts`               | Geometry and placement types, in normalised coordinates.  |
 | `src/components/visualizer/RoomStage.tsx`   | The canvas, corner handles and before/after wipe.         |
 | `src/components/visualizer/MaterialPicker.tsx` | Catalogue materials as swatches.                       |
 | `src/components/visualizer/VisualizerStudio.tsx` | State, controls, download, save and share.           |
+| `src/components/visualizer/useFloorDetection.ts` | Runs detection per room, out of the render path.    |
 | `src/app/(site)/visualizer/page.tsx`        | Server component; fetches the catalogue.                  |
 | `src/app/api/visualizations/route.ts`       | Proxies a save to Laravel, keeping the API URL server-side. |
 
-Everything renders in the browser. The only network call is the save, which is
-the customer's explicit choice — good for privacy and for anyone on a Nigerian
-mobile connection.
+Everything renders in the browser, including detection. The only network calls
+are the model download and the save, which is the customer's explicit choice —
+good for privacy and for anyone on a Nigerian mobile connection.
+
+## Mask and quad answer different questions
+
+This distinction is the heart of the design, and conflating the two is what
+made an earlier version lay floors across sofas.
+
+- The **mask** is the exact set of floor pixels. It decides *where* material
+  may be drawn, and it is what lets material stop at a chair leg.
+- The **quad** is four points on the floor plane. It decides *how* the material
+  recedes, and nothing else.
+
+A quad alone cannot express "floor, except where the sofa is" — a real floor's
+visible outline is bounded by furniture, not by walls, so fitting lines to that
+outline traces the sofa. A mask alone carries no perspective. Together they are
+sufficient.
+
+Concretely: the mesh is composed off-screen, the lighting pass is applied, and
+a single `destination-in` composite trims the result to the mask before it
+reaches the photograph. Without a mask — a hand-marked floor — the quad is
+clipped to and does both jobs, as it must.
+
+## Automatic floor detection
+
+SegFormer-B0 trained on ADE20K, run in the browser through Transformers.js.
+ADE20K has a dedicated floor class, and the quantised B0 weights are under 3MB
+— small enough to fetch on mobile data, which rules out the larger indoor-scene
+models. It is dynamically imported, so visitors who never reach the visualizer
+never pay for it, and it stays out of the initial bundle entirely.
+
+From the model's per-pixel labels:
+
+1. Floor classes are merged into one binary mask.
+2. The largest connected region is kept, discarding stray patches — a strip of
+   hallway through a doorway, a reflection the model mislabelled. The flood
+   fill is iterative; a recursive one overflows the stack on a floor filling
+   half a photograph.
+3. The perspective quad is built from the two things a floor mask reports
+   reliably: how far up the photograph the floor reaches, and roughly where it
+   recedes to. The near edge spans the floor's width at the bottom of frame;
+   the far edge is centred on the middle of its furthest rows, narrowed by how
+   much the floor has closed in by then.
+
+Step 3 deserves its scars. Fitting straight lines to the mask's left and right
+boundaries seems obvious and is wrong: on a real room it latches onto a sliver
+of floor past a staircase and skews the whole quad. Measuring the floor's
+*extent* over a band of rows is far steadier, and only has to be approximately
+right because the mask handles containment.
+
+Detection never blocks: the room and material render immediately against a
+default floor area, and the detected result replaces it when ready.
 
 ## The homography
 
 A floor is flat. A camera maps one plane to another by a **homography** — a 3×3
 matrix in homogeneous coordinates. So if we know where the floor's four corners
 landed in the photo, we know where *every* point of the material lands. No depth
-data, no camera calibration, no model download. Four corners is the entire input.
+data and no camera calibration — four corners is the entire input.
 
 ```
 ⎡ a  b  c ⎤        x = (a·u + b·v + c) / (g·u + h·v + 1)
@@ -126,33 +179,17 @@ Placement is stored in **normalised coordinates** (0–1 of the photo's width an
 height), so a saved visualisation survives a different screen size or a
 re-render at another resolution.
 
-## Adding automatic floor detection
+## Extending it
 
-Manual corners are the MVP, and deliberately so: they always work, on any photo,
-with no download. Automatic detection should *propose* corners, never replace
-the ability to drag them.
+The same mask opens up most of what the PRD calls Phase 2: multiple surfaces in
+one room, and wall materials — which is the same homography applied to a
+vertical plane, with the wall classes instead of the floor ones.
 
-The seam to extend is small. `VisualizerStudio` owns the quad and passes it
-down; anything that can produce four corners can drive the visualizer.
+Worth knowing before changing detection: a wrong-but-confident result is more
+annoying than none, so keep the manual path one tap away, and keep detection
+off the critical path of the first render. Rooms with strong shadows or
+reflective tiles segment least well.
 
-1. **Segment the floor.** Run a semantic segmentation model in the browser via
-   TensorFlow.js or ONNX Runtime Web — a model trained on indoor scenes
-   (ADE20K includes a floor class) gives a per-pixel mask. Load it lazily, only
-   when the visitor asks, so nobody pays for the download who does not use it.
-2. **Take the largest floor region.** Threshold the mask, label connected
-   components, keep the biggest.
-3. **Reduce it to four corners.** Trace the contour, simplify it
-   (Douglas–Peucker), and either take a minimum-area quadrilateral fit or the
-   four extreme corners. Order them far-left, far-right, near-right, near-left
-   to match `Quad`.
-4. **Hand them over.** Call `setQuad(detected)` and turn adjustment on so the
-   visitor can correct it. Nothing else in the pipeline changes — the
-   homography does not care where its four corners came from.
-
-Worth knowing before starting: rooms with rugs, strong shadows or reflective
-tiles segment poorly, and a wrong-but-confident auto-detection is more annoying
-than no auto-detection. Keep the manual path one tap away.
-
-Beyond that, the same mask enables what the PRD calls Phase 2 — furniture-aware
-masking (so a sofa is not carpeted), multiple surfaces in one room, and wall
-materials, which is the same homography applied to a vertical plane.
+If detection quality needs to improve, the next lever is a larger SegFormer
+variant (B2–B5) behind a capability check, rather than post-processing the B0
+mask harder.

@@ -42,13 +42,22 @@ export type RenderOptions = {
   texture: CanvasImageSource | null;
   quad: Quad;
   placement: Placement;
+  /**
+   * Floor pixels from automatic detection, opaque where material belongs.
+   *
+   * When present it decides *where* material is drawn and the quad only
+   * decides *how* perspective runs — which is what lets material stop at a
+   * chair leg. Without it the quad does both, as it must when the floor was
+   * marked by hand.
+   */
+  mask?: CanvasImageSource | null;
 };
 
 /**
  * Draw the room, the material, then the room's own light back over it.
  */
 export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): void {
-  const { photo, photoWidth, photoHeight, texture, quad, placement } = options;
+  const { photo, photoWidth, photoHeight, texture, quad, placement, mask } = options;
   const context = canvas.getContext("2d");
 
   if (!context || photoWidth === 0 || photoHeight === 0) return;
@@ -69,23 +78,43 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
 
   const homography = unitSquareToQuad(corners);
 
-  context.save();
-  clipToQuad(context, corners);
-  context.globalAlpha = placement.opacity;
-  drawMaterialMesh(context, plane, homography, corners);
-  context.restore();
+  // The material is composed off-screen so it can be trimmed to the detected
+  // floor before it reaches the photograph.
+  const floor = document.createElement("canvas");
+  floor.width = photoWidth;
+  floor.height = photoHeight;
+
+  const floorContext = floor.getContext("2d");
+
+  if (!floorContext) return;
+
+  floorContext.save();
+  clipToQuad(floorContext, corners);
+  drawMaterialMesh(floorContext, plane, homography, corners);
+  floorContext.restore();
 
   if (placement.lighting > 0) {
     // Multiplying the original photograph back over the new floor carries its
     // shadows, reflections and falloff onto the material, which is most of what
     // makes the result read as the same room rather than a flat sticker.
-    context.save();
-    clipToQuad(context, corners);
-    context.globalCompositeOperation = "multiply";
-    context.globalAlpha = placement.lighting;
-    context.drawImage(photo, 0, 0, photoWidth, photoHeight);
-    context.restore();
+    floorContext.save();
+    floorContext.globalCompositeOperation = "multiply";
+    floorContext.globalAlpha = placement.lighting;
+    floorContext.drawImage(photo, 0, 0, photoWidth, photoHeight);
+    floorContext.restore();
   }
+
+  if (mask) {
+    // Keep only the pixels the detector called floor. Multiply above ran on
+    // the full rectangle, so this also trims the lighting pass.
+    floorContext.globalCompositeOperation = "destination-in";
+    floorContext.drawImage(mask, 0, 0, photoWidth, photoHeight);
+    floorContext.globalCompositeOperation = "source-over";
+  }
+
+  context.globalAlpha = placement.opacity;
+  context.drawImage(floor, 0, 0);
+  context.globalAlpha = 1;
 }
 
 function toPixels(quad: Quad, width: number, height: number): Quad {

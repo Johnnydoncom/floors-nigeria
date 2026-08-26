@@ -29,6 +29,7 @@ export function RoomStage({
   textureSrc,
   quad,
   placement,
+  mask,
   isAdjusting,
   onQuadChange,
   onReady,
@@ -38,6 +39,8 @@ export function RoomStage({
   textureSrc: string | null;
   quad: Quad;
   placement: Placement;
+  /** Detected floor pixels; when absent the quad bounds the material. */
+  mask?: CanvasImageSource | null;
   isAdjusting: boolean;
   onQuadChange: (quad: Quad) => void;
   onReady?: (handle: RoomStageHandle) => void;
@@ -75,8 +78,9 @@ export function RoomStage({
       texture: textureRef.current,
       quad,
       placement,
+      mask,
     });
-  }, [quad, placement]);
+  }, [quad, placement, mask]);
 
   // Load the room photograph.
   useEffect(() => {
