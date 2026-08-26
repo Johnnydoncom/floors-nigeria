@@ -13,7 +13,6 @@ export const MULTI_VALUE_KEYS = [
   "brands",
   "collections",
   "taxonomies",
-  "colors",
   "availability",
 ] as const;
 

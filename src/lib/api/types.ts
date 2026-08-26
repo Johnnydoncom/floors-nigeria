@@ -92,12 +92,37 @@ export type Taxonomy = {
 export type StockStatus =
   "in_stock" | "low_stock" | "out_of_stock" | "made_to_order" | "discontinued";
 
-export type Swatch = {
+export type SwatchType = "label" | "color" | "image" | "button";
+
+/** A selectable term of a global attribute, with its swatch. */
+export type AttributeTerm = {
   id: number;
+  slug: string;
+  value: string;
   label: string;
+  description: string | null;
+  swatch_type: SwatchType;
   color_hex: string | null;
   image_url: string | null;
-  sort_order: number;
+};
+
+/** A customer-facing option on a variable product. */
+export type ProductOption = {
+  attribute_id: number;
+  name: string;
+  slug: string;
+  unit: string | null;
+  swatch_type: SwatchType;
+  position: number;
+  terms: AttributeTerm[];
+};
+
+/** The term a variation pins for one option. */
+export type VariantOption = {
+  attribute_id: number;
+  term_id: number;
+  term_slug: string;
+  label: string;
 };
 
 export type Variant = {
@@ -105,9 +130,7 @@ export type Variant = {
   sku: string;
   slug: string;
   name: string;
-  color: { name: string | null; family: string | null; hex: string | null };
-  finish: string | null;
-  pattern: string | null;
+  options: VariantOption[];
   dimensions: {
     length_mm: number | null;
     width_mm: number | null;
@@ -134,15 +157,18 @@ export type Variant = {
   };
   is_default: boolean;
   swatch_image_url: string | null;
+  swatch_color_hex: string | null;
   visualizer_texture_url: string | null;
-  swatches?: Swatch[];
   media?: Media[];
 };
+
+export type ProductType = "simple" | "variable";
 
 export type ProductCard = {
   id: number;
   name: string;
   slug: string;
+  type: ProductType;
   sku_family: string | null;
   short_description: string | null;
   status: string;
@@ -150,10 +176,15 @@ export type ProductCard = {
   image_url: string | null;
   thumb_url: string | null;
   price_from: number | null;
+  price_to: number | null;
+  has_price_range: boolean;
   currency: string;
   variant_count?: number;
+  /** Colour or décor terms shown on the card, capped server-side. */
+  swatch_preview: { option: string | null; total: number; terms: AttributeTerm[] };
   rating: { average: number; count: number };
   category?: Category;
+  categories?: Category[];
   brand?: Brand;
   collection?: Collection;
   default_variant?: Variant;
@@ -194,6 +225,7 @@ export type Product = ProductCard & {
   lead_time_days: number | null;
   waste_percentage: number;
   visualizer_texture_url: string | null;
+  options: ProductOption[];
   variants: Variant[];
   specifications: SpecificationGroup[];
   documents: ProductDocument[];
@@ -212,9 +244,10 @@ export type FilterOptions = {
     slug: string;
     name: string;
     unit: string | null;
-    values: { slug: string; label: string; color_hex: string | null }[];
+    swatch_type: SwatchType;
+    is_variation: boolean;
+    values: AttributeTerm[];
   }[];
-  colors: string[];
   availability: { value: StockStatus; label: string }[];
   price: { min: number; max: number; currency: string };
   sorts: string[];

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Manrope, JetBrains_Mono } from "next/font/google";
 import "../styles.css";
-import { Header } from "@/components/site/Header";
+import { SiteHeader } from "@/components/site/header/SiteHeader";
 import { Footer } from "@/components/site/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
@@ -73,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ScrollToTop />
           </Suspense>
           <Suspense fallback={<div className="h-[72px] md:h-[116px]" aria-hidden />}>
-            <Header />
+            <SiteHeader />
           </Suspense>
           <main id="main" className="min-h-screen">
             {children}

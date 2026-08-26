@@ -9,25 +9,24 @@ import { useCart } from "@/lib/cart";
 import { naira, number } from "@/lib/format";
 import type { Product, Variant } from "@/lib/api/types";
 import { ProductGallery, type GalleryImage } from "./ProductGallery";
-import { VariantSwatches } from "./VariantSwatches";
+import { OptionPicker } from "./OptionPicker";
+import { useVariantSelection } from "./useVariantSelection";
 
 const MINIMUM_QUANTITY = 1;
 
 /**
- * The interactive half of the product detail page (§9): gallery, variant
+ * The interactive half of the product detail page (§9): gallery, option
  * picker, quantity, price transparency and the conversion CTAs.
  *
  * Everything static — description, specifications, documents, related products
  * — stays in the server component so this island stays small.
  */
 export function ProductPurchasePanel({ product }: { product: Product }) {
-  const variants = product.variants.length > 0 ? product.variants : [];
-  const [variant, setVariant] = useState<Variant | undefined>(
-    () => variants.find((entry) => entry.is_default) ?? variants[0],
-  );
+  const { selection, selectedVariant, select, isTermAvailable } = useVariantSelection(product);
   const [quantity, setQuantity] = useState(20);
   const cart = useCart();
 
+  const variant = selectedVariant;
   const images = useMemo(() => galleryImages(product, variant), [product, variant]);
   const price = variant?.pricing.effective_price ?? product.price_from;
   const coverage = variant?.packaging.coverage_per_pack_sqm ?? null;
@@ -78,16 +77,16 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
           </p>
         )}
 
-        <div className="mt-8 space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Finish{variant ? `: ${variant.name}` : ""}
-          </p>
-          <VariantSwatches
-            variants={variants}
-            selectedId={variant?.id ?? 0}
-            onSelect={(next) => setVariant(next)}
-          />
-        </div>
+        {product.options.length > 0 && (
+          <div className="mt-8">
+            <OptionPicker
+              options={product.options}
+              selection={selection}
+              onSelect={select}
+              isTermAvailable={isTermAvailable}
+            />
+          </div>
+        )}
 
         <div className="mt-8">
           <label
@@ -161,7 +160,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
               });
             }}
           >
-            Add to quote list
+            {variant?.availability.is_orderable ? "Add to quote list" : "Currently unavailable"}
           </Button>
 
           <div className="grid grid-cols-2 gap-3">
@@ -219,7 +218,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
 }
 
 /**
- * Variant imagery first, then the product's own gallery roles.
+ * Variation imagery first, then the product's own gallery roles.
  */
 function galleryImages(product: Product, variant?: Variant): GalleryImage[] {
   const fromVariant = (variant?.media ?? []).map((media) => ({

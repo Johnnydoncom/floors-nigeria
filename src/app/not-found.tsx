@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Header } from "@/components/site/Header";
-import { Footer } from "@/components/site/Footer";
 
+// The root layout already renders the header and footer around this page.
 export default function NotFound() {
   return (
     <>

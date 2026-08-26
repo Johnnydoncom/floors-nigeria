@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Star } from "lucide-react";
 import { naira } from "@/lib/format";
+import { SwatchPreview } from "./Swatch";
 import type { ProductCard as ProductCardData } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -77,16 +78,18 @@ export function ProductCard({
           </p>
         )}
 
-        {(product.variant_count ?? 0) > 1 && (
-          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            {product.variant_count} finishes
-          </p>
+        {product.swatch_preview.terms.length > 0 && (
+          <SwatchPreview
+            terms={product.swatch_preview.terms}
+            total={product.swatch_preview.total}
+            className="mt-4"
+          />
         )}
 
         <div className="mt-auto flex items-end justify-between pt-5">
           <div>
             <div className="font-mono text-lg">
-              {product.price_from !== null && (
+              {product.has_price_range && (
                 <span className="mr-1 text-xs text-muted-foreground">from</span>
               )}
               {naira(product.price_from)}

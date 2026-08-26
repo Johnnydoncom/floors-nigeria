@@ -28,8 +28,8 @@ export type ProductFilters = {
   brands?: string[];
   collections?: string[];
   taxonomies?: string[];
-  colors?: string[];
   availability?: string[];
+  type?: "simple" | "variable";
   attributes?: Record<string, string[]>;
   min_price?: number;
   max_price?: number;

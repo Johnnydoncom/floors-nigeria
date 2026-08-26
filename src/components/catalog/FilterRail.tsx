@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ATTRIBUTE_PREFIX } from "@/lib/catalog-filters";
 import { naira } from "@/lib/format";
-import type { FilterOptions, TaxonomyType } from "@/lib/api/types";
+import type { AttributeTerm, FilterOptions, TaxonomyType } from "@/lib/api/types";
+import { Swatch } from "./Swatch";
 import { useFilterNavigation } from "./useFilterNavigation";
 import { cn } from "@/lib/utils";
 
@@ -129,32 +130,31 @@ export function FilterRail({
             ),
         )}
 
-        {options.colors.length > 0 && (
-          <FilterGroup value="colors" label="Colour family">
-            {options.colors.map((color) => (
-              <FilterCheckbox
-                key={color}
-                id={`colors-${color}`}
-                label={color}
-                checked={isActive("colors", color)}
-                onToggle={() => toggle("colors", color)}
-              />
-            ))}
-          </FilterGroup>
-        )}
-
         {options.attributes.map((attribute) => (
           <FilterGroup key={attribute.slug} value={attribute.slug} label={attribute.name}>
-            {attribute.values.map((value) => (
-              <FilterCheckbox
-                key={value.slug}
-                id={`${attribute.slug}-${value.slug}`}
-                label={value.label}
-                colorHex={value.color_hex}
-                checked={isActive(`${ATTRIBUTE_PREFIX}${attribute.slug}`, value.slug)}
-                onToggle={() => toggle(`${ATTRIBUTE_PREFIX}${attribute.slug}`, value.slug)}
-              />
-            ))}
+            {attribute.swatch_type === "color" || attribute.swatch_type === "image" ? (
+              // Visual attributes read as a swatch grid, the way a sample board does.
+              <div className="flex flex-wrap gap-2 pt-1">
+                {attribute.values.map((term) => (
+                  <SwatchFilterButton
+                    key={term.slug}
+                    term={term}
+                    checked={isActive(`${ATTRIBUTE_PREFIX}${attribute.slug}`, term.slug)}
+                    onToggle={() => toggle(`${ATTRIBUTE_PREFIX}${attribute.slug}`, term.slug)}
+                  />
+                ))}
+              </div>
+            ) : (
+              attribute.values.map((term) => (
+                <FilterCheckbox
+                  key={term.slug}
+                  id={`${attribute.slug}-${term.slug}`}
+                  label={term.label}
+                  checked={isActive(`${ATTRIBUTE_PREFIX}${attribute.slug}`, term.slug)}
+                  onToggle={() => toggle(`${ATTRIBUTE_PREFIX}${attribute.slug}`, term.slug)}
+                />
+              ))
+            )}
           </FilterGroup>
         ))}
 
@@ -198,28 +198,51 @@ function FilterCheckbox({
   label,
   checked,
   onToggle,
-  colorHex,
 }: {
   id: string;
   label: string;
   checked: boolean;
   onToggle: () => void;
-  colorHex?: string | null;
 }) {
   return (
     <div className="flex items-center gap-2">
       <Checkbox id={id} checked={checked} onCheckedChange={onToggle} />
-      <Label htmlFor={id} className="flex cursor-pointer items-center gap-2 text-sm font-normal">
-        {colorHex && (
-          <span
-            className="inline-block h-3.5 w-3.5 rounded-full border border-border"
-            style={{ backgroundColor: colorHex }}
-            aria-hidden
-          />
-        )}
+      <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
         {label}
       </Label>
     </div>
+  );
+}
+
+/**
+ * A colour or material term rendered as a toggleable swatch.
+ */
+function SwatchFilterButton({
+  term,
+  checked,
+  onToggle,
+}: {
+  term: AttributeTerm;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={term.label}
+      title={term.label}
+      onClick={onToggle}
+      className={cn(
+        "transition focus-visible:outline-none",
+        checked
+          ? "ring-2 ring-gold ring-offset-2 ring-offset-background"
+          : "hover:ring-1 hover:ring-gold focus-visible:ring-2 focus-visible:ring-gold",
+      )}
+    >
+      <Swatch term={term} size="sm" />
+    </button>
   );
 }
 

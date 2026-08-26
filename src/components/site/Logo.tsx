@@ -9,7 +9,7 @@ export function Logo({
 }) {
   return (
     <Image
-      src="/floors-ng-logo.png"
+      src="/images/floors-ng-logo.png"
       alt="Floors NG — Floors Nigeria"
       width={200}
       height={48}
