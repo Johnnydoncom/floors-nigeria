@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Camera, MousePointerClick, Ruler } from "lucide-react";
 import { getProducts } from "@/lib/api/catalog";
-import type { ProductCard } from "@/lib/api/types";
-import type { TextureChoice } from "@/lib/visualizer/types";
+import { toTextureChoices } from "@/lib/room/materials";
 import { VisualizerStudio, type DemoRoom } from "@/components/visualizer/VisualizerStudio";
 
 export const metadata: Metadata = {
@@ -89,40 +88,4 @@ function Step({
       <p className="mt-1.5 text-sm text-primary-foreground/65">{children}</p>
     </li>
   );
-}
-
-/**
- * A product becomes one material per colour or décor it comes in, so switching
- * finish in the studio is the same act as switching it on the product page.
- */
-function toTextureChoices(product: ProductCard): TextureChoice[] {
-  const texture = product.visualizer_texture_url ?? product.image_url;
-
-  if (!texture) return [];
-
-  const terms = product.swatch_preview.terms.filter((term) => term.preview_image_url);
-
-  if (terms.length === 0) {
-    return [
-      {
-        productSlug: product.slug,
-        productName: product.name,
-        variantId: product.default_variant?.id ?? null,
-        variantName: null,
-        textureUrl: texture,
-        swatchUrl: product.thumb_url,
-        price: product.price_from,
-      },
-    ];
-  }
-
-  return terms.map((term) => ({
-    productSlug: product.slug,
-    productName: product.name,
-    variantId: null,
-    variantName: term.label,
-    textureUrl: term.preview_image_url ?? texture,
-    swatchUrl: term.image_url ?? term.preview_image_url ?? product.thumb_url,
-    price: term.preview_price ?? product.price_from,
-  }));
 }

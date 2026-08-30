@@ -1,3 +1,5 @@
+import type { Variant } from "@/lib/api/types";
+
 /**
  * Room visualizer types (§10).
  *
@@ -43,6 +45,16 @@ export type TextureChoice = {
   textureUrl: string;
   swatchUrl: string | null;
   price: number | null;
+  /**
+   * The variation this material comes from, when one is known.
+   *
+   * The room designer needs its real plank size and pack coverage to lay the
+   * floor at true scale and price the room; the photo visualizer does not, and
+   * tolerates it being absent.
+   */
+  variant: Variant | null;
+  /** Waste allowance for this product, for material estimates (§12). */
+  wastePercentage: number;
 };
 
 export const DEFAULT_PLACEMENT: Placement = {

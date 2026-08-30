@@ -182,6 +182,8 @@ export type ProductCard = {
   thumb_url: string | null;
   /** Rendering asset the room visualizer tiles across a floor. */
   visualizer_texture_url: string | null;
+  /** Waste allowance to add when estimating material for a room. */
+  waste_percentage: number;
   price_from: number | null;
   price_to: number | null;
   has_price_range: boolean;

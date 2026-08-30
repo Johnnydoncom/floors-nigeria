@@ -1,4 +1,4 @@
-# Room visualizer — architecture
+# Room visualizer and designer — architecture
 
 How a customer's room photograph gets a new floor, why the maths is what it is,
 and how the floor is found in the first place.
@@ -197,6 +197,45 @@ for it. Those pages are `noindex`, and a dead link explains itself.
 Placement is stored in **normalised coordinates** (0–1 of the photo's width and
 height), so a saved visualisation survives a different screen size or a
 re-render at another resolution.
+
+## The room designer
+
+A second, complementary tool at `/room-designer`. Where the photo visualizer
+answers *"how would this look in my room?"*, the designer answers *"how much do
+I need, and what will it cost?"*
+
+- `src/lib/room/plan.ts` — the room: rectangle or L-shape, in metres. Area is
+  the shoelace formula over the outline, so a new room shape needs no new
+  arithmetic.
+- `src/lib/room/material.ts` — plank size and the material estimate, sharing
+  the calculator's waste-and-packs rules so the two can never disagree.
+- `src/components/designer/PlanEditor.tsx` — dimension-led SVG plan.
+- `src/components/designer/RoomScene.tsx` — react-three-fiber scene.
+- `src/lib/room/ar-session.ts` — WebXR, written against three.js directly.
+
+### True scale is the point
+
+The variation record carries the plank size in millimetres, so the floor
+texture repeats **once per plank**: `texture.repeat = (1/plankLengthM,
+1/plankWidthM)`. A 1220 × 183mm board in a 4.5m room gives 24.6 boards across,
+and that is what the customer sees. `ShapeGeometry` lays UVs out in the shape's
+own coordinates — metres here — which is what makes that one-liner correct.
+
+A photo visualizer cannot do this: it has no idea how big the room is. This is
+the designer's reason to exist.
+
+### AR
+
+WebXR `immersive-ar` with a hit-test: point the phone at the floor, tap, and a
+2.4m patch of the material is placed at that pose at true scale. Written
+against three.js directly rather than through React — an XR session owns its
+own render loop, and reconciling that with a React renderer buys nothing for a
+single textured plane.
+
+**Android Chrome only.** iOS Safari does not support WebXR and needs AR Quick
+Look with a USDZ file, which is a different pipeline, not a fallback flag. The
+button is hidden with an explanation on unsupported devices, and the 3D room
+works everywhere.
 
 ## Extending it
 
