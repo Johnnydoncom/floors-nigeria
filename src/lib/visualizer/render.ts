@@ -121,7 +121,11 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
     // Keep only the pixels the detector called floor. Multiply above ran on
     // the full rectangle, so this also trims the lighting pass.
     floorContext.globalCompositeOperation = "destination-in";
+    // Smoothing would feather the mask's boundary back out — the softness the
+    // detector just spent its time removing — so the edge is scaled hard.
+    floorContext.imageSmoothingEnabled = false;
     floorContext.drawImage(mask, 0, 0, photoWidth, photoHeight);
+    floorContext.imageSmoothingEnabled = true;
     floorContext.globalCompositeOperation = "source-over";
   }
 

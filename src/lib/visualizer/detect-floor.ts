@@ -1,4 +1,6 @@
 import { project, unitSquareToQuad, unproject } from "./homography";
+import { refineMask, type Grid, type Rgb } from "./refine-mask";
+import { loadImage } from "./render";
 import type { Point, Quad } from "./types";
 
 /**
@@ -23,6 +25,13 @@ const FLOOR_LABELS = new Set(["floor", "rug"]);
 
 /** Below this share of the photo, the detection is too small to be a room floor. */
 const MIN_FLOOR_COVERAGE = 0.04;
+
+/**
+ * Width the mask is refined to. The model's own output is a few hundred pixels
+ * across; refining much beyond this costs time without sharpening anything,
+ * since the mask is scaled to the canvas afterwards regardless.
+ */
+const REFINE_WIDTH = 1280;
 
 /** Share of the band averaged at each end when measuring the floor's extent. */
 const EDGE_BAND = 0.12;
@@ -121,20 +130,91 @@ export async function detectFloor(
 
   if (floors.length === 0) return null;
 
-  const { width, height } = floors[0].mask;
-  const mask = mergeMasks(floors, width, height);
-  const region = largestRegion(mask, width, height);
+  const coarse = floors[0].mask;
+  const merged = mergeMasks(floors, coarse.width, coarse.height);
 
-  if (region === null || region.area / (width * height) < MIN_FLOOR_COVERAGE) return null;
+  // Snap the model's soft, low-resolution boundary onto the edges the
+  // photograph actually has, before anything is measured from it.
+  const sharpened = await sharpenAgainstPhoto(
+    { data: merged, width: coarse.width, height: coarse.height },
+    imageSrc,
+  );
 
-  const quad = quadFromRegion(region, width, height);
+  const region = largestRegion(sharpened.data, sharpened.width, sharpened.height);
+
+  if (region === null || region.area / (sharpened.width * sharpened.height) < MIN_FLOOR_COVERAGE) {
+    return null;
+  }
+
+  const quad = quadFromRegion(region, sharpened.width, sharpened.height);
 
   if (quad === null) return null;
 
   return {
-    quad: expandQuadOverMask(quad, region, width, height),
-    mask: toAlphaMask(mask, width, height),
+    quad: expandQuadOverMask(quad, region, sharpened.width, sharpened.height),
+    mask: toAlphaMask(sharpened.data, sharpened.width, sharpened.height),
   };
+}
+
+/**
+ * Refine the mask against the photograph, falling back to the raw mask if the
+ * photograph cannot be read back (a cross-origin image without CORS headers).
+ */
+async function sharpenAgainstPhoto(mask: Grid, imageSrc: string): Promise<Grid> {
+  try {
+    const image = await loadImage(imageSrc);
+    const aspect = image.naturalHeight / image.naturalWidth;
+
+    const fineWidth = Math.min(REFINE_WIDTH, image.naturalWidth);
+    const fineHeight = Math.round(fineWidth * aspect);
+
+    const photo = readPixels(image, fineWidth, fineHeight);
+
+    if (!photo) return mask;
+
+    // Mask and photograph must line up pixel for pixel before the boundary
+    // can be re-decided against the photograph's own edges.
+    return refineMask(resampleMask(mask, fineWidth, fineHeight), photo);
+  } catch {
+    return mask;
+  }
+}
+
+/**
+ * Nearest-neighbour resample of a binary mask. Nearest rather than smooth:
+ * an interpolated mask has half-values along every boundary, which is exactly
+ * the softness being removed here.
+ */
+function resampleMask(mask: Grid, width: number, height: number): Grid {
+  if (mask.width === width && mask.height === height) return mask;
+
+  const data = new Uint8Array(width * height);
+  const scaleX = mask.width / width;
+  const scaleY = mask.height / height;
+
+  for (let y = 0; y < height; y++) {
+    const sourceRow = Math.min(mask.height - 1, Math.floor(y * scaleY)) * mask.width;
+
+    for (let x = 0; x < width; x++) {
+      data[y * width + x] = mask.data[sourceRow + Math.min(mask.width - 1, Math.floor(x * scaleX))];
+    }
+  }
+
+  return { data, width, height };
+}
+
+function readPixels(image: CanvasImageSource, width: number, height: number): Rgb | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!context) return null;
+
+  context.drawImage(image, 0, 0, width, height);
+
+  return context.getImageData(0, 0, width, height);
 }
 
 /**

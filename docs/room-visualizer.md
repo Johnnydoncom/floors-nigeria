@@ -89,6 +89,27 @@ of floor past a staircase and skews the whole quad. Measuring the floor's
 *extent* over a band of rows is far steadier, and only has to be approximately
 right because the mask handles containment.
 
+### Snapping the boundary to the photograph
+
+SegFormer decides at a quarter of its input resolution. The mask arrives at
+full size, but its boundary follows that coarse decision, and at a wall
+junction the error is visible twice over: material creeps up the skirting on
+one side, a sliver of old floor survives on the other.
+
+The photograph knows exactly where the wall is. Each pixel near the boundary is
+re-decided by a vote of the mask values around it, weighted by how similar the
+photograph's colour is at each point (`refine-mask.ts`). Across a junction the
+colours differ, the far side's votes are discounted, and the boundary settles
+where a human would draw it.
+
+Only the boundary band is touched — found by dilating the set of pixels that
+differ from a neighbour — which is what keeps this at a few hundred
+milliseconds instead of a few seconds. Pinholes below a speckle threshold are
+filled; the far larger holes furniture makes are left alone.
+
+The mask is then composited with `imageSmoothingEnabled = false`, or scaling
+would feather the boundary straight back out.
+
 Detection never blocks: the room and material render immediately against a
 default floor area, and the detected result replaces it when ready.
 
