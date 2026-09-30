@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -224,7 +225,15 @@ export default function Account() {
                   href={`/products/${p.slug}`}
                   className="group border border-border hover:border-gold transition"
                 >
-                  <img src={p.img} alt={p.name} className="aspect-[4/3] w-full object-cover" />
+                  <span className="relative block aspect-[4/3] w-full overflow-hidden bg-muted">
+                    <Image
+                      src={p.img}
+                      alt={p.name}
+                      fill
+                      sizes="(min-width: 640px) 33vw, 100vw"
+                      className="object-cover"
+                    />
+                  </span>
                   <div className="p-4">
                     <div className="font-display text-lg truncate">{p.name}</div>
                     <div className="font-mono text-xs text-muted-foreground">

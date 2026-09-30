@@ -1,4 +1,18 @@
-import { project, unitSquareToQuad, unproject } from "./homography";
+import {
+  domainCovering,
+  domainQuad,
+  fitDomainToFrame,
+  maskHull,
+  type MaterialDomain,
+} from "./coverage";
+import { unitSquareToQuad } from "./homography";
+import {
+  classifyScene,
+  cleanFloorMask,
+  resampleBinary,
+  type LabelledScene,
+  type Segment,
+} from "./floor-mask";
 import { refineMask, type Grid, type Rgb } from "./refine-mask";
 import { loadImage } from "./render";
 import type { Point, Quad } from "./types";
@@ -20,11 +34,32 @@ import type { Point, Quad } from "./types";
 
 const MODEL_ID = "Xenova/segformer-b0-finetuned-ade-512-512";
 
-/** ADE20K classes that are floor for our purposes. */
-const FLOOR_LABELS = new Set(["floor", "rug"]);
-
 /** Below this share of the photo, the detection is too small to be a room floor. */
 const MIN_FLOOR_COVERAGE = 0.04;
+
+/**
+ * A floor patch is kept when it is this much of the biggest patch, and this
+ * much of the photograph.
+ *
+ * A floor is not always one connected shape: a console table against a wall, an
+ * island unit, or a doorway through to a hall all split it in two. Keeping only
+ * the biggest piece leaves the rest on its old covering.
+ */
+const KEEP_REGION = { ofLargest: 0.08, ofFrame: 0.005 };
+
+/**
+ * How far above the floor's own furthest row a second patch may begin, as a
+ * share of the photograph, and still be believed.
+ *
+ * Size alone is not enough to tell a second piece of floor from a mistake. The
+ * model reliably calls a few wood-toned vertical surfaces floor — a panelled
+ * door, a framed picture, the treads of a staircase — and any of them can be
+ * larger than a genuine strip of floor past a kitchen island. What separates
+ * them is where they sit: a floor cannot begin further away than the floor
+ * does, because there is no floor behind the far wall to be a part of. A patch
+ * that starts higher up the photograph than that is on a wall.
+ */
+const SAME_PLANE_TOLERANCE = 0.04;
 
 /**
  * Width the mask is refined to. The model's own output is a few hundred pixels
@@ -40,12 +75,18 @@ const EDGE_BAND = 0.12;
 const MIN_FAR_WIDTH_RATIO = 0.25;
 
 /**
- * How far past its own edges the quad may be stretched to swallow the mask.
- * Far enough to reach floor in the corners of a wide shot; not so far that a
- * near-horizon corner shoots off to infinity, or that the drag handles end up
- * somewhere the visitor cannot reach.
+ * How far past its own edges the detected quad may be stretched to swallow the
+ * mask, in quad widths and depths.
+ *
+ * Modest on purpose. This quad is what the visitor sees and drags when they
+ * open "Adjust floor area", so it has to stay on the photograph; the renderer
+ * no longer relies on it to bound the material, and widens its own domain
+ * until every floor pixel is covered whatever this comes out as.
  */
 const MAX_EXPANSION = { u: 1.6, v: 1.1 };
+
+/** How far outside the photo a corner handle may sit and still be draggable. */
+const HANDLE_MARGIN = 0.14;
 
 /** A row counts as open floor at this share of the floor's widest row. */
 const BODY_WIDTH_RATIO = 0.45;
@@ -73,12 +114,7 @@ export type DetectionProgress = {
   percent?: number;
 };
 
-type SegmentationResult = {
-  label: string;
-  mask: { data: Uint8Array; width: number; height: number };
-};
-
-type Segmenter = (image: string) => Promise<SegmentationResult[]>;
+type Segmenter = (image: string) => Promise<Segment[]>;
 
 let segmenterPromise: Promise<Segmenter> | null = null;
 
@@ -125,82 +161,84 @@ export async function detectFloor(
 
   onProgress?.({ stage: "analysing" });
 
-  const segments = await segmenter(imageSrc);
-  const floors = segments.filter((segment) => FLOOR_LABELS.has(segment.label.toLowerCase()));
+  const scene = classifyScene(await segmenter(imageSrc));
 
-  if (floors.length === 0) return null;
-
-  const coarse = floors[0].mask;
-  const merged = mergeMasks(floors, coarse.width, coarse.height);
+  if (scene === null) return null;
 
   // Snap the model's soft, low-resolution boundary onto the edges the
-  // photograph actually has, before anything is measured from it.
-  const sharpened = await sharpenAgainstPhoto(
-    { data: merged, width: coarse.width, height: coarse.height },
-    imageSrc,
-  );
+  // photograph actually has, then reconcile it with the rest of the label map,
+  // before anything is measured from it.
+  const sharpened = await sharpenAgainstPhoto(scene, imageSrc);
+  const geometry = floorGeometryFromMask(cleanFloorMask(sharpened));
 
-  const region = largestRegion(sharpened.data, sharpened.width, sharpened.height);
-
-  if (region === null || region.area / (sharpened.width * sharpened.height) < MIN_FLOOR_COVERAGE) {
-    return null;
-  }
-
-  const quad = quadFromRegion(region, sharpened.width, sharpened.height);
-
-  if (quad === null) return null;
+  if (geometry === null) return null;
 
   return {
-    quad: expandQuadOverMask(quad, region, sharpened.width, sharpened.height),
-    mask: toAlphaMask(sharpened.data, sharpened.width, sharpened.height),
+    quad: geometry.quad,
+    mask: toAlphaMask(geometry.mask),
   };
 }
 
 /**
- * Refine the mask against the photograph, falling back to the raw mask if the
- * photograph cannot be read back (a cross-origin image without CORS headers).
+ * Everything between "these pixels are floor" and "here is the floor".
+ *
+ * Separated from the model so the geometry can be exercised on a mask built by
+ * hand — the part with the arithmetic in it is the part worth testing, and it
+ * should not need a 3MB download to run.
  */
-async function sharpenAgainstPhoto(mask: Grid, imageSrc: string): Promise<Grid> {
+export function floorGeometryFromMask(mask: Grid): { quad: Quad; mask: Grid } | null {
+  const { width, height } = mask;
+  const floor = keptFloor(mask);
+
+  if (floor === null) return null;
+  if (floor.area / (width * height) < MIN_FLOOR_COVERAGE) return null;
+
+  // Perspective comes from the largest patch — the open floor. The smaller
+  // patches are the same plane seen past an obstruction, so they follow it.
+  const quad = quadFromRegion(floor.primary, width, height);
+
+  if (quad === null) return null;
+
+  return { quad: expandQuadOverMask(quad, floor.mask), mask: floor.mask };
+}
+
+/**
+ * Refine the floor boundary against the photograph, at a working resolution the
+ * whole scene is resampled to.
+ *
+ * Falls back to the model's own output if the photograph cannot be read back —
+ * a cross-origin image without CORS headers — which costs sharpness but never
+ * correctness.
+ */
+async function sharpenAgainstPhoto(scene: LabelledScene, imageSrc: string): Promise<LabelledScene> {
   try {
     const image = await loadImage(imageSrc);
     const aspect = image.naturalHeight / image.naturalWidth;
 
-    const fineWidth = Math.min(REFINE_WIDTH, image.naturalWidth);
-    const fineHeight = Math.round(fineWidth * aspect);
+    const width = Math.min(REFINE_WIDTH, image.naturalWidth);
+    const height = Math.round(width * aspect);
 
-    const photo = readPixels(image, fineWidth, fineHeight);
+    const photo = readPixels(image, width, height);
 
-    if (!photo) return mask;
+    if (!photo) return scene;
 
-    // Mask and photograph must line up pixel for pixel before the boundary
-    // can be re-decided against the photograph's own edges.
-    return refineMask(resampleMask(mask, fineWidth, fineHeight), photo);
+    // Every mask and the photograph must line up pixel for pixel before the
+    // boundary can be re-decided against the photograph's own edges.
+    const at = (mask: Uint8Array) => resampleBinary(mask, scene, width, height);
+    const structure = at(scene.structure);
+
+    const floor = refineMask({ data: at(scene.floor), width, height }, photo, structure);
+
+    return {
+      width,
+      height,
+      floor: floor.data,
+      structure,
+      occluder: at(scene.occluder),
+    };
   } catch {
-    return mask;
+    return scene;
   }
-}
-
-/**
- * Nearest-neighbour resample of a binary mask. Nearest rather than smooth:
- * an interpolated mask has half-values along every boundary, which is exactly
- * the softness being removed here.
- */
-function resampleMask(mask: Grid, width: number, height: number): Grid {
-  if (mask.width === width && mask.height === height) return mask;
-
-  const data = new Uint8Array(width * height);
-  const scaleX = mask.width / width;
-  const scaleY = mask.height / height;
-
-  for (let y = 0; y < height; y++) {
-    const sourceRow = Math.min(mask.height - 1, Math.floor(y * scaleY)) * mask.width;
-
-    for (let x = 0; x < width; x++) {
-      data[y * width + x] = mask.data[sourceRow + Math.min(mask.width - 1, Math.floor(x * scaleX))];
-    }
-  }
-
-  return { data, width, height };
 }
 
 function readPixels(image: CanvasImageSource, width: number, height: number): Rgb | null {
@@ -218,64 +256,33 @@ function readPixels(image: CanvasImageSource, width: number, height: number): Rg
 }
 
 /**
- * Stretch the quad along its own plane until it contains every floor pixel.
+ * Stretch the quad along its own plane until it contains the floor.
  *
- * The quad found above describes the floor's perspective but only spans its
- * middle, and material is drawn within the quad — so floor out at the edges of
- * the room would keep its old covering, which is exactly what a customer
- * notices.
+ * The quad above describes the floor's perspective but only spans its middle,
+ * and an outline that stops short of the skirting is the first thing a visitor
+ * corrects by hand. Rather than guess at a bigger quad, the mask's own outline
+ * is mapped back onto the material through the inverse homography; the image of
+ * that rectangle is a quad on the same plane, with the same perspective, that
+ * covers all of it (see `coverage.ts`).
  *
- * Rather than guess at a bigger quad, the mask's own outline is mapped back
- * onto the material through the inverse homography. That gives the range of
- * material the floor actually occupies; the image of that rectangle is a quad
- * on the same plane, with the same perspective, that covers all of it.
+ * It is then pulled back inside the photograph, because these four corners
+ * carry the drag handles. Coverage does not depend on the result: the renderer
+ * widens its own domain over the mask whatever quad it is given.
  */
-function expandQuadOverMask(quad: Quad, region: Region, width: number, height: number): Quad {
+function expandQuadOverMask(quad: Quad, mask: Grid): Quad {
+  const { width, height } = mask;
   const homography = unitSquareToQuad(toPixels(quad, width, height));
-  const toMaterial = unproject(homography);
+  const outline = maskHull(width, height, (index) => mask.data[index] === 1);
 
-  let minU = 0;
-  let maxU = 1;
-  let minV = 0;
-  let maxV = 1;
+  const domain: MaterialDomain = fitDomainToFrame(
+    homography,
+    domainCovering(homography, outline, width, height, MAX_EXPANSION),
+    width,
+    height,
+    HANDLE_MARGIN,
+  );
 
-  const consider = (x: number, y: number) => {
-    const material = toMaterial(x, y);
-
-    // Points near the horizon invert to enormous coordinates; ignoring them
-    // keeps one stray pixel from stretching the quad to the sky.
-    if (
-      !material ||
-      !Number.isFinite(material.x) ||
-      !Number.isFinite(material.y) ||
-      material.x < -MAX_EXPANSION.u ||
-      material.x > 1 + MAX_EXPANSION.u ||
-      material.y < -MAX_EXPANSION.v ||
-      material.y > 1 + MAX_EXPANSION.v
-    ) {
-      return;
-    }
-
-    minU = Math.min(minU, material.x);
-    maxU = Math.max(maxU, material.x);
-    minV = Math.min(minV, material.y);
-    maxV = Math.max(maxV, material.y);
-  };
-
-  // The extremes of a region lie on its outline, and the per-row extents are
-  // that outline.
-  for (let y = region.top; y <= region.bottom; y++) {
-    if (region.left[y] === -1) continue;
-    consider(region.left[y], y);
-    consider(region.right[y], y);
-  }
-
-  return [
-    fromPixels(project(homography, minU, minV), width, height),
-    fromPixels(project(homography, maxU, minV), width, height),
-    fromPixels(project(homography, maxU, maxV), width, height),
-    fromPixels(project(homography, minU, maxV), width, height),
-  ];
+  return domainQuad(homography, domain).map((point) => fromPixels(point, width, height)) as Quad;
 }
 
 function toPixels(quad: Quad, width: number, height: number): Quad {
@@ -293,31 +300,24 @@ function fromPixels(point: Point, width: number, height: number): Point {
  * `destination-in` pass trims rendered material back to the floor — including
  * around chair legs and table bases, which no quadrilateral could do.
  */
-function toAlphaMask(mask: Uint8Array, width: number, height: number): ImageData {
-  const image = new ImageData(width, height);
+function toAlphaMask(mask: Grid): ImageData {
+  const image = new ImageData(mask.width, mask.height);
 
-  for (let index = 0; index < mask.length; index++) {
-    image.data[index * 4 + 3] = mask[index] === 1 ? 255 : 0;
+  for (let index = 0; index < mask.data.length; index++) {
+    image.data[index * 4 + 3] = mask.data[index] === 1 ? 255 : 0;
   }
 
   return image;
 }
 
-/**
- * Floor and rug are separate classes but the same surface to us.
- */
-function mergeMasks(segments: SegmentationResult[], width: number, height: number): Uint8Array {
-  const merged = new Uint8Array(width * height);
-
-  for (const segment of segments) {
-    const { data } = segment.mask;
-    for (let index = 0; index < merged.length; index++) {
-      if (data[index] > 127) merged[index] = 1;
-    }
-  }
-
-  return merged;
-}
+/** One connected run of floor, while the patches are still being judged. */
+type Patch = {
+  area: number;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
 
 type Region = {
   /** Leftmost and rightmost floor pixel on each row, or -1 where there is none. */
@@ -329,67 +329,115 @@ type Region = {
 };
 
 /**
- * Keep the largest connected run of floor and discard stray patches — a strip
- * of hallway through a doorway, or a reflection the model mislabelled.
+ * The floor as the renderer should see it: every patch worth keeping, plus the
+ * extents of the biggest one for the quad fit.
  *
- * Iterative flood fill: a recursive one overflows the stack on a floor that
- * fills half a photograph.
+ * A room's floor is often more than one connected shape — a table pushed to a
+ * wall, a kitchen island, a doorway through to a hall all cut it in two — and
+ * keeping only the biggest piece leaves the rest on its old covering, which is
+ * the complaint this path exists to answer. Every patch that is a real share of
+ * both the biggest one and of the photograph is kept; genuine strays, a
+ * reflection or a bright sliver of wall, still go.
+ *
+ * Iterative flood fill: a recursive one overflows the stack on a floor filling
+ * half a photograph. Eight-connected, so a patch pinched to a diagonal by a
+ * chair leg stays one patch rather than two half-sized ones that then both fail
+ * the threshold.
  */
-function largestRegion(mask: Uint8Array, width: number, height: number): Region | null {
-  const labels = new Int32Array(mask.length).fill(-1);
+function keptFloor(mask: Grid): { mask: Grid; primary: Region; area: number } | null {
+  const { data, width, height } = mask;
+  const labels = new Int32Array(data.length).fill(-1);
   const stack: number[] = [];
+  const patches: Patch[] = [];
 
-  let bestLabel = -1;
-  let bestArea = 0;
-  let label = 0;
+  for (let start = 0; start < data.length; start++) {
+    if (data[start] === 0 || labels[start] !== -1) continue;
 
-  for (let start = 0; start < mask.length; start++) {
-    if (mask[start] === 0 || labels[start] !== -1) continue;
+    const label = patches.length;
+    const patch: Patch = {
+      area: 0,
+      top: height,
+      bottom: -1,
+      left: width,
+      right: -1,
+    };
 
-    let area = 0;
     stack.push(start);
     labels[start] = label;
 
     while (stack.length > 0) {
       const index = stack.pop()!;
-      area++;
+      patch.area++;
 
       const x = index % width;
       const y = (index - x) / width;
 
-      const neighbours = [
-        x > 0 ? index - 1 : -1,
-        x < width - 1 ? index + 1 : -1,
-        y > 0 ? index - width : -1,
-        y < height - 1 ? index + width : -1,
-      ];
+      if (y < patch.top) patch.top = y;
+      if (y > patch.bottom) patch.bottom = y;
+      if (x < patch.left) patch.left = x;
+      if (x > patch.right) patch.right = x;
 
-      for (const neighbour of neighbours) {
-        if (neighbour >= 0 && mask[neighbour] === 1 && labels[neighbour] === -1) {
-          labels[neighbour] = label;
-          stack.push(neighbour);
+      for (let dy = -1; dy <= 1; dy++) {
+        const sampleY = y + dy;
+
+        if (sampleY < 0 || sampleY >= height) continue;
+
+        for (let dx = -1; dx <= 1; dx++) {
+          const sampleX = x + dx;
+
+          if (sampleX < 0 || sampleX >= width) continue;
+
+          const neighbour = sampleY * width + sampleX;
+
+          if (data[neighbour] === 1 && labels[neighbour] === -1) {
+            labels[neighbour] = label;
+            stack.push(neighbour);
+          }
         }
       }
     }
 
-    if (area > bestArea) {
-      bestArea = area;
-      bestLabel = label;
-    }
-
-    label++;
+    patches.push(patch);
   }
 
-  if (bestLabel === -1) return null;
+  if (patches.length === 0) return null;
 
+  let primaryLabel = 0;
+
+  for (let label = 1; label < patches.length; label++) {
+    if (patches[label].area > patches[primaryLabel].area) primaryLabel = label;
+  }
+
+  const biggest = patches[primaryLabel];
+  const enough = Math.max(
+    biggest.area * KEEP_REGION.ofLargest,
+    width * height * KEEP_REGION.ofFrame,
+  );
+  const highest = biggest.top - height * SAME_PLANE_TOLERANCE;
+
+  const keep = patches.map(
+    (patch, label) =>
+      label === primaryLabel || (patch.area >= enough && onTheSamePlane(patch, biggest, highest)),
+  );
+
+  const kept = new Uint8Array(data.length);
   const left = new Int32Array(height).fill(-1);
   const right = new Int32Array(height).fill(-1);
   let top = -1;
   let bottom = -1;
+  let area = 0;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (labels[y * width + x] !== bestLabel) continue;
+      const index = y * width + x;
+      const label = labels[index];
+
+      if (label === -1 || !keep[label]) continue;
+
+      kept[index] = 1;
+      area++;
+
+      if (label !== primaryLabel) continue;
       if (left[y] === -1) left[y] = x;
       right[y] = x;
     }
@@ -400,7 +448,31 @@ function largestRegion(mask: Uint8Array, width: number, height: number): Region 
     }
   }
 
-  return top === -1 ? null : { left, right, top, bottom, area: bestArea };
+  if (top === -1) return null;
+
+  return {
+    mask: { data: kept, width, height },
+    primary: { left, right, top, bottom, area: biggest.area },
+    area,
+  };
+}
+
+/**
+ * Could this patch be more of the same floor, rather than something on a wall?
+ *
+ * Two questions, both about depth, because depth is what a photograph of a room
+ * actually tells you. It must not begin further away than the floor itself
+ * reaches — there is no floor behind the far wall for it to be part of — and it
+ * must come down to at least where the floor begins, rather than floating in
+ * the wall above it. A panelled door and a framed picture each fail; a strip of
+ * floor beyond a kitchen island passes.
+ *
+ * Deliberately says nothing about where the patch sits horizontally: the case
+ * this exists for — a floor cut in two by something standing against a wall —
+ * leaves two patches side by side that share no columns at all.
+ */
+function onTheSamePlane(patch: Patch, primary: Patch, highest: number): boolean {
+  return patch.top >= highest && patch.bottom >= primary.top;
 }
 
 /**

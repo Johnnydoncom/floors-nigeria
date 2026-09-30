@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint",
+    "test": "npm run test:visualizer",
+    "test:visualizer": "node --import ./scripts/ts-loader.mjs --test scripts/*.test.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

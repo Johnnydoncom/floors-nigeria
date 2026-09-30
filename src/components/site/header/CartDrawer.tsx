@@ -1,5 +1,6 @@
 "use client";
 
+import { CartLineImage } from "@/components/site/CartLineImage";
 import Link from "next/link";
 import { Minus, Plus, Trash2, X } from "lucide-react";
 import { useCart } from "@/lib/cart";
@@ -50,12 +51,7 @@ export function CartDrawer() {
                 key={`${item.slug}-${item.finish}`}
                 className="flex gap-4 border-b border-border p-5"
               >
-                {item.img ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- cart items store a plain URL string
-                  <img src={item.img} alt="" className="h-20 w-20 object-cover" />
-                ) : (
-                  <span className="h-20 w-20 bg-muted" aria-hidden />
-                )}
+                <CartLineImage src={item.img} alt="" sizes="80px" className="h-20 w-20 shrink-0" />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-3">

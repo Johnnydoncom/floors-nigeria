@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -230,7 +231,13 @@ export default function Admin() {
                       <tr key={p.slug} className="border-t border-border">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <img src={p.img} alt="" className="h-10 w-10 object-cover" />
+                            <Image
+                              src={p.img}
+                              alt=""
+                              width={40}
+                              height={40}
+                              className="h-10 w-10 shrink-0 object-cover"
+                            />
                             <Link href={`/products/${p.slug}`} className="hover:text-gold">
                               {p.name}
                             </Link>

@@ -41,36 +41,47 @@ export function useFloorDetection({
   // result may be applied.
   const runRef = useRef(0);
 
-  const detect = useCallback(async () => {
-    if (!photoSrc) return;
+  /**
+   * Run detection for the current room.
+   *
+   * `isWanted` lets the caller withdraw its own run — the effect below uses it
+   * to drop a result that arrives after the hook has been torn down, which the
+   * newest-run check cannot see because there is no newer run.
+   */
+  const detect = useCallback(
+    async (isWanted: () => boolean = () => true) => {
+      if (!photoSrc) return;
 
-    const run = ++runRef.current;
+      const run = ++runRef.current;
+      const isCurrent = () => run === runRef.current && isWanted();
 
-    try {
-      const { detectFloor } = await import("@/lib/visualizer/detect-floor");
+      try {
+        const { detectFloor } = await import("@/lib/visualizer/detect-floor");
 
-      const detection = await detectFloor(photoSrc, (progress) => {
-        if (run === runRef.current) setState({ status: "running", progress });
-      });
+        const detection = await detectFloor(photoSrc, (progress) => {
+          if (isCurrent()) setState({ status: "running", progress });
+        });
 
-      if (run !== runRef.current) return;
+        if (!isCurrent()) return;
 
-      if (!detection) {
-        setState({ status: "unavailable" });
-        return;
+        if (!detection) {
+          setState({ status: "unavailable" });
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = detection.mask.width;
+        canvas.height = detection.mask.height;
+        canvas.getContext("2d")?.putImageData(detection.mask, 0, 0);
+
+        onDetected(detection.quad, canvas);
+        setState({ status: "done" });
+      } catch {
+        if (isCurrent()) setState({ status: "unavailable" });
       }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = detection.mask.width;
-      canvas.height = detection.mask.height;
-      canvas.getContext("2d")?.putImageData(detection.mask, 0, 0);
-
-      onDetected(detection.quad, canvas);
-      setState({ status: "done" });
-    } catch {
-      if (run === runRef.current) setState({ status: "unavailable" });
-    }
-  }, [photoSrc, onDetected]);
+    },
+    [photoSrc, onDetected],
+  );
 
   const retry = useCallback(() => {
     setState(STARTING);
@@ -79,14 +90,20 @@ export function useFloorDetection({
 
   // Detect whenever the room changes, so the common path needs no button.
   useEffect(() => {
+    // Whether this effect's run still has anywhere to put its result. A room
+    // can change — or the studio can go away — while detection is running, and
+    // a floor painted onto a different photograph is worse than no floor.
+    let wanted = true;
+
     // Deferred to a microtask: detection is a long background job reporting
     // through state, and starting it in the effect body would commit a render
     // only to re-render immediately.
-    void Promise.resolve().then(detect);
+    void Promise.resolve().then(() => {
+      if (wanted) void detect(() => wanted);
+    });
 
     return () => {
-      // Abandon an in-flight run rather than letting it apply to a new room.
-      runRef.current++;
+      wanted = false;
     };
   }, [detect]);
 

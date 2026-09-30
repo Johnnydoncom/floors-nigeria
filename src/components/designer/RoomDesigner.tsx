@@ -12,7 +12,6 @@ import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { DEFAULT_PLAN, floorArea, perimeter, type RoomPlan } from "@/lib/room/plan";
 import { estimateMaterial, plankSize } from "@/lib/room/material";
 import { checkArSupport, type ArSupport } from "@/lib/room/ar-session";
-import type { Variant } from "@/lib/api/types";
 import type { TextureChoice } from "@/lib/visualizer/types";
 import { PlanEditor } from "./PlanEditor";
 import type { CameraMode } from "./RoomScene";

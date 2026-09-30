@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
@@ -59,10 +60,12 @@ export default function Industries() {
           <Reveal key={ind.name} delay={(idx % 3) * 0.06}>
             <Link href="/products" className="group block">
               <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-muted">
-                <img
+                <Image
                   src={ind.img}
                   alt={ind.name}
-                  className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                  fill
+                  sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                  className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">

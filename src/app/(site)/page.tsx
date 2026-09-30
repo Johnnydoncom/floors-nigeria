@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -127,11 +128,12 @@ export default function Home() {
                 href="/products"
                 className="group relative block aspect-[5/4] overflow-hidden bg-muted"
               >
-                <img
+                <Image
                   src={m.img}
                   alt={m.name}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                  fill
+                  sizes="(min-width: 1024px) 33vw, 50vw"
+                  className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-charcoal-dark/80 via-charcoal-dark/10 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-5 text-primary-foreground">
@@ -181,12 +183,13 @@ export default function Home() {
           {rooms.map((r, i) => (
             <Reveal key={r.name} delay={(i % 4) * 0.06}>
               <Link href="/industries" className="group block">
-                <div className="aspect-[3/4] overflow-hidden bg-muted">
-                  <img
+                <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+                  <Image
                     src={r.img}
                     alt={r.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                    fill
+                    sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                    className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                   />
                 </div>
                 <div className="mt-4 border-t-2 border-charcoal-dark pt-3 group-hover:border-gold transition-colors">
@@ -256,12 +259,15 @@ export default function Home() {
 
           <Reveal delay={0.15} className="lg:col-span-7">
             <div className="relative overflow-hidden shadow-elevated">
-              <img
-                src={aiImg}
-                alt="AI Visualizer preview"
-                loading="lazy"
-                className="w-full aspect-[5/4] object-cover"
-              />
+              <div className="relative aspect-[5/4] w-full">
+                <Image
+                  src={aiImg}
+                  alt="AI Visualizer preview"
+                  fill
+                  sizes="(min-width: 1024px) 58vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
               <div className="absolute top-5 left-5 flex items-center gap-2 bg-charcoal-dark/70 backdrop-blur px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
                 preview
@@ -306,12 +312,13 @@ export default function Home() {
           {projects.map((p, i) => (
             <Reveal key={p.name} delay={i * 0.08}>
               <Link href="/projects" className="group block">
-                <div className="aspect-[4/3] overflow-hidden bg-muted">
-                  <img
+                <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                  <Image
                     src={p.img}
                     alt={p.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                    fill
+                    sizes="(min-width: 768px) 33vw, 100vw"
+                    className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                   />
                 </div>
                 <div className="pt-4">

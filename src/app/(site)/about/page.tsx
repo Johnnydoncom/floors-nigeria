@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
@@ -25,8 +26,15 @@ export default function About() {
 
       <section className="container-fluid mt-16">
         <Reveal>
-          <div className="aspect-[16/8] overflow-hidden rounded-3xl">
-            <img src={heroImg} alt="Floors NG showroom" className="h-full w-full object-cover" />
+          <div className="relative aspect-[16/8] overflow-hidden rounded-3xl">
+            <Image
+              src={heroImg}
+              alt="Floors NG showroom"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
           </div>
         </Reveal>
       </section>
@@ -79,8 +87,14 @@ export default function About() {
 
       <section className="container-fluid py-24 grid md:grid-cols-12 gap-10 items-center">
         <Reveal className="md:col-span-6">
-          <div className="aspect-[4/5] rounded-3xl overflow-hidden">
-            <img src={stoneImg} alt="Craft" className="h-full w-full object-cover" />
+          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden">
+            <Image
+              src={stoneImg}
+              alt="Craft"
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
+            />
           </div>
         </Reveal>
         <Reveal delay={0.1} className="md:col-span-6">

@@ -45,8 +45,13 @@ export type Rgb = { data: Uint8ClampedArray; width: number; height: number };
  *
  * Both inputs must be the same size; callers resample to a working resolution
  * first.
+ *
+ * `locked` marks pixels the vote may not win — the classes the model is sure
+ * are not floor. Colour alone cannot tell a floorboard from the skirting board
+ * above it, so without this the snap that fixes a wall junction on one wall
+ * walks the material up the next one.
  */
-export function refineMask(mask: Grid, photo: Rgb): Grid {
+export function refineMask(mask: Grid, photo: Rgb, locked?: Uint8Array): Grid {
   const { width, height } = mask;
   const output = Uint8Array.from(mask.data);
   const band = boundaryBand(mask);
@@ -93,6 +98,11 @@ export function refineMask(mask: Grid, photo: Rgb): Grid {
         total += weight;
         weighted += weight * mask.data[sample];
       }
+    }
+
+    if (locked?.[index] === 1) {
+      output[index] = 0;
+      continue;
     }
 
     output[index] = total > 0 && weighted / total >= DECISION ? 1 : 0;

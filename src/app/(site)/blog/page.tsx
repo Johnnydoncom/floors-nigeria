@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Clock } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
@@ -64,10 +65,12 @@ export default function Blog() {
         <Reveal>
           <Link href="/blog" className="group grid lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7 relative aspect-[16/10] rounded-3xl overflow-hidden bg-muted">
-              <img
+              <Image
                 src={feat.img}
                 alt={feat.title}
-                className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                fill
+                sizes="(min-width: 1024px) 58vw, 100vw"
+                className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
               />
             </div>
             <div className="lg:col-span-5">
@@ -95,11 +98,13 @@ export default function Blog() {
           {rest.map((p, i) => (
             <Reveal key={p.title} delay={(i % 4) * 0.05}>
               <Link href="/blog" className="group block">
-                <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-muted">
-                  <img
+                <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-muted">
+                  <Image
                     src={p.img}
                     alt={p.title}
-                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                    fill
+                    sizes="(min-width: 1024px) 25vw, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                   />
                 </div>
                 <div className="pt-4">

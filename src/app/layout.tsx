@@ -2,8 +2,6 @@ import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Nunito_Sans } from "next/font/google";
 import "../styles.css";
-import { SiteHeader } from "@/components/site/header/SiteHeader";
-import { Footer } from "@/components/site/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { ScrollToTop } from "@/components/site/ScrollToTop";
@@ -66,9 +64,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <CartProvider>
           {/*
-            Header and ScrollToTop read the current URL, which is only known at
-            request time. Suspending them keeps the rest of every page in the
-            prerendered static shell (§19, §28).
+            ScrollToTop reads the current URL, which is only known at request
+            time. Suspending it keeps the rest of every page in the prerendered
+            static shell (§19, §28). The header and footer are rendered by each
+            route group's own layout, which suspends them for the same reason.
           */}
           <Suspense fallback={null}>
             <ScrollToTop />

@@ -1,5 +1,6 @@
 "use client";
 
+import { CartLineImage } from "@/components/site/CartLineImage";
 import Link from "next/link";
 import { useState } from "react";
 import { Check, CreditCard, Landmark, Lock, Truck } from "lucide-react";
@@ -207,7 +208,7 @@ export default function Checkout() {
             <div className="mt-5 space-y-4">
               {cart.items.map((i) => (
                 <div key={i.slug + i.finish} className="flex gap-3">
-                  <img src={i.img} alt="" className="h-14 w-14 object-cover" />
+                  <CartLineImage src={i.img} alt="" sizes="56px" className="h-14 w-14 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{i.name}</div>
                     <div className="text-xs text-muted-foreground">

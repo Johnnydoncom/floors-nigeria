@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
@@ -75,11 +76,12 @@ export default function Projects() {
             <Link href="/projects" className="group grid md:grid-cols-12 gap-6 items-center">
               <div className={`md:col-span-7 ${i % 2 ? "md:order-2" : ""}`}>
                 <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
-                  <img
+                  <Image
                     src={p.img}
                     alt={p.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105"
+                    fill
+                    sizes="(min-width: 768px) 58vw, 100vw"
+                    className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
                   />
                 </div>
               </div>

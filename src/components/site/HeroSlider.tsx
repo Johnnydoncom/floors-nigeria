@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -118,7 +119,16 @@ export function HeroSlider() {
           transition={{ opacity: { duration: 0.9 }, scale: { duration: 7, ease: "linear" } }}
           className="absolute inset-0"
         >
-          <img src={slide.img} alt={slide.alt} className="h-full w-full object-cover" />
+          <Image
+            src={slide.img}
+            alt={slide.alt}
+            fill
+            // The hero is the first thing on the page and almost always the LCP
+            // element, so the visible slide is fetched eagerly rather than lazily.
+            priority={index === 0}
+            sizes="100vw"
+            className="object-cover"
+          />
         </motion.div>
       </AnimatePresence>
 
