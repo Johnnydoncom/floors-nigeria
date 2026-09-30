@@ -22,6 +22,49 @@ import type {
  * for a rebuild — the ISR behaviour the PRD asks for in §19.
  */
 
+/**
+ * Run an API read, degrading to `fallback` when the API is unreachable or
+ * refuses the request (bot protection, outage, deploy-time network block).
+ * A 404 is passed to `onNotFound` when given. Must be called inside a
+ * `use cache` scope: a degraded result is cached for minutes only, so the
+ * real data replaces it on the next request instead of sticking for days.
+ */
+async function withFallback<T>(
+  read: () => Promise<T>,
+  fallback: T,
+  onNotFound?: () => T,
+): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    if (onNotFound && error instanceof ApiError && error.status === 404) return onNotFound();
+    console.error("[catalog] API read failed, serving fallback:", error);
+    cacheLife("minutes");
+    return fallback;
+  }
+}
+
+const EMPTY_PAGE: Paginated<ProductCard> = {
+  data: [],
+  links: { first: null, last: null, prev: null, next: null },
+  meta: { current_page: 1, from: null, last_page: 1, per_page: 0, to: null, total: 0 },
+};
+
+const EMPTY_FILTERS: FilterOptions = {
+  categories: [],
+  brands: [],
+  taxonomies: {},
+  attributes: [],
+  availability: [],
+  price: { min: 0, max: 0, currency: "NGN" },
+  sorts: [],
+};
+
+const EMPTY_SEARCH: SearchResults = {
+  data: { query: "", products: [], categories: [], collections: [] },
+  meta: { total_products: 0, zero_results: true },
+};
+
 export type ProductFilters = {
   q?: string;
   categories?: string[];
@@ -46,7 +89,10 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Paginat
   cacheLife("hours");
   cacheTag(CacheTags.catalog);
 
-  return api.get<Paginated<ProductCard>>("/v1/products", { query: filters as QueryParams });
+  return withFallback(
+    () => api.get<Paginated<ProductCard>>("/v1/products", { query: filters as QueryParams }),
+    EMPTY_PAGE,
+  );
 }
 
 /**
@@ -58,13 +104,11 @@ export async function getProduct(slug: string): Promise<Product | null> {
   cacheLife("hours");
   cacheTag(CacheTags.catalog, CacheTags.product(slug));
 
-  try {
-    const { data } = await api.get<Envelope<Product>>(`/v1/products/${slug}`);
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+  return withFallback(
+    async () => (await api.get<Envelope<Product>>(`/v1/products/${slug}`)).data,
+    null,
+    () => null,
+  );
 }
 
 export async function getCategories(): Promise<Category[]> {
@@ -72,8 +116,7 @@ export async function getCategories(): Promise<Category[]> {
   cacheLife("days");
   cacheTag(CacheTags.categories);
 
-  const { data } = await api.get<Envelope<Category[]>>("/v1/categories");
-  return data;
+  return withFallback(async () => (await api.get<Envelope<Category[]>>("/v1/categories")).data, []);
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -81,13 +124,11 @@ export async function getCategory(slug: string): Promise<Category | null> {
   cacheLife("days");
   cacheTag(CacheTags.categories);
 
-  try {
-    const { data } = await api.get<Envelope<Category>>(`/v1/categories/${slug}`);
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+  return withFallback(
+    async () => (await api.get<Envelope<Category>>(`/v1/categories/${slug}`)).data,
+    null,
+    () => null,
+  );
 }
 
 export async function getCollections(featuredOnly = false): Promise<Collection[]> {
@@ -95,10 +136,15 @@ export async function getCollections(featuredOnly = false): Promise<Collection[]
   cacheLife("days");
   cacheTag(CacheTags.collections);
 
-  const { data } = await api.get<Envelope<Collection[]>>("/v1/collections", {
-    query: featuredOnly ? { featured: true } : undefined,
-  });
-  return data;
+  return withFallback(
+    async () =>
+      (
+        await api.get<Envelope<Collection[]>>("/v1/collections", {
+          query: featuredOnly ? { featured: true } : undefined,
+        })
+      ).data,
+    [],
+  );
 }
 
 export async function getTaxonomies(type?: TaxonomyType): Promise<Taxonomy[]> {
@@ -106,10 +152,15 @@ export async function getTaxonomies(type?: TaxonomyType): Promise<Taxonomy[]> {
   cacheLife("days");
   cacheTag(CacheTags.taxonomies);
 
-  const { data } = await api.get<Envelope<Taxonomy[]>>("/v1/taxonomies", {
-    query: type ? { type } : undefined,
-  });
-  return data;
+  return withFallback(
+    async () =>
+      (
+        await api.get<Envelope<Taxonomy[]>>("/v1/taxonomies", {
+          query: type ? { type } : undefined,
+        })
+      ).data,
+    [],
+  );
 }
 
 /**
@@ -121,13 +172,11 @@ export async function getTaxonomy(type: TaxonomyType, slug: string): Promise<Tax
   cacheLife("days");
   cacheTag(CacheTags.taxonomies);
 
-  try {
-    const { data } = await api.get<Envelope<Taxonomy>>(`/v1/taxonomies/${type}/${slug}`);
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+  return withFallback(
+    async () => (await api.get<Envelope<Taxonomy>>(`/v1/taxonomies/${type}/${slug}`)).data,
+    null,
+    () => null,
+  );
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
@@ -135,8 +184,10 @@ export async function getFilterOptions(): Promise<FilterOptions> {
   cacheLife("hours");
   cacheTag(CacheTags.filterOptions);
 
-  const { data } = await api.get<Envelope<FilterOptions>>("/v1/filter-options");
-  return data;
+  return withFallback(
+    async () => (await api.get<Envelope<FilterOptions>>("/v1/filter-options")).data,
+    EMPTY_FILTERS,
+  );
 }
 
 /**
@@ -148,5 +199,8 @@ export async function searchCatalog(term: string): Promise<SearchResults> {
   cacheLife("minutes");
   cacheTag(CacheTags.catalog);
 
-  return api.get<SearchResults>("/v1/search", { query: { q: term } });
+  return withFallback(
+    () => api.get<SearchResults>("/v1/search", { query: { q: term } }),
+    EMPTY_SEARCH,
+  );
 }
