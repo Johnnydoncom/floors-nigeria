@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/*
             ScrollToTop reads the current URL, which is only known at request
             time. Suspending it keeps the rest of every page in the prerendered
-            static shell (§19, §28). The header and footer are rendered by each
+            static shell. The header and footer are rendered by each
             route group's own layout, which suspends them for the same reason.
           */}
           <Suspense fallback={null}>
