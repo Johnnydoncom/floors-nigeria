@@ -486,7 +486,7 @@ async function BestsellerGrid() {
   }
 
   return (
-    <div className="mt-10 grid gap-2 sm:gap-5 grid-cols-2 lg:grid-cols-4">
+    <div className="mt-10 grid gap-2 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {products.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}
