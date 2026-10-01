@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Projects",
+export const metadata: Metadata = pageMetadata({
+  title: "Flooring Projects in Nigeria",
   description:
-    "Selected commissions across hospitality, commercial and residential sectors in Nigeria.",
-};
+    "Selected flooring commissions across hospitality, commercial and residential sectors in Lagos, Abuja and beyond.",
+  path: "/projects",
+});
 
 const projects = [
   {

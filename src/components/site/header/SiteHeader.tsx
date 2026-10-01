@@ -20,10 +20,10 @@ export async function SiteHeader() {
   const navigation = await getNavigation();
 
   return (
-    <header className="sticky inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
+    <header className="sticky inset-x-0 top-0 z-50 bg-background/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur-md supports-[backdrop-filter]:bg-background/85">
       <UtilityBar>
-        <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-semibold uppercase tracking-[0.14em]">
-          <div className="flex items-center gap-6 text-primary-foreground/75">
+        <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-medium tracking-[0.04em]">
+          <div className="flex items-center gap-6 text-primary-foreground/70">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-3 w-3 text-gold-light" aria-hidden />
               Lekki · Ikeja · Abuja
@@ -38,7 +38,7 @@ export async function SiteHeader() {
             </span>
           </div>
 
-          <div className="flex items-center gap-5 text-primary-foreground/75">
+          <div className="flex items-center gap-5 text-primary-foreground/70">
             <a
               href={`tel:${SHOWROOM_PHONE}`}
               className="inline-flex items-center gap-1.5 transition hover:text-gold-light"

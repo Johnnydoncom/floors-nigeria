@@ -1,10 +1,19 @@
-"use client";
+import type { Metadata } from "next";
+import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { ContactForm } from "@/components/site/ContactForm";
+import { JsonLd } from "@/components/site/JsonLd";
+import { whatsAppLink } from "@/lib/format";
+import { pageMetadata } from "@/lib/seo";
+import { SHOWROOM_EMAIL, WHATSAPP_NUMBER } from "@/lib/site-contact";
+import { absoluteUrl, breadcrumbSchema, organizationSchema } from "@/lib/structured-data";
 
-import { useState } from "react";
-import { MapPin, Phone, Mail, Clock, Send, Check } from "lucide-react";
-import { Reveal } from "@/components/site/Reveal";
-import { toast } from "sonner";
-import type { InputHTMLAttributes } from "react";
+export const metadata: Metadata = pageMetadata({
+  title: "Contact & Showrooms",
+  description:
+    "Book a free flooring consultation with Floor Nigeria. Visit our showrooms in Lagos, Abuja and Port Harcourt, call, or message us on WhatsApp for a costed proposal.",
+  path: "/contact",
+  keywords: ["flooring showroom Lagos", "flooring consultation", "flooring quote Nigeria"],
+});
 
 const locations = [
   {
@@ -16,125 +25,95 @@ const locations = [
   { city: "Port Harcourt", addr: "24 Aba Road, GRA Phase 2", tel: "+234 700 356 6730" },
 ];
 
-function Input({ label, ...rest }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </span>
-      <input
-        {...rest}
-        className="mt-2 h-12 w-full rounded-xl bg-background border border-border px-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition"
-      />
-    </label>
-  );
-}
-
-export default function Contact() {
-  const [sent, setSent] = useState(false);
-
+export default function ContactPage() {
   return (
     <>
-      <section className="pt-header md:pt-[calc(var(--header-height)+2rem)] container-fluid">
-        <Reveal>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold">Contact</p>
-          <h1 className="mt-4 font-display text-5xl md:text-7xl tracking-tight max-w-4xl text-balance">
-            Book a consultation.
-            <br /> Leave with a costed proposal.
-          </h1>
-        </Reveal>
+      <JsonLd
+        data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "ContactPage",
+            name: "Contact Floor Nigeria",
+            url: absoluteUrl("/contact"),
+            about: organizationSchema(),
+          },
+          breadcrumbSchema([
+            { name: "Home", url: "/" },
+            { name: "Contact", url: "/contact" },
+          ]),
+        ]}
+      />
+
+      <section className="container-fluid pt-header md:pt-[calc(var(--header-height)+2rem)]">
+        <p className="eyebrow">Contact</p>
+        <h1 className="mt-4 max-w-4xl font-display text-4xl tracking-tight text-balance md:text-6xl md:leading-[1.05]">
+          Book a consultation. Leave with a costed proposal.
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
+          Tell us about the space and a specifier will call within one working day — free site
+          surveys across Lagos, and remote consultations nationwide.
+        </p>
       </section>
 
-      <section className="container-fluid py-16 grid lg:grid-cols-12 gap-8">
+      <section className="container-fluid grid gap-8 py-14 lg:grid-cols-12">
         <div className="lg:col-span-7">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSent(true);
-              toast.success("Thanks — a specifier will reach out within 24 hours.");
-            }}
-            className="rounded-3xl border border-border bg-surface p-8 md:p-10 space-y-5"
-          >
-            <div className="grid md:grid-cols-2 gap-5">
-              <Input label="Full name" placeholder="Adaora Nwosu" />
-              <Input label="Email" type="email" placeholder="you@company.com" />
-              <Input label="Phone" placeholder="+234 800 000 0000" />
-              <Input label="Company / Firm" placeholder="Cobalt Partners" />
-            </div>
-            <div>
-              <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                Project type
-              </label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {["Residential", "Commercial", "Hospitality", "Healthcare", "Retail", "Other"].map(
-                  (t, i) => (
-                    <button
-                      type="button"
-                      key={t}
-                      className={`h-10 px-4 rounded-full text-sm border transition ${i === 0 ? "bg-charcoal text-primary-foreground border-charcoal" : "border-border hover:border-foreground/40"}`}
-                    >
-                      {t}
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                Message
-              </label>
-              <textarea
-                rows={5}
-                placeholder="Tell us about the project — location, area, timeline…"
-                className="mt-2 w-full rounded-2xl bg-background border border-border p-4 outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition"
-              />
-            </div>
-            <button
-              type="submit"
-              className="h-12 w-full inline-flex items-center justify-center gap-2 rounded-full bg-charcoal text-primary-foreground text-sm font-medium hover:bg-charcoal-dark transition"
-            >
-              {sent ? (
-                <>
-                  <Check className="h-4 w-4" /> Message sent
-                </>
-              ) : (
-                <>
-                  Send enquiry <Send className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
+          <ContactForm />
         </div>
 
-        <div className="lg:col-span-5 space-y-4">
+        <aside className="space-y-4 lg:col-span-5" aria-label="Showrooms and opening hours">
+          <a
+            href={whatsAppLink(
+              WHATSAPP_NUMBER,
+              "Hello Floor Nigeria, I would like a flooring quote.",
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-4 rounded-xl border border-[#25D366]/40 bg-[#25D366]/5 p-5 transition hover:border-[#25D366]"
+          >
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#25D366] text-white">
+              <MessageCircle className="h-5 w-5" aria-hidden />
+            </span>
+            <span>
+              <span className="block font-display font-semibold">Chat on WhatsApp</span>
+              <span className="block text-sm text-muted-foreground">
+                Fastest for prices and availability
+              </span>
+            </span>
+          </a>
+
           {locations.map((l) => (
-            <Reveal key={l.city}>
-              <div className="rounded-3xl border border-border p-6 hover:border-gold/40 transition">
-                <div className="font-mono text-[11px] uppercase tracking-widest text-gold">
-                  {l.city}
-                </div>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />{" "}
-                    <span>{l.addr}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />{" "}
-                    <span className="font-mono">{l.tel}</span>
-                  </div>
-                </div>
-              </div>
-            </Reveal>
+            <div
+              key={l.city}
+              className="rounded-xl border border-border p-6 transition hover:border-gold/40"
+            >
+              <h2 className="eyebrow">{l.city}</h2>
+              <address className="mt-3 space-y-2 text-sm not-italic">
+                <p className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span>{l.addr}</span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <a href={`tel:${l.tel.replace(/\s/g, "")}`} className="font-mono hover:text-gold">
+                    {l.tel}
+                  </a>
+                </p>
+              </address>
+            </div>
           ))}
-          <div className="rounded-3xl bg-charcoal-dark text-primary-foreground p-6">
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-gold-light" /> Mon–Sat · 09:00–18:00 WAT
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <Mail className="h-4 w-4 text-gold-light" /> hello@floorsng.com
-            </div>
+
+          <div className="rounded-xl bg-charcoal-dark p-6 text-primary-foreground">
+            <p className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-gold-light" aria-hidden /> Mon–Sat · 09:00–18:00 WAT
+            </p>
+            <p className="mt-2 flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4 text-gold-light" aria-hidden />
+              <a href={`mailto:${SHOWROOM_EMAIL}`} className="hover:text-gold-light">
+                {SHOWROOM_EMAIL}
+              </a>
+            </p>
           </div>
-        </div>
+        </aside>
       </section>
     </>
   );

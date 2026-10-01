@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { Camera, MousePointerClick, Ruler } from "lucide-react";
 import { getProducts } from "@/lib/api/catalog";
 import { toTextureChoices } from "@/lib/room/materials";
 import { VisualizerStudio, type DemoRoom } from "@/components/visualizer/VisualizerStudio";
 
-export const metadata: Metadata = {
-  title: "Room Visualizer",
+export const metadata: Metadata = pageMetadata({
+  title: "Room Visualizer — See Flooring in Your Room",
   description:
     "See any Floor Nigeria floor in your own room. Upload a photo, mark the floor and try real products to scale before you buy.",
-  alternates: { canonical: "/visualizer" },
-};
+  path: "/visualizer",
+});
 
 /** Rooms to try when a visitor has not photographed their own yet. */
 const DEMO_ROOMS: DemoRoom[] = [

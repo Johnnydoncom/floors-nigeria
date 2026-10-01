@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { Box, Camera, PencilRuler } from "lucide-react";
 import { getProducts } from "@/lib/api/catalog";
 import { toTextureChoices } from "@/lib/room/materials";
 import { RoomDesigner } from "@/components/designer/RoomDesigner";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Room Designer",
   description:
     "Measure your room, see it in 3D with any Floor Nigeria product laid at its true plank size, and view the material in your own space in AR.",
-  alternates: { canonical: "/room-designer" },
-};
+  path: "/room-designer",
+});
 
 /** Materials offered in the designer, enough to compare without overwhelming. */
 const MATERIAL_LIMIT = 24;

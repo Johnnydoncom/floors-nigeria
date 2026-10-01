@@ -3,6 +3,7 @@ import { Instagram, Linkedin, Youtube, Phone, Mail, MapPin } from "lucide-react"
 import { SampleRequestForm } from "./SampleRequestForm";
 import { Logo } from "./Logo";
 import { getNavigation } from "@/lib/api/navigation";
+import { SHOWROOM_EMAIL, SHOWROOM_PHONE } from "@/lib/site-contact";
 
 /**
  * Evaluated once when the server module loads, so the copyright line never
@@ -66,90 +67,88 @@ export async function Footer() {
     ...cols,
   ];
 
+  const socials = [
+    { label: "Instagram", icon: Instagram },
+    { label: "LinkedIn", icon: Linkedin },
+    { label: "YouTube", icon: Youtube },
+  ];
+
   return (
     <footer className="bg-charcoal-dark text-primary-foreground">
-      {/* Gold rule */}
-      <div className="h-1 gradient-gold" />
-
-      {/* Newsletter / CTA band */}
-      <div className="border-b border-white/10 bg-charcoal">
-        <div className="container-fluid py-10 grid gap-6 lg:grid-cols-12 lg:items-center">
+      {/* Sample request band */}
+      <div className="border-b border-white/10">
+        <div className="container-fluid grid gap-6 py-12 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-5">
-            <h3 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
+            <p className="eyebrow text-gold-light">Samples &amp; datasheets</p>
+            <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight md:text-3xl">
               Specifying a floor? Start with samples.
-            </h3>
-            <p className="mt-2 text-sm text-primary-foreground/70">
+            </h2>
+            <p className="mt-2 text-sm text-primary-foreground/60">
               Technical datasheets, BIM files and free swatches delivered nationwide.
             </p>
           </div>
-          <SampleRequestForm className="lg:col-span-7" />
+          <SampleRequestForm className="lg:col-span-6 lg:col-start-7" />
         </div>
       </div>
 
       <div className="container-fluid py-16">
-        <div className="grid gap-14 lg:grid-cols-12">
-          <div className="lg:col-span-4 space-y-6">
-            <Logo invert className="h-9 w-auto" />
-            <p className="text-sm text-primary-foreground/70 max-w-sm text-pretty">
+        <div className="grid gap-12 lg:grid-cols-12">
+          <div className="space-y-6 lg:col-span-4">
+            <Link href="/" aria-label="Floor Nigeria home" className="inline-block">
+              <Logo invert className="h-9 w-auto" />
+            </Link>
+            <p className="max-w-sm text-sm leading-relaxed text-primary-foreground/60 text-pretty">
               Nigeria&apos;s premium flooring house — engineered surfaces, natural stone, luxury
               vinyl and architectural finishes for the country&apos;s most demanding residential and
               commercial spaces.
             </p>
-            <ul className="space-y-2.5 text-sm text-primary-foreground/75">
-              <li className="flex items-start gap-2.5">
-                <MapPin className="h-4 w-4 text-gold-light mt-0.5 shrink-0" />
+            <address className="space-y-2.5 text-sm not-italic text-primary-foreground/70">
+              <p className="flex items-start gap-2.5">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-light" aria-hidden />
                 <span>Showroom: Admiralty Way, Lekki Phase 1, Lagos</span>
-              </li>
-              <li className="flex items-center gap-2.5">
-                <Phone className="h-4 w-4 text-gold-light shrink-0" />
-                <a href="tel:+2348000000000" className="hover:text-gold-light transition">
-                  +234 800 000 0000
+              </p>
+              <p className="flex items-center gap-2.5">
+                <Phone className="h-4 w-4 shrink-0 text-gold-light" aria-hidden />
+                <a href={`tel:${SHOWROOM_PHONE}`} className="transition hover:text-gold-light">
+                  {SHOWROOM_PHONE}
                 </a>
-              </li>
-              <li className="flex items-center gap-2.5">
-                <Mail className="h-4 w-4 text-gold-light shrink-0" />
-                <a href="mailto:hello@floors.ng" className="hover:text-gold-light transition">
-                  hello@floors.ng
+              </p>
+              <p className="flex items-center gap-2.5">
+                <Mail className="h-4 w-4 shrink-0 text-gold-light" aria-hidden />
+                <a href={`mailto:${SHOWROOM_EMAIL}`} className="transition hover:text-gold-light">
+                  {SHOWROOM_EMAIL}
                 </a>
-              </li>
-            </ul>
-            <div className="flex items-center gap-3">
-              <a
-                className="h-10 w-10 border border-white/15 grid place-items-center hover:bg-gold hover:text-charcoal-dark hover:border-gold transition"
-                aria-label="Instagram"
-                href="#"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a
-                className="h-10 w-10 border border-white/15 grid place-items-center hover:bg-gold hover:text-charcoal-dark hover:border-gold transition"
-                aria-label="LinkedIn"
-                href="#"
-              >
-                <Linkedin className="h-4 w-4" />
-              </a>
-              <a
-                className="h-10 w-10 border border-white/15 grid place-items-center hover:bg-gold hover:text-charcoal-dark hover:border-gold transition"
-                aria-label="YouTube"
-                href="#"
-              >
-                <Youtube className="h-4 w-4" />
-              </a>
+              </p>
+            </address>
+            <div className="flex items-center gap-2">
+              {socials.map(({ label, icon: Icon }) => (
+                <a
+                  key={label}
+                  className="grid h-10 w-10 place-items-center rounded-full border border-white/15 transition hover:border-gold hover:bg-gold hover:text-charcoal-dark"
+                  aria-label={label}
+                  href="#"
+                >
+                  <Icon className="h-4 w-4" aria-hidden />
+                </a>
+              ))}
             </div>
           </div>
 
-          <div className="lg:col-span-8 grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-5">
+          <nav
+            aria-label="Footer"
+            className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4 lg:col-span-8"
+          >
             {columns.map((c) => (
               <div key={c.title}>
-                <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-gold-light mb-4">
+                <h3 className="mb-4 font-display text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground">
                   {c.title}
-                </h4>
+                </h3>
                 <ul className="space-y-2.5">
                   {c.links.map(([label, href]) => (
                     <li key={label}>
                       <Link
                         href={href as string}
-                        className="text-sm text-primary-foreground/75 hover:text-gold-light transition"
+                        className="text-sm text-primary-foreground/60 transition hover:text-gold-light"
                       >
                         {label}
                       </Link>
@@ -158,20 +157,18 @@ export async function Footer() {
                 </ul>
               </div>
             ))}
-          </div>
+          </nav>
         </div>
 
-        <div className="mt-14 pt-8 border-t border-white/10 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-primary-foreground/55 font-mono">
-            <span>© {COPYRIGHT_YEAR} Floors Nigeria Limited</span>
-            <span>·</span>
-            <span>RC 1234567</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-5 text-xs font-mono uppercase tracking-[0.16em] text-primary-foreground/55">
-            <span>ISO 9001 Certified</span>
-            <span>FSC® Sourced Timber</span>
-            <span>25-Year Warranty</span>
-          </div>
+        <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-8 md:flex-row md:items-center">
+          <p className="text-xs text-primary-foreground/50">
+            © {COPYRIGHT_YEAR} Floors Nigeria Limited · RC 1234567
+          </p>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-primary-foreground/50">
+            <li>ISO 9001 Certified</li>
+            <li>FSC® Sourced Timber</li>
+            <li>25-Year Warranty</li>
+          </ul>
         </div>
       </div>
     </footer>

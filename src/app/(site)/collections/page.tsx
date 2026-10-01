@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Collections",
+export const metadata: Metadata = pageMetadata({
+  title: "Flooring Collections",
   description:
-    "Curated flooring collections for residential, hospitality and commercial specifications.",
-};
+    "Curated flooring collections for residential, hospitality and commercial specifications in Nigeria.",
+  path: "/collections",
+});
 
 const items = [
   {

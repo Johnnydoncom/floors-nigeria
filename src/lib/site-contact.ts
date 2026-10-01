@@ -10,6 +10,8 @@ export const SHOWROOM_PHONE = process.env.NEXT_PUBLIC_SHOWROOM_PHONE ?? "+234800
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? SHOWROOM_PHONE;
 
+export const SHOWROOM_EMAIL = process.env.NEXT_PUBLIC_SHOWROOM_EMAIL ?? "hello@floornigeria.com";
+
 /**
  * Prefill a WhatsApp order enquiry with everything a consultant needs to reply
  * with a price: the product, the chosen finish, and a link back to the page.

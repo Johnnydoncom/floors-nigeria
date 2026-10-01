@@ -5,6 +5,13 @@ import "../styles.css";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { ScrollToTop } from "@/components/site/ScrollToTop";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+  SEO_KEYWORDS,
+  SITE_NAME,
+  SITE_TAGLINE,
+} from "@/lib/seo";
 
 /**
  * Montserrat carries headings, navigation and the small uppercase labels —
@@ -30,22 +37,39 @@ export const metadata: Metadata = {
   // Resolves every relative canonical and Open Graph URL to an absolute one.
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: {
-    default: "Floors NG — Premium Flooring Solutions in Nigeria",
-    template: "%s — Floors NG",
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s — ${SITE_NAME}`,
   },
-  description:
-    "Nigeria's premium flooring house. Engineered wood, SPC, luxury vinyl, natural stone and wall panels for residential and commercial spaces.",
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: SEO_KEYWORDS,
   authors: [{ name: "Floors Nigeria" }],
+  creator: "Floors Nigeria",
+  publisher: "Floors Nigeria",
+  category: "Home improvement",
+  alternates: { canonical: "/" },
+  // Product codes and prices read as phone numbers to iOS Safari.
+  formatDetection: { telephone: false, email: false, address: false },
   openGraph: {
-    title: "Floors NG — Premium Flooring Solutions in Nigeria",
-    description:
-      "Engineered surfaces, natural stone and architectural finishes for Nigeria's most demanding spaces.",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: DEFAULT_DESCRIPTION,
+    url: "/",
     type: "website",
-    siteName: "Floors NG",
+    siteName: SITE_NAME,
+    locale: "en_NG",
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     site: "@FloorsNG",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
   icons: {
     icon: "/favicon.ico",
@@ -55,12 +79,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#56554D",
+  themeColor: "#121211",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${montserrat.variable} ${nunitoSans.variable}`}>
+    <html lang="en-NG" className={`${montserrat.variable} ${nunitoSans.variable}`}>
       <head>
         <meta name="apple-mobile-web-app-title" content="Floors NG" />
       </head>

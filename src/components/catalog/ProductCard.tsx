@@ -45,7 +45,7 @@ export function ProductCard({
   return (
     <article
       className={cn(
-        "group flex h-full flex-col border border-border bg-card transition duration-300 hover:border-gold/60 hover:shadow-luxe",
+        "group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition duration-300 hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-luxe",
         className,
       )}
     >
@@ -68,7 +68,7 @@ export function ProductCard({
         </Link>
 
         {badge && (
-          <span className="pointer-events-none absolute left-3 top-3 bg-charcoal-dark/90 px-2.5 py-1 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-light backdrop-blur-sm">
+          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-charcoal-dark/90 px-2.5 py-1 font-display text-[10px] font-semibold uppercase tracking-[0.12em] text-gold-light backdrop-blur-sm">
             {badge}
           </span>
         )}
@@ -137,7 +137,7 @@ export function ProductCard({
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
             <Link
               href={href}
-              className="inline-flex h-10 items-center justify-center gap-1.5 bg-charcoal-dark px-4 font-display text-[12px] font-semibold uppercase tracking-[0.08em] text-primary-foreground transition hover:bg-gold hover:text-charcoal-dark"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-foreground/15 px-4 font-display text-[13px] font-semibold transition group-hover:border-charcoal group-hover:bg-charcoal group-hover:text-primary-foreground"
             >
               View details
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -156,7 +156,7 @@ export function ProductCard({
               rel="noopener noreferrer"
               aria-label={`Order ${product.name} on WhatsApp`}
               title="Order on WhatsApp"
-              className="inline-flex h-10 w-10 items-center justify-center border border-border text-[#25D366] transition hover:border-[#25D366] hover:bg-[#25D366]/10"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-[#1DAA53] transition hover:border-[#25D366] hover:bg-[#25D366]/10"
             >
               <MessageCircle className="h-4 w-4" aria-hidden />
             </a>
@@ -245,13 +245,13 @@ function badgeFor(product: ProductCardData, savedPercentage: number | null): str
  */
 export function ProductCardSkeleton() {
   return (
-    <div className="flex h-full flex-col border border-border bg-card">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div className="aspect-square animate-pulse bg-muted" />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="h-3 w-24 animate-pulse bg-muted" />
         <div className="h-4 w-full animate-pulse bg-muted" />
         <div className="h-4 w-2/3 animate-pulse bg-muted" />
-        <div className="mt-auto h-10 w-full animate-pulse bg-muted" />
+        <div className="mt-auto h-10 w-full animate-pulse rounded-md bg-muted" />
       </div>
     </div>
   );

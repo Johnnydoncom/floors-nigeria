@@ -2,8 +2,9 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { getProduct } from "@/lib/api/catalog";
-import { absoluteUrl, breadcrumbSchema, productSchema } from "@/lib/structured-data";
+import { breadcrumbSchema, productSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { RichText } from "@/components/site/RichText";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
@@ -24,22 +25,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { seo } = product;
 
-  return {
+  return pageMetadata({
     title: seo.title,
-    description: seo.description ?? product.short_description ?? undefined,
-    alternates: { canonical: seo.canonical ?? `/products/${product.slug}` },
-    robots: seo.noindex ? { index: false, follow: false } : undefined,
-    openGraph: {
-      title: seo.title,
-      description: seo.description ?? undefined,
-      type: "website",
-      // Open Graph consumers fetch the image themselves, so it must be absolute.
-      images:
-        (seo.og_image ?? product.image_url)
-          ? [absoluteUrl((seo.og_image ?? product.image_url)!)]
-          : undefined,
-    },
-  };
+    description: seo.description ?? product.short_description,
+    path: seo.canonical ?? `/products/${product.slug}`,
+    image: seo.og_image ?? product.image_url,
+    imageAlt: product.name,
+    keywords: [product.name, product.category?.name, product.brand?.name].filter(
+      (keyword): keyword is string => Boolean(keyword),
+    ),
+    noindex: seo.noindex,
+    follow: !seo.noindex,
+  });
 }
 
 export default async function ProductPage({ params }: PageProps) {

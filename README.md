@@ -28,8 +28,12 @@ php artisan serve                   # http://localhost:8000
 API. To re-import at any point:
 
 ```bash
-php artisan catalog:import-woocommerce --limit=60
+php artisan catalog:import-woocommerce             # 100 products (CATALOG_IMPORT_LIMIT)
+php artisan catalog:import-woocommerce --limit=250 # any number for this run
+php artisan catalog:import-woocommerce --limit=0   # the whole store
 ```
+
+The default count is `CATALOG_IMPORT_LIMIT` in the backend `.env` (100 if unset).
 
 ### 2. The storefront
 

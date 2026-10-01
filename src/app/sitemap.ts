@@ -8,6 +8,7 @@ const STATIC_ROUTES = [
   "/categories",
   "/collections",
   "/visualizer",
+  "/room-designer",
   "/calculator",
   "/projects",
   "/industries",
@@ -18,6 +19,28 @@ const STATIC_ROUTES = [
 
 const MAX_PRODUCTS = 1000;
 
+/** The API's largest page (`ProductIndexRequest::MAX_PER_PAGE`). */
+const PRODUCTS_PER_PAGE = 60;
+
+/**
+ * Every published product up to {@link MAX_PRODUCTS}. One page is not enough:
+ * the import mirrors 100 products by default, and the API caps a page at 60.
+ */
+async function allProducts() {
+  const first = await getProducts({ per_page: PRODUCTS_PER_PAGE, sort: "newest" });
+  const lastPage = Math.min(first.meta.last_page, Math.ceil(MAX_PRODUCTS / PRODUCTS_PER_PAGE));
+
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, lastPage - 1) }, (_, index) =>
+      getProducts({ per_page: PRODUCTS_PER_PAGE, sort: "newest", page: index + 2 }).then(
+        (page) => page.data,
+      ),
+    ),
+  );
+
+  return [first.data, ...rest].flat();
+}
+
 /**
  * Sitemap generated from live catalogue data (§18), so newly published
  * products are discoverable without a code change.
@@ -25,9 +48,7 @@ const MAX_PRODUCTS = 1000;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // A catalogue outage should degrade the sitemap, never fail the build.
   const [products, categories, collections, rooms] = await Promise.all([
-    getProducts({ per_page: 60, sort: "newest" })
-      .then((page) => page.data)
-      .catch(() => []),
+    allProducts().catch(() => []),
     getCategories().catch(() => []),
     getCollections().catch(() => []),
     getTaxonomies("room").catch(() => []),

@@ -18,7 +18,6 @@
    */
   --font-mono: var(--font-display), "Montserrat", ui-sans-serif, system-ui, sans-serif;
 
-
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -55,47 +54,49 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
-  /* Neutrals — warm off-whites derived from logo background */
-  --background: oklch(0.977 0.004 90);
-  /* #F8F8F6 off-white */
-  --foreground: oklch(0.31 0.008 90);
-  /* charcoal text */
-  --surface: oklch(0.955 0.006 90);
-  /* #F2F2EE neutral bg */
-  --surface-elevated: oklch(0.99 0.003 90);
+  /* Neutrals — warm whites that sit well beside timber and stone */
+  --background: oklch(0.986 0.003 85);
+  /* #FBFAF8 */
+  --foreground: oklch(0.2 0.004 85);
+  /* near-black text */
+  --surface: oklch(0.966 0.004 85);
+  /* #F5F4F1 */
+  --surface-elevated: oklch(0.995 0.002 85);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.31 0.008 90);
+  --card-foreground: oklch(0.2 0.004 85);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.31 0.008 90);
+  --popover-foreground: oklch(0.2 0.004 85);
 
-  /* Primary — Charcoal #56554D */
-  --primary: oklch(0.38 0.008 90);
-  --primary-foreground: oklch(0.98 0.004 90);
-  --charcoal: oklch(0.38 0.008 90);
-  --charcoal-dark: oklch(0.30 0.008 90);
-  /* #3F3E38 */
+  /* Primary — Black. Replaced the earlier charcoal #56554D (Oct 2026). */
+  --primary: oklch(0.18 0.003 85);
+  /* #121211 */
+  --primary-foreground: oklch(0.985 0.003 85);
+  --charcoal: oklch(0.18 0.003 85);
+  /* #121211 */
+  --charcoal-dark: oklch(0.145 0.002 85);
+  /* #0B0B0A — full-bleed bands, footer */
 
   /* Gold accents */
-  --gold: oklch(0.68 0.114 82);
-  /* #B59A34 */
-  --gold-light: oklch(0.78 0.108 84);
-  /* #D2B85C */
+  --gold: oklch(0.7 0.115 82);
+  /* #BC9F38 */
+  --gold-light: oklch(0.8 0.105 84);
+  /* #D8BE63 */
 
-  --secondary: oklch(0.94 0.008 90);
-  --secondary-foreground: oklch(0.31 0.008 90);
-  --muted: oklch(0.945 0.006 90);
-  --muted-foreground: oklch(0.48 0.008 90);
-  --accent: oklch(0.68 0.114 82);
-  --accent-foreground: oklch(0.15 0.005 90);
+  --secondary: oklch(0.955 0.004 85);
+  --secondary-foreground: oklch(0.2 0.004 85);
+  --muted: oklch(0.955 0.004 85);
+  --muted-foreground: oklch(0.48 0.006 85);
+  --accent: oklch(0.7 0.115 82);
+  --accent-foreground: oklch(0.15 0.003 85);
 
   --destructive: oklch(0.55 0.19 27);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.89 0.008 90);
-  --input: oklch(0.89 0.008 90);
-  --ring: oklch(0.68 0.114 82);
+  --border: oklch(0.91 0.004 85);
+  --input: oklch(0.89 0.004 85);
+  --ring: oklch(0.7 0.115 82);
 }
 
 .dark {
@@ -112,7 +113,7 @@
   --charcoal: oklch(0.92 0.008 90);
   --charcoal-dark: oklch(0.82 0.006 90);
   --gold: oklch(0.78 0.11 84);
-  --gold-light: oklch(0.85 0.10 86);
+  --gold-light: oklch(0.85 0.1 86);
   --secondary: oklch(0.28 0.006 90);
   --secondary-foreground: oklch(0.96 0.006 90);
   --muted: oklch(0.28 0.006 90);
@@ -155,6 +156,87 @@
     background: var(--gold);
     color: oklch(0.15 0 0);
   }
+
+  :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Shared building blocks for the storefront. Pages compose these rather than
+ * repeating long class strings, so buttons and labels stay identical
+ * everywhere.
+ */
+
+/* The small gold label above a section heading. */
+@utility eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+@utility btn {
+  display: inline-flex;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+/* Black on light backgrounds. */
+@utility btn-primary {
+  background-color: var(--charcoal);
+  color: var(--primary-foreground);
+
+  &:hover {
+    background-color: oklch(0.3 0.004 85);
+  }
+}
+
+/* Gold — the one call to action on a dark band or photograph. */
+@utility btn-gold {
+  background-color: var(--gold);
+  color: var(--charcoal-dark);
+
+  &:hover {
+    background-color: var(--gold-light);
+  }
+}
+
+@utility btn-outline {
+  border: 1px solid var(--border);
+  background-color: transparent;
+
+  &:hover {
+    border-color: var(--foreground);
+  }
+}
+
+/* Outline for dark bands and photographs. */
+@utility btn-outline-light {
+  border: 1px solid oklch(1 0 0 / 0.35);
+  color: oklch(1 0 0);
+
+  &:hover {
+    border-color: oklch(1 0 0);
+    background-color: oklch(1 0 0 / 0.08);
+  }
 }
 
 @keyframes hero-progress {
@@ -168,7 +250,6 @@
 }
 
 @layer utilities {
-
   /*
    * The fixed header changes height by breakpoint: one row on phones, a
    * utility bar above it from `md`, and a navigation row from `lg`. Pages
@@ -229,7 +310,6 @@
     text-wrap: pretty;
   }
 
-
   .container-fluid {
     width: 100%;
     max-width: 96rem;
@@ -262,8 +342,7 @@
   }
 
   .bg-grain {
-    background-image:
-      radial-gradient(oklch(0.5 0.01 90 / 0.05) 1px, transparent 1px);
+    background-image: radial-gradient(oklch(0.5 0.01 90 / 0.05) 1px, transparent 1px);
     background-size: 3px 3px;
   }
 
@@ -279,7 +358,9 @@
   }
 
   .hover-lift {
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s;
+    transition:
+      transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.5s;
   }
 
   .hover-lift:hover {

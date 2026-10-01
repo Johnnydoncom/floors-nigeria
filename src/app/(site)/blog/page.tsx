@@ -3,11 +3,13 @@ import Link from "next/link";
 import { ArrowUpRight, Clock } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Journal",
   description: "Craft, specification and design notes from Nigeria's premium flooring house.",
-};
+  path: "/blog",
+});
 
 const posts = [
   {

@@ -81,11 +81,7 @@ export function CategoryMenu({
           />
         )}
 
-        <Link
-          href="/products"
-          onClick={onNavigate}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center border border-charcoal-dark text-[13px] font-semibold uppercase tracking-[0.08em] transition hover:bg-charcoal-dark hover:text-primary-foreground"
-        >
+        <Link href="/products" onClick={onNavigate} className="btn btn-primary mt-4 h-11 w-full">
           Browse all products
         </Link>
       </div>
@@ -141,7 +137,7 @@ function MenuShell({ children }: { children: React.ReactNode }) {
 function RoomTile({ room, onNavigate }: { room: Taxonomy; onNavigate: () => void }) {
   return (
     <Link href={`/rooms/${room.slug}`} onClick={onNavigate} className="group">
-      <div className="relative aspect-square overflow-hidden bg-muted">
+      <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
         {room.image_url ? (
           <Image
             src={room.image_url}
@@ -176,7 +172,7 @@ function FeatureTile({
 }) {
   return (
     <Link href={href} onClick={onNavigate} className="group block">
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-muted">
         {imageUrl ? (
           <Image
             src={imageUrl}

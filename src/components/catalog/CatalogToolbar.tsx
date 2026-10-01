@@ -58,7 +58,7 @@ export function CatalogToolbar({
           onChange={(event) => setTerm(event.target.value)}
           placeholder="Search products, colours or SKU"
           aria-label="Search the catalogue"
-          className="h-10 rounded-none pl-9"
+          className="h-10 rounded-md bg-background pl-9"
         />
         {term && (
           <button
@@ -83,7 +83,7 @@ export function CatalogToolbar({
           id="catalog-sort"
           value={activeSort}
           onChange={(event) => set("sort", event.target.value)}
-          className="h-10 border border-border bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           {options.sorts.map((sort) => (
             <option key={sort} value={sort}>
@@ -94,7 +94,7 @@ export function CatalogToolbar({
 
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" className="h-10 rounded-none lg:hidden">
+            <Button variant="outline" className="h-10 rounded-md lg:hidden">
               <SlidersHorizontal className="h-4 w-4" aria-hidden />
               Filters{activeCount > 0 ? ` (${activeCount})` : ""}
             </Button>

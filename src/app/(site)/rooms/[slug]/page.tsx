@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { getTaxonomy } from "@/lib/api/catalog";
-import { absoluteUrl, breadcrumbSchema } from "@/lib/structured-data";
+import { breadcrumbSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { CategoryHero } from "@/components/catalog/CategoryHero";
@@ -22,19 +23,16 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
   const title = `${room.name} Flooring`;
 
-  return {
+  return pageMetadata({
     title,
     description:
       room.description ??
       `Flooring for the ${room.name.toLowerCase()} — supplied, delivered and installed across Nigeria by Floor Nigeria.`,
-    alternates: { canonical: `/rooms/${room.slug}` },
-    robots: hasRefinements(refinements) ? { index: false, follow: true } : undefined,
-    openGraph: {
-      title,
-      type: "website",
-      images: room.image_url ? [absoluteUrl(room.image_url)] : undefined,
-    },
-  };
+    path: `/rooms/${room.slug}`,
+    noindex: hasRefinements(refinements),
+    image: room.image_url,
+    imageAlt: title,
+  });
 }
 
 /**

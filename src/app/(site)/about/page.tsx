@@ -3,11 +3,14 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: "The story, the craft, and the crews behind Nigeria's premium flooring house.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "About Floor Nigeria",
+  description:
+    "The story, the craft and the installation crews behind Floor Nigeria — premium flooring supplied and installed across Lagos, Abuja and nationwide.",
+  path: "/about",
+});
 
 const heroImg = "/images/hero-living.jpg";
 const stoneImg = "/images/collection-stone.jpg";

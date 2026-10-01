@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Industries",
+export const metadata: Metadata = pageMetadata({
+  title: "Flooring for Homes, Offices, Hotels & Hospitals",
   description:
-    "Flooring solutions engineered for residential, hospitality, commercial, healthcare, education and retail.",
-};
+    "Flooring engineered for residential, hospitality, commercial, healthcare, education and retail spaces in Nigeria — specified, supplied and installed by Floor Nigeria.",
+  path: "/industries",
+});
 
 const industries = [
   {

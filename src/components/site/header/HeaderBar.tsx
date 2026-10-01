@@ -115,14 +115,14 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
             type="button"
             aria-label="Search the catalogue"
             onClick={() => setIsSearchOpen(true)}
-            className="inline-flex h-11 w-11 items-center justify-center transition hover:bg-muted lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-muted lg:hidden"
           >
             <Search className="h-5 w-5" aria-hidden />
           </button>
 
           <Link
             href="/account"
-            className="hidden h-11 items-center gap-2 px-3 text-sm font-semibold transition hover:bg-muted lg:inline-flex"
+            className="hidden h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition hover:bg-muted lg:inline-flex"
           >
             <User className="h-4 w-4" aria-hidden />
             Account
@@ -132,7 +132,7 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
             type="button"
             aria-label={`Quote list, ${cart.count} item${cart.count === 1 ? "" : "s"}`}
             onClick={() => cart.setOpen(true)}
-            className="relative inline-flex h-11 w-11 items-center justify-center transition hover:bg-muted"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-muted"
           >
             <ShoppingBag className="h-5 w-5" aria-hidden />
             {cart.count > 0 && (
@@ -142,18 +142,15 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
             )}
           </button>
 
-          <Link
-            href="/contact"
-            className="ml-1 hidden h-11 items-center whitespace-nowrap bg-charcoal-dark px-5 font-display text-[13px] font-semibold uppercase tracking-[0.08em] text-primary-foreground transition hover:bg-gold hover:text-charcoal-dark md:inline-flex"
-          >
-            Get a Quote
+          <Link href="/contact" className="btn btn-primary ml-2 hidden h-11 px-5 md:inline-flex">
+            Get a quote
           </Link>
 
           <button
             type="button"
             onClick={() => setIsMobileNavOpen(true)}
             aria-label="Open menu"
-            className="inline-flex h-11 w-11 items-center justify-center transition hover:bg-muted lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-muted lg:hidden"
           >
             <Menu className="h-6 w-6" aria-hidden />
           </button>
@@ -164,7 +161,7 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
       <nav
         aria-label="Main"
         onMouseLeave={scheduleMegaClose}
-        className="hidden border-y border-border lg:block"
+        className="hidden border-t border-border lg:block"
       >
         <div className="container-fluid flex items-center">
           {NAV_ITEMS.map((item) => (
@@ -176,7 +173,7 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
               aria-expanded={item.panel ? openPanel === item.panel : undefined}
               aria-current={isActive(item.href) ? "page" : undefined}
               className={cn(
-                "group relative inline-flex h-12 items-center gap-1 whitespace-nowrap px-4 font-display text-[13px] font-semibold uppercase tracking-[0.06em] text-foreground/75 transition-colors first:pl-0 hover:text-foreground",
+                "group relative inline-flex h-12 items-center gap-1 whitespace-nowrap px-4 font-display text-[13.5px] font-semibold text-foreground/70 transition-colors first:pl-0 hover:text-foreground",
                 (isActive(item.href) || openPanel === item.panel) && "text-foreground",
               )}
             >
@@ -192,7 +189,7 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
               )}
               <span
                 className={cn(
-                  "absolute inset-x-4 bottom-0 h-[3px] origin-left bg-gold transition-transform",
+                  "absolute inset-x-4 bottom-0 h-0.5 origin-left bg-gold transition-transform group-first:left-0",
                   openPanel === item.panel ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100",
                 )}
               />

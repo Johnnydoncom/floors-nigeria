@@ -1,16 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { getCategories } from "@/lib/api/catalog";
 import { breadcrumbSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Flooring Categories",
   description:
     "Every flooring family Floor Nigeria supplies — SPC and vinyl, engineered wood, artificial grass, epoxy, mats, wall panels and accessories.",
-  alternates: { canonical: "/categories" },
-};
+  path: "/categories",
+});
 
 /**
  * The directory of category landing pages: one crawlable link per category,

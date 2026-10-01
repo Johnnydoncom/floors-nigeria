@@ -60,7 +60,7 @@ export function HeaderSearch({ className }: { className?: string }) {
           onKeyDown={(event) => event.key === "Escape" && setIsFocused(false)}
           placeholder="Search SPC, vinyl, grass, epoxy or a SKU…"
           autoComplete="off"
-          className="h-11 w-full border border-border bg-surface pl-11 pr-10 text-sm outline-none transition focus:border-gold focus:bg-background"
+          className="h-11 w-full rounded-full border border-transparent bg-surface pl-11 pr-10 text-sm outline-none transition placeholder:text-muted-foreground/80 hover:border-border focus:border-gold focus:bg-background focus:ring-4 focus:ring-gold/10"
         />
         {term && (
           <button
@@ -75,7 +75,7 @@ export function HeaderSearch({ className }: { className?: string }) {
       </form>
 
       {isOpen && (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-[70vh] overflow-y-auto border border-border bg-background shadow-elevated">
+        <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-background shadow-elevated">
           <SearchSuggestions
             term={term}
             results={results}

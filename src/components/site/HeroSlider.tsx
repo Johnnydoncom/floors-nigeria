@@ -126,13 +126,16 @@ export function HeroSlider() {
             // The hero is the first thing on the page and almost always the LCP
             // element, so the visible slide is fetched eagerly rather than lazily.
             priority={index === 0}
+            // A slide's image only mounts while that slide is on screen, so
+            // lazy-loading it would only delay the visible hero.
+            loading="eager"
             sizes="100vw"
             className="object-cover"
           />
         </motion.div>
       </AnimatePresence>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/85 via-charcoal-dark/45 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/80 via-charcoal-dark/35 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-charcoal-dark/70 to-transparent" />
 
       <div className="relative h-full container-fluid flex flex-col justify-end pb-10 md:pb-14 text-white">
@@ -148,23 +151,22 @@ export function HeroSlider() {
               <div className="inline-flex items-center gap-2.5 border-l-2 border-gold pl-3 text-[11px] font-mono uppercase tracking-[0.24em] text-gold-light">
                 {slide.eyebrow}
               </div>
-              <h1 className="mt-5 font-display text-[clamp(2.5rem,6.2vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
+              {/* The page's h1 is the server-rendered intro below the carousel, so it
+                  stays the same for crawlers whichever slide is showing. */}
+              <h2 className="mt-5 font-display text-[clamp(2.5rem,6.2vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
                 {slide.title} <span className="text-gold-light">{slide.accent}</span>
-              </h1>
+              </h2>
               <p className="mt-5 max-w-xl text-base md:text-lg text-white/75 leading-relaxed">
                 {slide.copy}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href={slide.cta.href}
-                  className="group h-12 inline-flex items-center gap-2 bg-gold px-6 text-sm font-semibold text-charcoal-dark hover:bg-gold-light transition"
-                >
+                <Link href={slide.cta.href} className="group btn btn-gold">
                   {slide.cta.label}
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
                 <Link
                   href={slide.secondary.href}
-                  className="h-12 inline-flex items-center px-6 text-sm font-semibold border border-white/35 hover:bg-white/10 transition"
+                  className="btn btn-outline-light backdrop-blur-sm"
                 >
                   {slide.secondary.label}
                 </Link>
@@ -179,14 +181,14 @@ export function HeroSlider() {
             <button
               onClick={() => go(-1)}
               aria-label="Previous slide"
-              className="h-10 w-10 grid place-items-center border border-white/25 hover:bg-white/10 transition"
+              className="h-10 w-10 grid place-items-center rounded-full border border-white/25 hover:bg-white/10 transition"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => go(1)}
               aria-label="Next slide"
-              className="h-10 w-10 grid place-items-center border border-white/25 hover:bg-white/10 transition"
+              className="h-10 w-10 grid place-items-center rounded-full border border-white/25 hover:bg-white/10 transition"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -197,7 +199,7 @@ export function HeroSlider() {
                   onClick={() => setIndex(i)}
                   aria-label={`Go to ${s.eyebrow}`}
                   aria-current={i === index}
-                  className="group relative h-1 w-10 md:w-16 bg-white/25 overflow-hidden"
+                  className="group relative h-0.5 w-10 md:w-16 rounded-full bg-white/25 overflow-hidden"
                 >
                   <span
                     className={`absolute inset-y-0 left-0 bg-gold ${i === index ? "animate-[hero-progress_6.5s_linear_forwards]" : "w-0"}`}

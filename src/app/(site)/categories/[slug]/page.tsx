@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { getCategory } from "@/lib/api/catalog";
-import { absoluteUrl, breadcrumbSchema } from "@/lib/structured-data";
+import { breadcrumbSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { CategoryDescription } from "@/components/catalog/CategoryDescription";
@@ -23,7 +24,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
   const { seo } = category;
 
-  return {
+  return pageMetadata({
     title: seo.title,
     description:
       seo.description ??
@@ -31,15 +32,12 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
       `Browse ${category.name} from Floor Nigeria — supplied, delivered and installed nationwide.`,
     // Filtered and paginated views point back here, so refinements never
     // compete with the category page in search results.
-    alternates: { canonical: seo.canonical ?? `/categories/${category.slug}` },
-    robots: hasRefinements(refinements) ? { index: false, follow: true } : undefined,
-    openGraph: {
-      title: seo.title,
-      description: seo.description ?? undefined,
-      type: "website",
-      images: category.image_url ? [absoluteUrl(category.image_url)] : undefined,
-    },
-  };
+    path: seo.canonical ?? `/categories/${category.slug}`,
+    noindex: hasRefinements(refinements),
+    image: category.image_url,
+    imageAlt: `${category.name} flooring`,
+    keywords: [category.name, `${category.name} Nigeria`, `${category.name} Lagos`],
+  });
 }
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {

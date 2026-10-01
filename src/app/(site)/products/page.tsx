@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { hasRefinements, type SearchParamsRecord } from "@/lib/catalog-filters";
 
@@ -17,12 +18,13 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const params = await searchParams;
   const isRefined = hasRefinements(params);
 
-  return {
-    title: isRefined && params.q ? `Search: ${params.q}` : "Flooring Catalogue",
+  return pageMetadata({
+    title: isRefined && params.q ? `Search: ${params.q}` : "Flooring Catalogue — Shop All Floors",
     description: DESCRIPTION,
-    alternates: { canonical: "/products" },
-    robots: isRefined ? { index: false, follow: true } : undefined,
-  };
+    path: "/products",
+    // Filtered and searched views point back to the full catalogue.
+    noindex: isRefined,
+  });
 }
 
 export default async function ProductsPage({ searchParams }: PageProps) {
