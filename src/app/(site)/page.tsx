@@ -154,13 +154,22 @@ export default function Home() {
       {/* BESTSELLERS */}
       <section className="bg-surface py-20 md:py-28 border-y border-border">
         <div className="container-fluid">
-          <Reveal className="max-w-2xl">
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">
-              02 · Bestsellers
-            </p>
-            <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
-              Specified most often this quarter.
-            </h2>
+          <Reveal className="flex flex-wrap items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold">
+                02 · Bestsellers
+              </p>
+              <h2 className="mt-4 font-display text-3xl md:text-5xl tracking-tight text-balance">
+                Specified most often this quarter.
+              </h2>
+            </div>
+            <Link
+              href="/products"
+              className="group inline-flex items-center gap-2 border-b-2 border-charcoal-dark pb-1 font-mono text-[11px] uppercase tracking-[0.2em] transition-colors hover:border-gold hover:text-gold"
+            >
+              Shop all flooring
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
           </Reveal>
 
           <Suspense fallback={<ProductGridSkeleton count={4} />}>
@@ -412,7 +421,24 @@ export default function Home() {
  * the page render immediately (§19, §28).
  */
 async function BestsellerGrid() {
-  const { data: products } = await getProducts({ featured: true, sort: "popular", per_page: 4 });
+  // Prefer products the team has flagged as featured; until any are, show the
+  // most popular so the section is never an empty band.
+  let { data: products } = await getProducts({ featured: true, sort: "popular", per_page: 4 });
+  if (products.length === 0) {
+    ({ data: products } = await getProducts({ sort: "popular", per_page: 4 }));
+  }
+
+  if (products.length === 0) {
+    return (
+      <p className="mt-10 border border-dashed border-border py-16 text-center text-muted-foreground">
+        Our bestsellers are on their way.{" "}
+        <Link href="/products" className="underline underline-offset-4 hover:text-gold">
+          Browse the full range
+        </Link>
+        .
+      </p>
+    );
+  }
 
   return (
     <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
