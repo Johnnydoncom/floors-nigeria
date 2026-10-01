@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
-import { ContactForm } from "@/components/site/ContactForm";
+import { Suspense } from "react";
+import { ContactForm, ContactFormFromQuery } from "@/components/site/ContactForm";
 import { JsonLd } from "@/components/site/JsonLd";
 import { whatsAppLink } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
@@ -57,7 +58,9 @@ export default function ContactPage() {
 
       <section className="container-fluid grid gap-8 py-14 lg:grid-cols-12">
         <div className="lg:col-span-7">
-          <ContactForm />
+          <Suspense fallback={<ContactForm />}>
+            <ContactFormFromQuery />
+          </Suspense>
         </div>
 
         <aside className="space-y-4 lg:col-span-5" aria-label="Showrooms and opening hours">

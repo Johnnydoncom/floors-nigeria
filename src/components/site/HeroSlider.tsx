@@ -20,14 +20,14 @@ type Slide = {
 
 const slides: Slide[] = [
   {
-    eyebrow: "Engineered Wood",
+    eyebrow: "Real & Engineered Wood",
     title: "Floors built for",
     accent: "a lifetime.",
     copy: "European white-oak planks and herringbone parquet, UV-oiled and acclimatised for the Nigerian climate.",
     img: "/images/hero-floor.jpg",
     alt: "Wide-plank European oak herringbone flooring in a Lagos penthouse",
-    cta: { label: "Browse engineered wood", href: "/products" },
-    secondary: { label: "Request samples", href: "/contact" },
+    cta: { label: "Browse wood flooring", href: "/categories/real-wood-flooring" },
+    secondary: { label: "Request samples", href: "/contact?enquiry=samples" },
     spec: [
       ["Wear layer", "4 mm oak"],
       ["Formats", "Plank · Chevron"],
@@ -41,8 +41,8 @@ const slides: Slide[] = [
     copy: "Stone-polymer core planks rated for airports, hotels and hospitals — installed over any subfloor, in days not weeks.",
     img: "/images/collection-spc.jpg",
     alt: "Modern hallway finished in wood-look SPC flooring",
-    cta: { label: "Explore SPC & LVT", href: "/products" },
-    secondary: { label: "Get a trade quote", href: "/contact" },
+    cta: { label: "Explore SPC flooring", href: "/categories/rigid-vinyl-floor-spc-flooring" },
+    secondary: { label: "Get a trade quote", href: "/contact?enquiry=trade" },
     spec: [
       ["Core", "5.5 mm SPC"],
       ["Rating", "Class 33/42"],
@@ -50,18 +50,18 @@ const slides: Slide[] = [
     ],
   },
   {
-    eyebrow: "Natural Stone",
-    title: "Quarried stone,",
-    accent: "specified right.",
-    copy: "Book-matched marble, honed limestone and terrazzo — sourced, templated and laid by our own installation crews.",
-    img: "/images/collection-stone.jpg",
-    alt: "Book-matched marble flooring in a hotel lobby",
-    cta: { label: "View stone collection", href: "/collections" },
+    eyebrow: "Laminate Flooring",
+    title: "The look of timber,",
+    accent: "built for wear.",
+    copy: "Scratch-resistant laminate planks in warm oak and contemporary greys — quick to install and easy to live with.",
+    img: "/images/hero-living.jpg",
+    alt: "Living room finished in wide oak-look laminate flooring",
+    cta: { label: "Shop laminate", href: "/categories/laminate-flooring" },
     secondary: { label: "Talk to a specifier", href: "/contact" },
     spec: [
-      ["Finishes", "Honed · Polished"],
-      ["Slabs", "Book-matched"],
-      ["Sealing", "Included"],
+      ["Core", "HDF"],
+      ["Install", "Click-lock"],
+      ["Trims", "Matching skirting"],
     ],
   },
   {

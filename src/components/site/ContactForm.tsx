@@ -1,10 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { InputHTMLAttributes } from "react";
 import { Check, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+/**
+ * Links elsewhere on the site open the form already set up for what the
+ * visitor clicked — "Order samples" arrives as a sample request.
+ */
+const ENQUIRIES = {
+  samples: {
+    title: "Sample request",
+    note: "Tell us which floors you'd like to see — up to five samples, delivered nationwide.",
+    message: "I'd like to order samples of: ",
+  },
+  trade: {
+    title: "Trade account application",
+    note: "For architects, contractors and developers: project pricing and a dedicated account manager.",
+    message: "I'd like to open a trade account for my firm. Typical project size: ",
+  },
+} as const;
+
+export type Enquiry = keyof typeof ENQUIRIES;
+
+function isEnquiry(value: string | null): value is Enquiry {
+  // Own keys only: `in` would also accept inherited names like "toString".
+  return value !== null && Object.hasOwn(ENQUIRIES, value);
+}
 
 const PROJECT_TYPES = ["Residential", "Commercial", "Hospitality", "Healthcare", "Retail", "Other"];
 
@@ -26,9 +51,10 @@ function Field({ label, ...rest }: InputHTMLAttributes<HTMLInputElement> & { lab
  * The consultation enquiry form — the only interactive part of the contact
  * page, so it is the only part that ships JavaScript.
  */
-export function ContactForm() {
+export function ContactForm({ enquiry }: { enquiry?: Enquiry }) {
   const [sent, setSent] = useState(false);
   const [projectType, setProjectType] = useState(PROJECT_TYPES[0]);
+  const preset = enquiry ? ENQUIRIES[enquiry] : null;
 
   return (
     <form
@@ -40,6 +66,14 @@ export function ContactForm() {
       }}
       className="space-y-5 rounded-xl border border-border bg-surface p-6 md:p-10"
     >
+      {preset && (
+        <div className="rounded-lg border border-gold/40 bg-gold/10 p-4">
+          <p className="font-display font-semibold">{preset.title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{preset.note}</p>
+          <input type="hidden" name="enquiry" value={enquiry} />
+        </div>
+      )}
+
       <div className="grid gap-5 md:grid-cols-2">
         <Field label="Full name" name="name" autoComplete="name" placeholder="Adaora Nwosu" />
         <Field
@@ -96,6 +130,7 @@ export function ContactForm() {
         <textarea
           name="message"
           rows={5}
+          defaultValue={preset?.message}
           placeholder="Tell us about the project — location, area, timeline…"
           className={cn(control, "p-4")}
         />
@@ -114,4 +149,16 @@ export function ContactForm() {
       </button>
     </form>
   );
+}
+
+/**
+ * The form preset from `?enquiry=` in the URL. Reading the URL makes this
+ * request-time, so the page renders it inside Suspense with the plain form
+ * as the prerendered fallback.
+ */
+export function ContactFormFromQuery() {
+  const enquiry = useSearchParams().get("enquiry");
+
+  // Remount when the preset changes so the message default is applied.
+  return <ContactForm key={enquiry ?? "none"} enquiry={isEnquiry(enquiry) ? enquiry : undefined} />;
 }

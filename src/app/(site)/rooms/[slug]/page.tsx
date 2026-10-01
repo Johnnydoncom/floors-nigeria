@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
-import { getTaxonomy } from "@/lib/api/catalog";
+import { getCategories, getTaxonomy } from "@/lib/api/catalog";
+import { FloorCard } from "@/components/catalog/FloorCard";
+import { categoryHref, floorsForRoom } from "@/lib/floor-families";
 import { breadcrumbSchema } from "@/lib/structured-data";
 import { JsonLd } from "@/components/site/JsonLd";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
@@ -45,6 +47,10 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
 
   if (!room) notFound();
 
+  // Products are not yet tagged by room upstream, so the floors that suit
+  // the room lead the page and link to their categories either way.
+  const floors = floorsForRoom(room.slug, await getCategories().catch(() => []));
+
   const trail = [
     { name: "Home", url: "/" },
     { name: "Rooms", url: "/products" },
@@ -66,6 +72,26 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
         productCount={room.products_count}
         trail={trail}
       />
+
+      {floors.length > 0 && (
+        <section className="container-fluid pt-12" aria-labelledby="room-floors">
+          <p className="eyebrow">Recommended</p>
+          <h2 id="room-floors" className="mt-3 font-display text-2xl tracking-tight md:text-3xl">
+            Floors for the {room.name.toLowerCase()}
+          </h2>
+          <div className="mt-6 grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-4">
+            {floors.map((category) => (
+              <FloorCard
+                key={category.slug}
+                href={categoryHref(category.slug)}
+                name={category.name}
+                image={category.image_url}
+                sizes="(min-width: 1024px) 25vw, 50vw"
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <CatalogBrowser
         basePath={`/rooms/${room.slug}`}

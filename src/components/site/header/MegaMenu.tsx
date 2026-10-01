@@ -6,13 +6,12 @@ import { ArrowRight } from "lucide-react";
 import type { Taxonomy } from "@/lib/api/types";
 import type { NavigationData } from "@/lib/api/navigation";
 
-const CATEGORY_COLUMNS = 4;
-const CHILDREN_PER_COLUMN = 5;
+const LINKS_PER_GROUP = 7;
 
 /**
- * The materials menu: the real category tree, parents as headings and their
- * children beneath, so a visitor reaches any of the ~46 categories in one
- * move rather than drilling through pages (§5, §6).
+ * The materials menu: every category, grouped by what a buyer is shopping
+ * for (see `floor-families.ts`) rather than A–Z, so Vinyl and Laminate are
+ * not buried under "Accessories" and "Aluminum Doormat Fabric" (§5, §6).
  */
 export function CategoryMenu({
   navigation,
@@ -21,41 +20,30 @@ export function CategoryMenu({
   navigation: NavigationData;
   onNavigate: () => void;
 }) {
-  const { categories, collections } = navigation;
+  const { groups, collections } = navigation;
   const featured = collections[0];
-  const columns = categories.slice(0, CATEGORY_COLUMNS * 2);
 
   return (
     <MenuShell>
-      <div className="col-span-9 grid grid-cols-4 gap-x-8 gap-y-7">
-        {columns.map((category) => (
-          <div key={category.slug}>
-            <Link
-              href={`/categories/${category.slug}`}
-              onClick={onNavigate}
-              className="font-display text-[13px] font-semibold uppercase tracking-[0.08em] transition hover:text-gold"
-            >
-              {category.name}
-            </Link>
-
-            {category.children && category.children.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {category.children.slice(0, CHILDREN_PER_COLUMN).map((child) => (
-                  <MenuLink
-                    key={child.slug}
-                    href={`/categories/${child.slug}`}
-                    onNavigate={onNavigate}
-                  >
-                    {child.name}
-                  </MenuLink>
-                ))}
-                {category.children.length > CHILDREN_PER_COLUMN && (
-                  <MenuLink href={`/categories/${category.slug}`} onNavigate={onNavigate} subdued>
-                    View all {category.children.length}
-                  </MenuLink>
-                )}
-              </ul>
-            )}
+      <div
+        className="col-span-9 grid gap-x-8 gap-y-7"
+        style={{ gridTemplateColumns: `repeat(${Math.min(groups.length, 5)}, minmax(0, 1fr))` }}
+      >
+        {groups.map((group) => (
+          <div key={group.title}>
+            <MenuHeading>{group.title}</MenuHeading>
+            <ul className="mt-4 space-y-2.5">
+              {group.links.slice(0, LINKS_PER_GROUP).map((link) => (
+                <MenuLink key={link.href} href={link.href} onNavigate={onNavigate}>
+                  {link.name}
+                </MenuLink>
+              ))}
+              {group.links.length > LINKS_PER_GROUP && (
+                <MenuLink href="/categories" onNavigate={onNavigate} subdued>
+                  View all
+                </MenuLink>
+              )}
+            </ul>
           </div>
         ))}
       </div>
@@ -63,7 +51,8 @@ export function CategoryMenu({
       <div className="col-span-3">
         {featured ? (
           <FeatureTile
-            href={`/collections/${featured.slug}`}
+            // Collections have a listing page but no detail route yet.
+            href="/collections"
             imageUrl={featured.image_url}
             eyebrow="Collection"
             title={featured.name}
@@ -73,7 +62,7 @@ export function CategoryMenu({
         ) : (
           <FeatureTile
             href="/visualizer"
-            imageUrl={null}
+            imageUrl="/images/ai-visualizer.jpg"
             eyebrow="Free tool"
             title="See it in your room"
             description="Upload a photo and preview any floor in your own space before you buy."
@@ -81,9 +70,14 @@ export function CategoryMenu({
           />
         )}
 
-        <Link href="/products" onClick={onNavigate} className="btn btn-primary mt-4 h-11 w-full">
-          Browse all products
-        </Link>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link href="/products" onClick={onNavigate} className="btn btn-primary h-11 px-3">
+            All products
+          </Link>
+          <Link href="/categories" onClick={onNavigate} className="btn btn-outline h-11 px-3">
+            All categories
+          </Link>
+        </div>
       </div>
     </MenuShell>
   );

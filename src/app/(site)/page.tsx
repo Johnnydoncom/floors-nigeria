@@ -15,8 +15,10 @@ import {
 import { Reveal } from "@/components/site/Reveal";
 import { HeroSlider } from "@/components/site/HeroSlider";
 import { JsonLd } from "@/components/site/JsonLd";
-import { naira } from "@/lib/format";
-import { getProducts } from "@/lib/api/catalog";
+import { getCategories, getProducts } from "@/lib/api/catalog";
+import { FloorCard } from "@/components/catalog/FloorCard";
+import { resolveFloorFamilies } from "@/lib/floor-families";
+import { PROJECTS } from "@/lib/content/projects";
 import { ProductCard } from "@/components/catalog/ProductCard";
 import { ProductGridSkeleton } from "@/components/catalog/ProductGrid";
 import { organizationSchema, websiteSchema } from "@/lib/structured-data";
@@ -39,15 +41,11 @@ export const metadata: Metadata = {
   title: { absolute: `${SITE_NAME} — ${SITE_TAGLINE}` },
 };
 
-const oakImg = "/images/collection-oak.jpg";
 const spcImg = "/images/collection-spc.jpg";
-const stoneImg = "/images/collection-stone.jpg";
 const hotelImg = "/images/project-hotel.jpg";
 const officeImg = "/images/project-office.jpg";
 const residenceImg = "/images/project-residence.jpg";
 const aiImg = "/images/ai-visualizer.jpg";
-const heroFloor = "/images/hero-floor.jpg";
-const materialsStrip = "/images/materials-strip.jpg";
 
 const promises = [
   { icon: Truck, title: "Nationwide delivery", note: "Free above ₦500,000" },
@@ -56,20 +54,19 @@ const promises = [
   { icon: Ruler, title: "Certified installers", note: "5-year workmanship cover" },
 ];
 
-const materials = [
-  { name: "Engineered Wood", img: oakImg, from: 18500 },
-  { name: "SPC & Vinyl", img: spcImg, from: 7600 },
-  { name: "Natural Stone", img: stoneImg, from: 27500 },
-  { name: "Wall Panels", img: residenceImg, from: 21000 },
-  { name: "Outdoor Decking", img: heroFloor, from: 15900 },
-  { name: "Artificial Grass", img: materialsStrip, from: 6400 },
-];
+/** How many floor families the "Shop by floor" grid shows. */
+const HOME_FLOORS = 6;
 
 const rooms = [
-  { name: "Living rooms", img: residenceImg, note: "Warm oak, wide plank" },
-  { name: "Kitchens & baths", img: spcImg, note: "100% waterproof SPC" },
-  { name: "Offices & lobbies", img: officeImg, note: "Heavy-traffic rated" },
-  { name: "Hotels & lounges", img: hotelImg, note: "Acoustic + stone" },
+  {
+    name: "Living rooms",
+    slug: "living-room",
+    img: residenceImg,
+    note: "Laminate, wood and carpet",
+  },
+  { name: "Kitchens & baths", slug: "kitchen", img: spcImg, note: "100% waterproof SPC" },
+  { name: "Offices & lobbies", slug: "office", img: officeImg, note: "Carpet tiles and SPC" },
+  { name: "Hotels & lounges", slug: "hotel", img: hotelImg, note: "Broadloom and wall panels" },
 ];
 
 const tools = [
@@ -91,12 +88,6 @@ const tools = [
     desc: "Free consultation, nationwide",
     href: "/contact",
   },
-];
-
-const projects = [
-  { name: "Radisson Blu Lagos", type: "Hospitality · 4,200 m²", img: hotelImg },
-  { name: "Access Tower Ikoyi", type: "Commercial · 12,800 m²", img: officeImg },
-  { name: "Banana Island Residence", type: "Residential · 620 m²", img: residenceImg },
 ];
 
 const testimonials = [
@@ -177,41 +168,14 @@ export default function Home() {
       {/* SHOP BY MATERIAL */}
       <section className="container-fluid py-20 md:py-28">
         <SectionHeading
-          eyebrow="Shop by material"
-          title="Six material families. One standard."
+          eyebrow="Shop by floor"
+          title="Every floor we supply, laid by our own crews."
           link={{ href: "/categories", label: "All categories" }}
         />
 
-        <div className="mt-10 grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
-          {materials.map((m, i) => (
-            <Reveal key={m.name} delay={(i % 3) * 0.06}>
-              <Link
-                href="/products"
-                className="group relative block aspect-[5/4] overflow-hidden rounded-lg bg-muted"
-              >
-                <Image
-                  src={m.img}
-                  alt={`${m.name} flooring`}
-                  fill
-                  sizes="(min-width: 1024px) 33vw, 50vw"
-                  className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-charcoal-dark/80 via-charcoal-dark/5 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-primary-foreground md:p-6">
-                  <div className="min-w-0">
-                    <h3 className="font-display text-lg tracking-tight md:text-2xl">{m.name}</h3>
-                    <p className="mt-0.5 text-xs text-primary-foreground/75 md:text-sm">
-                      From <span className="font-mono">{naira(m.from)}</span>/m²
-                    </p>
-                  </div>
-                  <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15 backdrop-blur transition group-hover:bg-gold group-hover:text-charcoal-dark sm:grid">
-                    <ArrowUpRight className="h-4 w-4" aria-hidden />
-                  </span>
-                </div>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
+        <Suspense fallback={<FloorGridSkeleton />}>
+          <FloorGrid />
+        </Suspense>
       </section>
 
       {/* BESTSELLERS */}
@@ -235,7 +199,7 @@ export default function Home() {
         <div className="mt-10 grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
           {rooms.map((r, i) => (
             <Reveal key={r.name} delay={(i % 4) * 0.06}>
-              <Link href="/industries" className="group block">
+              <Link href={`/rooms/${r.slug}`} className="group block">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-muted">
                   <Image
                     src={r.img}
@@ -334,13 +298,13 @@ export default function Home() {
         </dl>
 
         <div className="mt-8 grid gap-x-5 gap-y-8 md:grid-cols-3">
-          {projects.map((p, i) => (
-            <Reveal key={p.name} delay={i * 0.08}>
-              <Link href="/projects" className="group block">
+          {PROJECTS.slice(0, 3).map((p, i) => (
+            <Reveal key={p.slug} delay={i * 0.08}>
+              <Link href={`/projects/${p.slug}`} className="group block">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
                   <Image
-                    src={p.img}
-                    alt={`${p.name} — ${p.type}`}
+                    src={p.image}
+                    alt={`${p.name}, ${p.location}`}
                     fill
                     sizes="(min-width: 768px) 33vw, 100vw"
                     className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
@@ -348,7 +312,7 @@ export default function Home() {
                 </div>
                 <div className="pt-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {p.type}
+                    {p.sector} · {p.area}
                   </p>
                   <h3 className="mt-1 font-display text-xl tracking-tight transition group-hover:text-gold md:text-2xl">
                     {p.name}
@@ -407,7 +371,7 @@ export default function Home() {
                 Project pricing, free sample boxes, BIM files and a dedicated account manager for
                 architects, contractors and developers.
               </p>
-              <Link href="/contact" className="btn btn-gold mt-8">
+              <Link href="/contact?enquiry=trade" className="btn btn-gold mt-8">
                 Apply now <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -420,7 +384,7 @@ export default function Home() {
                 Order up to five samples for ₦2,500 each — fully refunded against your first order
                 above 50 m².
               </p>
-              <Link href="/products" className="btn btn-primary mt-8">
+              <Link href="/contact?enquiry=samples" className="btn btn-primary mt-8">
                 Order samples
               </Link>
             </div>
@@ -461,6 +425,39 @@ function SectionHeading({
         </Link>
       )}
     </Reveal>
+  );
+}
+
+/**
+ * The headline floor families, from the live category tree so every tile
+ * opens a real category page with that category's own photograph.
+ */
+async function FloorGrid() {
+  const floors = resolveFloorFamilies(await getCategories().catch(() => [])).slice(0, HOME_FLOORS);
+
+  return (
+    <div className="mt-10 grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+      {floors.map((floor, i) => (
+        <Reveal key={floor.slug} delay={(i % 3) * 0.06}>
+          <FloorCard
+            href={floor.href}
+            name={floor.name}
+            tagline={floor.tagline}
+            image={floor.image}
+          />
+        </Reveal>
+      ))}
+    </div>
+  );
+}
+
+function FloorGridSkeleton() {
+  return (
+    <div className="mt-10 grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+      {Array.from({ length: HOME_FLOORS }, (_, i) => (
+        <div key={i} className="aspect-[5/4] animate-pulse rounded-lg bg-muted" />
+      ))}
+    </div>
   );
 }
 

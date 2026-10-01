@@ -3,6 +3,12 @@ import { cacheLife, cacheTag } from "next/cache";
 import { CacheTags } from "./client";
 import { getCategories, getCollections, getTaxonomies } from "./catalog";
 import type { Category, Collection, Taxonomy } from "./types";
+import {
+  resolveFloorFamilies,
+  resolveMenuGroups,
+  type FloorLink,
+  type MenuGroup,
+} from "@/lib/floor-families";
 
 /**
  * The navigation model behind the header (§5, §6).
@@ -16,6 +22,10 @@ export type NavigationData = {
   collections: Collection[];
   rooms: Taxonomy[];
   looks: Taxonomy[];
+  /** The headline floors, in merchandising order (see floor-families.ts). */
+  floors: FloorLink[];
+  /** The full materials menu, grouped by what a buyer is shopping for. */
+  groups: MenuGroup[];
 };
 
 export async function getNavigation(): Promise<NavigationData> {
@@ -31,5 +41,12 @@ export async function getNavigation(): Promise<NavigationData> {
     getTaxonomies("look").catch(() => []),
   ]);
 
-  return { categories, collections, rooms, looks };
+  return {
+    categories,
+    collections,
+    rooms,
+    looks,
+    floors: resolveFloorFamilies(categories),
+    groups: resolveMenuGroups(categories),
+  };
 }

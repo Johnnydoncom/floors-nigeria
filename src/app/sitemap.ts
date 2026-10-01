@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getCategories, getCollections, getProducts, getTaxonomies } from "@/lib/api/catalog";
+import { getCategories, getProducts, getTaxonomies } from "@/lib/api/catalog";
+import { PROJECTS } from "@/lib/content/projects";
 import { absoluteUrl } from "@/lib/structured-data";
 
 const STATIC_ROUTES = [
@@ -47,10 +48,9 @@ async function allProducts() {
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // A catalogue outage should degrade the sitemap, never fail the build.
-  const [products, categories, collections, rooms] = await Promise.all([
+  const [products, categories, rooms] = await Promise.all([
     allProducts().catch(() => []),
     getCategories().catch(() => []),
-    getCollections().catch(() => []),
     getTaxonomies("room").catch(() => []),
   ]);
 
@@ -73,8 +73,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
-    ...collections.map((collection) => ({
-      url: absoluteUrl(`/collections/${collection.slug}`),
+    // Collections have a listing page but no detail route yet, so their
+    // slugs are not listed here — they would be 404s.
+    ...PROJECTS.map((project) => ({
+      url: absoluteUrl(`/projects/${project.slug}`),
       changeFrequency: "monthly" as const,
       priority: 0.6,
     })),

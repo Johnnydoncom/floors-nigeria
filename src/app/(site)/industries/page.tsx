@@ -15,31 +15,43 @@ export const metadata: Metadata = pageMetadata({
 const industries = [
   {
     name: "Residential",
+    id: "residential",
+    href: "/rooms/living-room",
     desc: "Wide-plank oak, herringbone parquet and stone for homes.",
     img: "/images/hero-living.jpg",
   },
   {
     name: "Commercial",
+    id: "commercial",
+    href: "/rooms/office",
     desc: "LVT, SPC and carpet-tile for Grade-A office towers.",
     img: "/images/project-office.jpg",
   },
   {
     name: "Hospitality",
+    id: "hospitality",
+    href: "/rooms/hotel",
     desc: "Statement floors for hotels, restaurants and lounges.",
     img: "/images/project-hotel.jpg",
   },
   {
     name: "Healthcare",
+    id: "healthcare",
+    href: "/categories/vinyl-flooring",
     desc: "Hygienic, sound-absorbing surfaces for clinical spaces.",
     img: "/images/collection-spc.jpg",
   },
   {
     name: "Education",
+    id: "education",
+    href: "/categories/rigid-vinyl-floor-spc-flooring",
     desc: "Impact-rated flooring for schools and universities.",
     img: "/images/project-residence.jpg",
   },
   {
     name: "Retail",
+    id: "retail",
+    href: "/rooms/retail",
     desc: "Luxury display floors that outlast the traffic.",
     img: "/images/collection-stone.jpg",
   },
@@ -60,8 +72,8 @@ export default function Industries() {
       <section className="container-fluid py-16 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {industries.map((ind, idx) => (
           <Reveal key={ind.name} delay={(idx % 3) * 0.06}>
-            <Link href="/products" className="group block">
-              <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-muted">
+            <Link id={ind.id} href={ind.href} className="group block scroll-mt-40">
+              <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-muted">
                 <Image
                   src={ind.img}
                   alt={ind.name}

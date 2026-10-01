@@ -16,11 +16,21 @@ import { UtilityBar } from "./UtilityBar";
  * Server Component: the navigation is fetched and cached here, and only the
  * interactive shell below it ships JavaScript.
  */
+const UTILITY_LINKS = [
+  { label: "Floor Calculator", href: "/calculator" },
+  { label: "Installation", href: "/industries" },
+  { label: "Projects", href: "/projects" },
+  { label: "Contact", href: "/contact" },
+];
+
+// No backdrop-filter on the header: it would make the header the containing
+// block for its `position: fixed` children, trapping the mobile menu and the
+// search overlay inside the header's own box.
 export async function SiteHeader() {
   const navigation = await getNavigation();
 
   return (
-    <header className="sticky inset-x-0 top-0 z-50 bg-background/95 shadow-[0_1px_0_0_var(--border)] backdrop-blur-md supports-[backdrop-filter]:bg-background/85">
+    <header className="sticky inset-x-0 top-0 z-50 bg-background shadow-[0_1px_0_0_var(--border)]">
       <UtilityBar>
         <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-medium tracking-[0.04em]">
           <div className="flex items-center gap-6 text-primary-foreground/70">
@@ -58,9 +68,17 @@ export async function SiteHeader() {
               <MessageCircle className="h-3 w-3 text-gold-light" aria-hidden />
               WhatsApp
             </a>
-            <Link href="/projects" className="hidden transition hover:text-gold-light lg:inline">
-              Our Work
-            </Link>
+            {/* Tools and company pages; the main bar is reserved for floors. */}
+            <span className="hidden h-3 w-px bg-white/20 lg:block" aria-hidden />
+            {UTILITY_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="hidden transition hover:text-gold-light lg:inline"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         </div>
       </UtilityBar>

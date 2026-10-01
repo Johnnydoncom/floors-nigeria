@@ -19,50 +19,48 @@ const cols = [
   {
     title: "Solutions",
     links: [
-      ["Residential", "/industries"],
-      ["Commercial", "/industries"],
-      ["Hospitality", "/industries"],
-      ["Healthcare", "/industries"],
-      ["Education", "/industries"],
-      ["Retail", "/industries"],
+      ["Residential", "/industries#residential"],
+      ["Commercial", "/industries#commercial"],
+      ["Hospitality", "/industries#hospitality"],
+      ["Healthcare", "/industries#healthcare"],
+      ["Education", "/industries#education"],
+      ["Retail", "/industries#retail"],
     ],
   },
   {
-    title: "Studio",
+    title: "Plan & visualise",
     links: [
-      ["AI Room Visualizer", "/visualizer"],
+      ["Room Visualizer", "/visualizer"],
+      ["Room Designer", "/room-designer"],
       ["Floor Calculator", "/calculator"],
-      ["AI Design Assistant", "/visualizer"],
-      ["Downloads", "/blog"],
+      ["Order samples", "/contact?enquiry=samples"],
       ["Journal", "/blog"],
-      ["Projects", "/projects"],
     ],
   },
   {
     title: "Company",
     links: [
-      ["About", "/about"],
+      ["About us", "/about"],
+      ["Projects", "/projects"],
+      ["Trade accounts", "/contact?enquiry=trade"],
       ["Contact", "/contact"],
-      ["Careers", "/about"],
-      ["Privacy", "/about"],
-      ["Terms", "/about"],
-      ["FAQs", "/about"],
     ],
   },
 ];
 
 export async function Footer() {
   // A catalogue outage should not take the footer down with it.
-  const categories = await getNavigation()
-    .then((navigation) => navigation.categories)
+  const floors = await getNavigation()
+    .then((navigation) => navigation.floors)
     .catch(() => []);
 
   const columns = [
     {
       title: "Shop Flooring",
-      links: categories
-        .slice(0, 6)
-        .map((category): [string, string] => [category.name, `/categories/${category.slug}`]),
+      links: [
+        ...floors.slice(0, 7).map((floor): [string, string] => [floor.name, floor.href]),
+        ["All categories", "/categories"] as [string, string],
+      ],
     },
     ...cols,
   ];

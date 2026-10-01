@@ -5,11 +5,10 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronLeft, MessageCircle, Phone, X } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import type { NavigationData } from "@/lib/api/navigation";
-import type { Category } from "@/lib/api/types";
 import { whatsAppLink } from "@/lib/format";
 import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./HeaderBar";
+import { TOOL_LINKS } from "./HeaderBar";
 
 /**
  * Full-screen mobile navigation (§32).
@@ -18,6 +17,9 @@ import { NAV_ITEMS } from "./HeaderBar";
  * a category replaces the list with its children, which keeps every level one
  * thumb-height tall on a phone.
  */
+/** A list the drawer slides into: a category's children, or a floor family. */
+type DrillIn = { title: string; allHref?: string; links: { name: string; href: string }[] };
+
 export function MobileNav({
   navigation,
   onClose,
@@ -25,8 +27,8 @@ export function MobileNav({
   navigation: NavigationData;
   onClose: () => void;
 }) {
-  const [drilledInto, setDrilledInto] = useState<Category | null>(null);
-  const [openSection, setOpenSection] = useState<"materials" | "rooms" | null>("materials");
+  const [drilledInto, setDrilledInto] = useState<DrillIn | null>(null);
+  const [openSection, setOpenSection] = useState<"materials" | "rooms" | null>(null);
 
   // The page behind the drawer must not scroll while it is open.
   useEffect(() => {
@@ -53,7 +55,7 @@ export function MobileNav({
             className="-ml-2 inline-flex h-11 items-center gap-1 px-2 font-display text-sm font-semibold uppercase tracking-[0.06em]"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
-            All materials
+            Menu
           </button>
         ) : (
           <Logo className="h-7 w-auto" />
@@ -72,19 +74,54 @@ export function MobileNav({
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {drilledInto ? (
           <ul>
-            <MobileRow href={`/categories/${drilledInto.slug}`} onClose={onClose} emphasis>
-              All {drilledInto.name}
-            </MobileRow>
-            {(drilledInto.children ?? []).map((child) => (
-              <MobileRow key={child.slug} href={`/categories/${child.slug}`} onClose={onClose}>
-                {child.name}
+            {drilledInto.allHref && (
+              <MobileRow href={drilledInto.allHref} onClose={onClose} emphasis>
+                All {drilledInto.title}
+              </MobileRow>
+            )}
+            {drilledInto.links.map((link) => (
+              <MobileRow key={link.href} href={link.href} onClose={onClose}>
+                {link.name}
               </MobileRow>
             ))}
           </ul>
         ) : (
           <>
+            <div className="border-b border-border p-4">
+              <p className="eyebrow">Popular floors</p>
+              <ul className="mt-3 grid grid-cols-2 gap-2">
+                {navigation.floors.map((floor) => (
+                  <li key={floor.slug}>
+                    {floor.children?.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDrilledInto({ title: floor.label, links: floor.children! })
+                        }
+                        className="flex h-12 w-full items-center justify-between rounded-md border border-border px-3 text-left text-sm font-semibold"
+                      >
+                        {floor.label}
+                        <ChevronDown
+                          className="h-4 w-4 -rotate-90 text-muted-foreground"
+                          aria-hidden
+                        />
+                      </button>
+                    ) : (
+                      <Link
+                        href={floor.href}
+                        onClick={onClose}
+                        className="flex h-12 items-center rounded-md border border-border px-3 text-sm font-semibold transition active:bg-surface"
+                      >
+                        {floor.label}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <MobileSection
-              title="Shop by material"
+              title="All materials A–Z"
               isOpen={openSection === "materials"}
               onToggle={() => setOpenSection(openSection === "materials" ? null : "materials")}
             >
@@ -94,7 +131,16 @@ export function MobileNav({
                     <li key={category.slug} className="border-b border-border">
                       <button
                         type="button"
-                        onClick={() => setDrilledInto(category)}
+                        onClick={() =>
+                          setDrilledInto({
+                            title: category.name,
+                            allHref: `/categories/${category.slug}`,
+                            links: (category.children ?? []).map((child) => ({
+                              name: child.name,
+                              href: `/categories/${child.slug}`,
+                            })),
+                          })
+                        }
                         className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left text-[15px]"
                       >
                         <span>{category.name}</span>
@@ -138,7 +184,7 @@ export function MobileNav({
             </MobileSection>
 
             <ul className="border-t border-border">
-              {NAV_ITEMS.filter((item) => !item.panel).map((item) => (
+              {TOOL_LINKS.map((item) => (
                 <MobileRow key={item.label} href={item.href} onClose={onClose} emphasis>
                   {item.label}
                 </MobileRow>

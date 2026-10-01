@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Menu, Search, ShoppingBag, User } from "lucide-react";
+import { ChevronDown, Menu, Search, ShoppingBag, Sparkles, User } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import { useCart } from "@/lib/cart";
 import type { NavigationData } from "@/lib/api/navigation";
@@ -16,26 +16,29 @@ import { SearchOverlay } from "./SearchOverlay";
 
 const MEGA_CLOSE_DELAY_MS = 160;
 
-export type NavItem = {
-  label: string;
-  href: string;
-  /** Which mega panel this item opens, if any. */
-  panel?: "categories" | "rooms";
-};
+type Panel = "categories" | "rooms" | `floor:${string}`;
+
+export type NavItem = { label: string; href: string };
 
 /**
- * One entry per destination — the visualizer is a navigation item, not also a
- * toolbar button, so nothing appears twice.
+ * Pages that are not a floor: planning tools and the company. The header
+ * gives its bar to the floors themselves, so these live in the utility strip
+ * on desktop and in the drawer on mobile.
  */
-export const NAV_ITEMS: NavItem[] = [
-  { label: "Shop Flooring", href: "/products", panel: "categories" },
-  { label: "Shop by Room", href: "/products", panel: "rooms" },
+export const TOOL_LINKS: NavItem[] = [
   { label: "Room Visualizer", href: "/visualizer" },
+  { label: "Room Designer", href: "/room-designer" },
   { label: "Floor Calculator", href: "/calculator" },
   { label: "Installation", href: "/industries" },
   { label: "Projects", href: "/projects" },
   { label: "Contact", href: "/contact" },
 ];
+
+/**
+ * Floors beyond this many only show from `xl`, so the bar never wraps on a
+ * small laptop. Every floor is still one click away in "All Flooring".
+ */
+const FLOORS_AT_LG = 6;
 
 /**
  * The interactive header.
@@ -47,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
  */
 export function HeaderBar({ navigation }: { navigation: NavigationData }) {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [openPanel, setOpenPanel] = useState<NavItem["panel"] | null>(null);
+  const [openPanel, setOpenPanel] = useState<Panel | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,9 +86,9 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
     setIsMobileNavOpen(false);
   }
 
-  const openMega = (panel: NavItem["panel"]) => {
+  const openMega = (panel: Panel | null) => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpenPanel(panel ?? null);
+    setOpenPanel(panel);
   };
 
   const scheduleMegaClose = () => {
@@ -157,47 +160,97 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
         </div>
       </div>
 
-      {/* Navigation row */}
+      {/* Navigation row: the floors themselves, linked to their category pages */}
       <nav
         aria-label="Main"
         onMouseLeave={scheduleMegaClose}
         className="hidden border-t border-border lg:block"
       >
         <div className="container-fluid flex items-center">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onMouseEnter={() => openMega(item.panel)}
-              onFocus={() => openMega(item.panel)}
-              aria-expanded={item.panel ? openPanel === item.panel : undefined}
-              aria-current={isActive(item.href) ? "page" : undefined}
-              className={cn(
-                "group relative inline-flex h-12 items-center gap-1 whitespace-nowrap px-4 font-display text-[13.5px] font-semibold text-foreground/70 transition-colors first:pl-0 hover:text-foreground",
-                (isActive(item.href) || openPanel === item.panel) && "text-foreground",
-              )}
-            >
-              {item.label}
-              {item.panel && (
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform",
-                    openPanel === item.panel && "rotate-180",
-                  )}
-                  aria-hidden
-                />
-              )}
-              <span
-                className={cn(
-                  "absolute inset-x-4 bottom-0 h-0.5 origin-left bg-gold transition-transform group-first:left-0",
-                  openPanel === item.panel ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100",
+          <NavLink
+            href="/products"
+            isActive={isActive("/products")}
+            isOpen={openPanel === "categories"}
+            hasPanel
+            onOpen={() => openMega("categories")}
+            className="pl-0 pr-5 text-foreground"
+            underlineClassName="left-0 right-5"
+          >
+            All Flooring
+          </NavLink>
+
+          <span className="mr-1 h-5 w-px bg-border" aria-hidden />
+
+          {navigation.floors.map((floor, index) => {
+            const panel: Panel = `floor:${floor.slug}`;
+            const hasDropdown = Boolean(floor.children?.length);
+
+            return (
+              <div
+                key={floor.slug}
+                className={cn("relative", index >= FLOORS_AT_LG && "hidden xl:block")}
+              >
+                <NavLink
+                  href={floor.href}
+                  isActive={isActive(floor.href)}
+                  isOpen={openPanel === panel}
+                  hasPanel={hasDropdown}
+                  onOpen={() => openMega(hasDropdown ? panel : null)}
+                  className="px-3 2xl:px-4"
+                  underlineClassName="inset-x-3 2xl:inset-x-4"
+                >
+                  {floor.label}
+                </NavLink>
+
+                {hasDropdown && openPanel === panel && (
+                  <div
+                    onMouseEnter={() => openMega(panel)}
+                    className="absolute left-0 top-full z-10 w-64 rounded-b-lg border border-t-0 border-border bg-background p-2 shadow-luxe"
+                  >
+                    <ul>
+                      {floor.children!.map((child) => (
+                        <li key={child.href}>
+                          <Link
+                            href={child.href}
+                            onClick={() => setOpenPanel(null)}
+                            className="block rounded-md px-3 py-2 text-sm transition hover:bg-surface hover:text-gold"
+                          >
+                            {child.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-              />
+              </div>
+            );
+          })}
+
+          <div className="ml-auto flex items-center">
+            <NavLink
+              href="/products"
+              isActive={pathname.startsWith("/rooms/")}
+              isOpen={openPanel === "rooms"}
+              hasPanel
+              onOpen={() => openMega("rooms")}
+              className="px-3 2xl:px-4"
+              underlineClassName="inset-x-3 2xl:inset-x-4"
+            >
+              Rooms
+            </NavLink>
+            <Link
+              href="/visualizer"
+              onMouseEnter={() => openMega(null)}
+              aria-current={isActive("/visualizer") ? "page" : undefined}
+              className="ml-2 inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-gold/12 px-3.5 font-display text-[13px] font-semibold text-foreground transition hover:bg-gold hover:text-charcoal-dark"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
+              Visualizer
             </Link>
-          ))}
+          </div>
         </div>
 
-        {openPanel && (
+        {(openPanel === "categories" || openPanel === "rooms") && (
           <div
             onMouseEnter={() => openMega(openPanel)}
             className="absolute inset-x-0 top-full border-b border-border bg-background shadow-luxe"
@@ -219,5 +272,59 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
 
       <CartDrawer />
     </>
+  );
+}
+
+/**
+ * One item in the navigation bar. Hover or focus opens its panel, and the
+ * gold rule marks the open panel or the current section.
+ */
+function NavLink({
+  href,
+  isActive,
+  isOpen,
+  hasPanel = false,
+  onOpen,
+  className,
+  underlineClassName,
+  children,
+}: {
+  href: string;
+  isActive: boolean;
+  isOpen: boolean;
+  hasPanel?: boolean;
+  onOpen: () => void;
+  className?: string;
+  underlineClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onMouseEnter={onOpen}
+      onFocus={onOpen}
+      aria-expanded={hasPanel ? isOpen : undefined}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "group relative inline-flex h-12 items-center gap-1 whitespace-nowrap font-display text-[13.5px] font-semibold text-foreground/70 transition-colors hover:text-foreground",
+        (isActive || isOpen) && "text-foreground",
+        className,
+      )}
+    >
+      {children}
+      {hasPanel && (
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")}
+          aria-hidden
+        />
+      )}
+      <span
+        className={cn(
+          "absolute bottom-0 h-0.5 origin-left bg-gold transition-transform",
+          underlineClassName,
+          isOpen || isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100",
+        )}
+      />
+    </Link>
   );
 }
