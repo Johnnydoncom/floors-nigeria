@@ -149,7 +149,7 @@ export default function Home() {
         </div>
 
         <div className="container-fluid">
-          <ul className="grid grid-cols-1 gap-x-6 border-t border-border sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-x-6 border-t border-border sm:grid-cols-2 lg:grid-cols-4">
             {promises.map((item) => (
               <li key={item.title} className="flex items-center gap-3 py-5">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-gold">
@@ -486,7 +486,7 @@ async function BestsellerGrid() {
   }
 
   return (
-    <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mt-10 grid gap-5 grid-cols-2 lg:grid-cols-4">
       {products.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}
