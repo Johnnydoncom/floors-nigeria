@@ -61,9 +61,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${montserrat.variable} ${nunitoSans.variable}`}>
+      <head>
+        <meta name="apple-mobile-web-app-title" content="Floors NG" />
+      </head>
       <body>
         <CartProvider>
-          {/*
+          {/* 
             ScrollToTop reads the current URL, which is only known at request
             time. Suspending it keeps the rest of every page in the prerendered
             static shell. The header and footer are rendered by each
