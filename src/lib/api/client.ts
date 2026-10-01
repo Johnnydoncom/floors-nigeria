@@ -10,6 +10,13 @@ import { rewriteMediaUrls } from "./media";
 
 const API_BASE = (process.env.LARAVEL_API_URL ?? "http://localhost:8000/api").replace(/\/$/, "");
 
+/**
+ * Proves to Laravel that a request comes from this storefront, so it may trust
+ * the visitor address we forward. Without it every customer shares the Next.js
+ * server's IP — and one rate-limit bucket (§27).
+ */
+const STOREFRONT_API_KEY = process.env.STOREFRONT_API_KEY;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -39,6 +46,8 @@ export type RequestOptions = Omit<RequestInit, "body" | "method"> & {
   query?: QueryParams;
   /** Bearer token for authenticated calls. */
   token?: string;
+  /** The visitor's IP, forwarded so Laravel throttles per customer. */
+  clientIp?: string;
   /** JSON body, or a FormData instance for uploads. */
   body?: unknown;
 };
@@ -77,7 +86,7 @@ export function buildQuery(params: QueryParams = {}): string {
 }
 
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
-  const { query, token, body, headers, ...init } = options;
+  const { query, token, clientIp, body, headers, ...init } = options;
   const isFormData = body instanceof FormData;
 
   const response = await fetch(`${API_BASE}${path}${buildQuery(query)}`, {
@@ -87,6 +96,8 @@ async function request<T>(method: string, path: string, options: RequestOptions 
       Accept: "application/json",
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(STOREFRONT_API_KEY ? { "X-Storefront-Key": STOREFRONT_API_KEY } : {}),
+      ...(STOREFRONT_API_KEY && clientIp ? { "X-Client-IP": clientIp } : {}),
       ...(headers as Record<string, string> | undefined),
     },
     body: isFormData ? body : body === undefined ? undefined : JSON.stringify(body),

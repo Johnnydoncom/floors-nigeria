@@ -337,13 +337,95 @@ export type AuthUser = {
   roles: string[];
   is_staff: boolean;
   email_verified_at: string | null;
+  created_at: string | null;
   customer_profile?: {
     id: number;
     full_name: string;
     customer_type: string;
+    customer_type_label: string;
     phone: string | null;
     whatsapp: string | null;
     city: string | null;
     state: string | null;
+    marketing_opt_in: boolean;
+    preferred_contact_channel: ContactChannel | null;
   } | null;
+};
+
+// --- Customer account (§14) -------------------------------------------------
+
+export type ContactChannel = "email" | "phone" | "whatsapp";
+
+export type Address = {
+  id: number;
+  label: string;
+  recipient_name: string | null;
+  phone: string | null;
+  address_line: string;
+  landmark: string | null;
+  city: string;
+  state: string;
+  is_default: boolean;
+};
+
+type Location = { address_line: string | null; city: string | null; state: string | null };
+
+export type ProjectStep = {
+  key: "confirmed" | "survey" | "scheduled" | "installing" | "completed";
+  label: string;
+  done: boolean;
+};
+
+/** A sold job — the "order" of a business that sells by quote. */
+export type AccountProject = {
+  id: number;
+  reference: string;
+  name: string;
+  status: "planned" | "in_progress" | "on_hold" | "completed" | "cancelled";
+  status_label: string;
+  location: Location;
+  value: number;
+  currency: string;
+  start_date: string | null;
+  end_date: string | null;
+  quote_reference: string | null;
+  installations: {
+    id: number;
+    status: string;
+    status_label: string;
+    scheduled_start: string | null;
+    scheduled_end: string | null;
+    completed_at: string | null;
+  }[];
+  timeline: ProjectStep[];
+  created_at: string | null;
+};
+
+export type Appointment = {
+  id: number;
+  type: string;
+  type_label: string;
+  status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show";
+  status_label: string;
+  scheduled_at: string | null;
+  ends_at: string | null;
+  location: Location;
+  quote_reference: string | null;
+  project_reference: string | null;
+  project_name: string | null;
+};
+
+export type AccountSummary = {
+  stats: {
+    open_quotes: number;
+    quotes: number;
+    active_projects: number;
+    completed_projects: number;
+    saved_products: number;
+    saved_visualizations: number;
+    upcoming_appointments: number;
+  };
+  active_project: AccountProject | null;
+  next_appointment: Appointment | null;
+  recent_quotes: Quote[];
 };

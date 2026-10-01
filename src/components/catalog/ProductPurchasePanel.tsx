@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Calculator, Heart, Minus, Plus, Ruler, Sparkles, Truck } from "lucide-react";
+import { Calculator, Minus, Plus, Ruler, Sparkles, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart";
 import { naira, number } from "@/lib/format";
 import type { Product, Variant } from "@/lib/api/types";
 import { ProductGallery, type GalleryImage } from "./ProductGallery";
+import { FavoriteButton } from "./FavoriteButton";
 import { OptionPicker } from "./OptionPicker";
 import { useVariantSelection } from "./useVariantSelection";
 
@@ -189,14 +190,11 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
                 Book a site survey
               </Link>
             </Button>
-            <Button
-              variant="ghost"
-              className="h-11 rounded-none"
-              onClick={() => toast("Saved to your favourites")}
-            >
-              <Heart className="h-4 w-4" aria-hidden />
-              Save
-            </Button>
+            <FavoriteButton
+              productId={product.id}
+              productSlug={product.slug}
+              variantId={variant?.id}
+            />
           </div>
         </div>
 
