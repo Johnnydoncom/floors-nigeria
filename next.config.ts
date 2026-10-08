@@ -28,6 +28,20 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  /**
+   * The self-hosted ONNX runtime lives under a folder named for its version
+   * (`scripts/vendor-ort.mjs`), so a new version is a new URL and the files can
+   * be cached for a year. 13MB a visitor downloads once, not once per visit.
+   */
+  async headers() {
+    return [
+      {
+        source: "/vendor/ort/:version/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
+  },
+
   images: {
     // Only these local paths may be optimized; everything else is rejected.
     localPatterns: [

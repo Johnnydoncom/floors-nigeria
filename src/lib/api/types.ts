@@ -166,6 +166,8 @@ export type Variant = {
   visualizer_texture_url: string | null;
   /** True when a dedicated seamless texture exists, not the hero standing in. */
   visualizer_texture_is_dedicated?: boolean;
+  /** Metres of floor that texture shows across, when recorded. */
+  visualizer_texture_size_m?: number | null;
   media?: Media[];
 };
 
@@ -186,6 +188,8 @@ export type ProductCard = {
   visualizer_texture_url: string | null;
   /** True when a dedicated seamless texture exists, not the hero standing in. */
   visualizer_texture_is_dedicated?: boolean;
+  /** Metres of floor that texture shows across, when recorded. */
+  visualizer_texture_size_m?: number | null;
   /** Waste allowance to add when estimating material for a room. */
   waste_percentage: number;
   price_from: number | null;

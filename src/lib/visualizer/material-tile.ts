@@ -39,6 +39,11 @@ export type TileRequest = {
   widthM: number;
   /** A dedicated seamless texture is used whole; a photograph is cropped. */
   isSeamless: boolean;
+  /**
+   * How much floor a dedicated texture shows, in metres across, recorded when
+   * it was prepared. Lays it at its real scale; unknown for a photograph.
+   */
+  textureSizeM?: number | null;
   /** Resolution the tile will be drawn at, so joints stay crisp but not aliased. */
   pxPerM: number;
   withHeight?: boolean;
@@ -85,7 +90,7 @@ export function materialTile(request: TileRequest): MaterialTile | null {
     request.layout,
     request.lengthM.toFixed(4),
     request.widthM.toFixed(4),
-    request.isSeamless ? "s" : "p",
+    request.isSeamless ? `s${request.textureSizeM ?? ""}` : "p",
     pxPerM,
     request.withHeight ? "h" : "",
   ].join("|");
@@ -140,7 +145,7 @@ function bake(request: TileRequest): MaterialTile | null {
   if (!source) return null;
 
   if (layout === "natural" || kind === "carpet") {
-    const repeatM = NATURAL_REPEAT_M[kind];
+    const repeatM = request.textureSizeM ?? NATURAL_REPEAT_M[kind];
     const target = Math.min(MAX_BAKE_PX, Math.max(64, Math.round(repeatM * request.pxPerM)));
     const image = resample(source, Math.min(source.width, target));
 
@@ -153,7 +158,12 @@ function bake(request: TileRequest): MaterialTile | null {
 
   // Never bake finer than the texture can supply, nor bigger than a phone
   // will thank us for.
-  const sourceDetail = sampleWidth(source, period.planks[0]) / Math.max(request.lengthM, 0.01);
+  const seamless = request.isSeamless
+    ? { sizeM: request.textureSizeM ?? NATURAL_REPEAT_M[kind] }
+    : null;
+  const sourceDetail = seamless
+    ? source.width / seamless.sizeM
+    : sampleWidth(source, period.planks[0]) / Math.max(request.lengthM, 0.01);
   const pxPerM = Math.max(
     MIN_PX_PER_M / 2,
     Math.min(
@@ -163,7 +173,15 @@ function bake(request: TileRequest): MaterialTile | null {
     ),
   );
 
-  return bakePeriod(source, period, kind, pxPerM, request.withHeight ?? false, request.textureKey);
+  return bakePeriod(
+    source,
+    period,
+    kind,
+    pxPerM,
+    request.withHeight ?? false,
+    request.textureKey,
+    seamless,
+  );
 }
 
 /**
@@ -308,6 +326,7 @@ function bakePeriod(
   pxPerM: number,
   withHeight: boolean,
   seedKey: string,
+  seamless: { sizeM: number } | null,
 ): MaterialTile | null {
   const width = Math.max(1, Math.round(period.width * pxPerM));
   const height = Math.max(1, Math.round(period.height * pxPerM));
@@ -349,16 +368,21 @@ function bakePeriod(
       const h = plank.h * scaleY;
       const inset = isTile ? jointPx / 2 : 0;
 
-      drawPlank(
-        context,
-        source,
-        plank,
-        looks[index],
-        x + inset,
-        y + inset,
-        w - inset * 2,
-        h - inset * 2,
-      );
+      const look = looks[index];
+      const box = [x + inset, y + inset, w - inset * 2, h - inset * 2] as const;
+
+      if (seamless) {
+        drawSeamlessPlank(
+          context,
+          source,
+          plank,
+          look,
+          ...box,
+          (seamless.sizeM * scaleX) / source.width,
+        );
+      } else {
+        drawPlank(context, source, plank, look, ...box);
+      }
 
       if (!isTile) drawBevel(context, x, y, w, h, jointPx);
     }
@@ -442,6 +466,58 @@ function drawPlank(
   context.globalAlpha = Math.abs(look.tone);
   context.fillStyle = look.tone > 0 ? "#fff" : "#000";
   context.fillRect(-along / 2, -across / 2, along, across);
+  context.restore();
+}
+
+/**
+ * One plank cut from a seamless texture: the texture repeated at its real
+ * scale, from a different offset than its neighbours. No stretching, however
+ * long the plank is against the square the texture shows.
+ *
+ * `scale` is tile pixels per texture pixel.
+ */
+function drawSeamlessPlank(
+  context: CanvasRenderingContext2D,
+  source: HTMLCanvasElement,
+  plank: PlankRect,
+  look: PlankLook,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  scale: number,
+): void {
+  if (w <= 0 || h <= 0 || !(scale > 0)) return;
+
+  const pattern = context.createPattern(source, "repeat");
+
+  if (!pattern) return;
+
+  const along = plank.vertical ? h : w;
+  const across = plank.vertical ? w : h;
+  const offsetX = look.u * source.width;
+  const offsetY = look.v * source.height;
+
+  context.save();
+  context.beginPath();
+  context.rect(x, y, w, h);
+  context.clip();
+  context.translate(x + w / 2, y + h / 2);
+  if (plank.vertical) context.rotate(Math.PI / 2);
+  context.scale(look.flipX ? -1 : 1, look.flipY ? -1 : 1);
+  context.translate(-along / 2, -across / 2);
+  context.scale(scale, scale);
+  context.translate(-offsetX, -offsetY);
+  context.fillStyle = pattern;
+  context.fillRect(offsetX, offsetY, along / scale, across / scale);
+  context.restore();
+
+  // Real boards vary in tone; a uniform field is what makes a render look
+  // printed. Lighten or darken each a little.
+  context.save();
+  context.globalAlpha = Math.abs(look.tone);
+  context.fillStyle = look.tone > 0 ? "#fff" : "#000";
+  context.fillRect(x, y, w, h);
   context.restore();
 }
 

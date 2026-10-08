@@ -9,6 +9,9 @@ export type DetectionState =
   | { status: "done" }
   | { status: "unavailable" };
 
+/** Shortest gap between progress updates, in milliseconds. */
+const PROGRESS_INTERVAL_MS = 250;
+
 const STARTING: DetectionState = { status: "running", progress: { stage: "downloading" } };
 
 /**
@@ -56,10 +59,30 @@ export function useFloorDetection({
       const isCurrent = () => run === runRef.current && isWanted();
 
       try {
-        const { detectFloor } = await import("@/lib/visualizer/detect-floor");
+        const { detectFloor } = await import("@/lib/visualizer/floor-detector");
+
+        // Downloads report progress many times a second, and each report
+        // re-renders the studio. Pass on a change of stage at once, and a new
+        // percentage at most a few times a second.
+        let last: DetectionProgress | null = null;
+        let lastAt = 0;
 
         const detection = await detectFloor(photoSrc, (progress) => {
-          if (isCurrent()) setState({ status: "running", progress });
+          if (!isCurrent()) return;
+
+          const now = performance.now();
+          const sameStage = last?.stage === progress.stage;
+
+          if (
+            sameStage &&
+            (last?.percent === progress.percent || now - lastAt < PROGRESS_INTERVAL_MS)
+          ) {
+            return;
+          }
+
+          last = progress;
+          lastAt = now;
+          setState({ status: "running", progress });
         });
 
         if (!isCurrent()) return;
@@ -95,15 +118,22 @@ export function useFloorDetection({
     // a floor painted onto a different photograph is worse than no floor.
     let wanted = true;
 
-    // Deferred to a microtask: detection is a long background job reporting
-    // through state, and starting it in the effect body would commit a render
-    // only to re-render immediately.
-    void Promise.resolve().then(() => {
+    // Started once the browser is idle: the room and its material paint
+    // first, and the model download competes with nothing the visitor is
+    // waiting for. Detection itself runs in a worker, but loading the photo
+    // into it and starting the download still cost the main thread a moment.
+    const start = () => {
       if (wanted) void detect(() => wanted);
-    });
+    };
+    const idle = typeof window.requestIdleCallback === "function";
+    const handle = idle
+      ? window.requestIdleCallback(start, { timeout: 1500 })
+      : window.setTimeout(start, 300);
 
     return () => {
       wanted = false;
+      if (idle) window.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
     };
   }, [detect]);
 

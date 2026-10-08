@@ -10,7 +10,6 @@ import {
   Columns2,
   Eraser,
   Layers,
-  Loader2,
   Move,
   PenTool,
   Plus,
@@ -514,6 +513,7 @@ export function VisualizerStudio({
           onReady={onStageReady}
           onPhotoLoaded={setPhotoSize}
           onRendered={onRendered}
+          detection={detection.state}
         />
 
         <DetectionNotice
@@ -1041,8 +1041,6 @@ function DetectionNotice({
   onRetry: () => void;
   onMarkByHand: () => void;
 }) {
-  if (state.status === "done") return null;
-
   if (state.status === "unavailable") {
     return (
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted-foreground">
@@ -1067,19 +1065,8 @@ function DetectionNotice({
     );
   }
 
-  const { progress } = state;
-
-  return (
-    <p
-      aria-live="polite"
-      className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted-foreground"
-    >
-      <Loader2 className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
-      {progress.stage === "downloading"
-        ? `Loading floor detection… ${progress.percent ?? 0}% (one-time, about 3MB)`
-        : "Finding the floor in your photo…"}
-    </p>
-  );
+  // While detection runs, its progress is shown over the stage itself.
+  return null;
 }
 
 function ModeButton({
@@ -1150,6 +1137,7 @@ function toStageMaterial(choice: TextureChoice | null): StageMaterial | null {
     textureSrc: choice.textureUrl,
     kind: choice.kind ?? "plank",
     isSeamless: choice.isSeamless ?? false,
+    textureSizeM: choice.textureSizeM ?? null,
     label: choice.variantName
       ? `${choice.productName} — ${choice.variantName}`
       : choice.productName,

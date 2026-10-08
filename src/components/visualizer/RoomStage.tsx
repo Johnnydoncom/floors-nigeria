@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Maximize2, Minus, Plus } from "lucide-react";
+import { Check, Loader2, Maximize2, Minus, Plus } from "lucide-react";
 import { beforeAfterImage } from "@/lib/visualizer/compose";
 import { canvasToBlob, getTexture, loadImage } from "@/lib/visualizer/images";
 import {
@@ -20,6 +20,7 @@ import {
   type SurfaceLayer,
 } from "@/lib/visualizer/types";
 import { cn } from "@/lib/utils";
+import type { DetectionState } from "./useFloorDetection";
 
 /** Arrow-key nudge, as a fraction of the photo. */
 const NUDGE = 0.005;
@@ -38,6 +39,7 @@ export type StageMaterial = {
   textureSrc: string;
   kind: MaterialKind;
   isSeamless: boolean;
+  textureSizeM?: number | null;
   label: string;
 };
 
@@ -81,6 +83,7 @@ export function RoomStage({
   onReady,
   onPhotoLoaded,
   onRendered,
+  detection,
   className,
 }: {
   photoSrc: string;
@@ -100,6 +103,8 @@ export function RoomStage({
   onMaskEdit: (edit: MaskEdit) => void;
   onReady?: (handle: RoomStageHandle) => void;
   onPhotoLoaded?: (size: { width: number; height: number }) => void;
+  /** Automatic floor detection, for the loading overlay. */
+  detection?: DetectionState;
   /** Called after a render that included a material. */
   onRendered?: () => void;
   className?: string;
@@ -159,6 +164,7 @@ export function RoomStage({
               placement: current.placement,
               materialKind: stageMaterial.kind,
               isSeamless: stageMaterial.isSeamless,
+              textureSizeM: stageMaterial.textureSizeM,
               mask: current.mask,
             },
           ]
@@ -219,8 +225,13 @@ export function RoomStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoSrc, scheduleDraw]);
 
-  useTexture(material?.textureSrc ?? null, textureRef, scheduleDraw);
+  const textureStatus = useTexture(material?.textureSrc ?? null, textureRef, scheduleDraw);
   useTexture(compareMaterial?.textureSrc ?? null, compareTextureRef, scheduleDraw);
+
+  // The overlay can be waved away for this room; detection carries on.
+  const [overlayDismissedFor, setOverlayDismissedFor] = useState<string | null>(null);
+  const loading = loadingSteps(status.state, textureStatus, detection);
+  const showOverlay = loading !== null && overlayDismissedFor !== photoSrc;
 
   // Redraw when anything that shapes the picture changes. The mode is included
   // because switching layout mounts fresh canvases.
@@ -523,11 +534,14 @@ export function RoomStage({
 
   const overlays = (
     <>
-      {status.state === "loading" && (
-        <div className="absolute inset-0 grid place-items-center bg-background/70">
-          <p className="font-display text-sm">Opening your room…</p>
-        </div>
+      {showOverlay && loading && (
+        <LoadingOverlay
+          loading={loading}
+          canDismiss={status.state === "ready"}
+          onDismiss={() => setOverlayDismissedFor(photoSrc)}
+        />
       )}
+      {!showOverlay && loading?.detecting && <DetectionChip detecting={loading.detecting} />}
       {status.state === "error" && (
         <div className="absolute inset-0 grid place-items-center bg-background/90 p-6 text-center">
           <p className="max-w-xs text-sm text-muted-foreground">
@@ -875,7 +889,11 @@ function useTexture(
   src: string | null,
   ref: React.RefObject<HTMLImageElement | null>,
   onLoaded: () => void,
-) {
+): "none" | "loading" | "ready" {
+  // The source whose load has settled, so "loading" is derived rather than set
+  // synchronously in the effect.
+  const [settled, setSettled] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -889,11 +907,13 @@ function useTexture(
       .then((image) => {
         if (cancelled) return;
         ref.current = image;
+        setSettled(src);
         onLoaded();
       })
       .catch(() => {
         if (cancelled) return;
         ref.current = null;
+        setSettled(src);
         onLoaded();
       });
 
@@ -901,6 +921,159 @@ function useTexture(
       cancelled = true;
     };
   }, [src, ref, onLoaded]);
+
+  return src === null ? "none" : settled === src ? "ready" : "loading";
+}
+
+type LoadingSteps = {
+  photo: "loading" | "ready";
+  material: "none" | "loading" | "ready";
+  /** Null once detection has finished, or given up. */
+  detecting: Extract<DetectionState, { status: "running" }> | null;
+};
+
+function loadingSteps(
+  photo: "loading" | "ready" | "error",
+  material: "none" | "loading" | "ready",
+  detection: DetectionState | undefined,
+): LoadingSteps | null {
+  if (photo === "error") return null;
+
+  const detecting = detection?.status === "running" ? detection : null;
+
+  if (photo === "ready" && material !== "loading" && !detecting) return null;
+
+  return { photo, material, detecting };
+}
+
+function detectionLabel(detection: Extract<DetectionState, { status: "running" }>): string {
+  const { progress } = detection;
+
+  if (progress.stage === "downloading") {
+    return progress.percent
+      ? `Downloading floor detection · ${progress.percent}%`
+      : "Downloading floor detection";
+  }
+
+  return progress.stage === "preparing"
+    ? "Starting floor detection"
+    : "Finding the floor in your photo";
+}
+
+/**
+ * What is still loading, step by step, over the stage.
+ *
+ * Detection is the slow part on a first visit — a one-time download, then
+ * analysis in a background worker — so the visitor can wave this away and work
+ * with the floor area by hand while it finishes.
+ */
+function LoadingOverlay({
+  loading,
+  canDismiss,
+  onDismiss,
+}: {
+  loading: LoadingSteps;
+  canDismiss: boolean;
+  onDismiss: () => void;
+}) {
+  const detecting = loading.detecting;
+  const percent =
+    detecting?.progress.stage === "downloading" ? (detecting.progress.percent ?? 0) : null;
+
+  return (
+    <div
+      className="absolute inset-0 z-20 grid place-items-center bg-background/80 p-2 sm:p-4"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full max-w-xs rounded-lg border border-border bg-background p-3 shadow-luxe sm:p-4"
+      >
+        <p className="font-display text-sm font-semibold">
+          {loading.photo === "loading" ? "Opening your room…" : "Preparing your room…"}
+        </p>
+
+        <ul className="mt-2 space-y-1.5 text-sm sm:mt-3 sm:space-y-2">
+          <LoadingStep done={loading.photo === "ready"}>Room photo</LoadingStep>
+          {loading.material !== "none" && (
+            <LoadingStep done={loading.material === "ready"}>Floor material</LoadingStep>
+          )}
+          <LoadingStep done={!detecting}>
+            {detecting ? detectionLabel(detecting) : "Floor detected"}
+          </LoadingStep>
+        </ul>
+
+        {percent !== null && (
+          <div
+            className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label="Floor detection download"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+          >
+            <div
+              className="h-full bg-gold transition-[width] motion-reduce:transition-none"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        )}
+
+        {detecting && (
+          <p className="mt-3 hidden text-[11px] leading-snug text-muted-foreground sm:block">
+            {detecting.progress.stage === "analysing"
+              ? "Keeping furniture out of the floor. This takes a few seconds."
+              : "A one-time download on your first visit; it is remembered after that."}
+          </p>
+        )}
+
+        {canDismiss && detecting && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="mt-2 text-xs font-semibold underline underline-offset-2 hover:text-gold sm:mt-3"
+          >
+            Continue without waiting
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoadingStep({ done, children }: { done: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-2">
+      {done ? (
+        <Check className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+      ) : (
+        <Loader2
+          className="h-4 w-4 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+          aria-hidden
+        />
+      )}
+      <span className={done ? "text-muted-foreground" : undefined}>{children}</span>
+    </li>
+  );
+}
+
+/** Detection still running after the overlay was dismissed. */
+function DetectionChip({
+  detecting,
+}: {
+  detecting: Extract<DetectionState, { status: "running" }>;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 rounded-full bg-charcoal-dark/85 px-3 py-1.5 text-xs text-primary-foreground"
+    >
+      <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+      {detectionLabel(detecting)}
+    </div>
+  );
 }
 
 function clamp(value: number, min: number, max: number): number {

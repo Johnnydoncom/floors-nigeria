@@ -31,6 +31,7 @@ export type ArMaterialSpec = {
   widthM: number;
   rotationDegrees: number;
   isSeamless: boolean;
+  textureSizeM?: number | null;
   finish: Finish;
 };
 
@@ -59,6 +60,7 @@ export function arSpecFor(
     widthM: Math.min(lengthMm, widthMm) / 1000,
     rotationDegrees: options.rotationDegrees ?? 0,
     isSeamless: choice.isSeamless ?? false,
+    textureSizeM: choice.textureSizeM ?? null,
     finish: options.finish ?? (kind === "carpet" || kind === "rug" ? "matte" : "satin"),
   };
 }
@@ -117,6 +119,7 @@ function bakePatch(
     lengthM: spec.lengthM,
     widthM: spec.widthM,
     isSeamless: spec.isSeamless,
+    textureSizeM: spec.textureSizeM,
     pxPerM: PX_PER_M,
     withHeight: true,
   });

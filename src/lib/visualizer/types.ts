@@ -99,6 +99,8 @@ export type TextureChoice = {
    * is cropped and whether joints are laid by default.
    */
   isSeamless?: boolean;
+  /** Metres of floor a dedicated texture shows across, when recorded. */
+  textureSizeM?: number | null;
   imageUrl?: string | null;
   brandName?: string | null;
   categoryName?: string | null;
@@ -120,6 +122,7 @@ export type SurfaceLayer = {
   placement: Placement;
   materialKind: MaterialKind;
   isSeamless: boolean;
+  textureSizeM?: number | null;
   /**
    * Pixels of this surface, opaque where material belongs. When present it
    * decides *where* material is drawn and the quad only decides *how*

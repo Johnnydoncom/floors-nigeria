@@ -353,6 +353,7 @@ function buildMaterialPlane(
     lengthM,
     widthM,
     isSeamless: surface.isSeamless,
+    textureSizeM: surface.textureSizeM,
     pxPerM: pxPerMetre,
   });
 

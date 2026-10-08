@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
+  Image as ImageIcon,
   LayoutDashboard,
   Boxes,
   ShoppingCart,
@@ -69,6 +70,15 @@ export function AdminDashboard() {
               </button>
             ))}
           </nav>
+          <div className="mt-6 font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground mb-3">
+            Catalogue tools
+          </div>
+          <Link
+            href="/admin/visualizer-textures"
+            className="flex items-center gap-3 whitespace-nowrap px-4 h-11 text-sm transition hover:bg-background"
+          >
+            <ImageIcon className="h-4 w-4" /> Visualizer textures
+          </Link>
           <div className="mt-6 border border-gold/40 bg-gold/10 p-4">
             <AlertTriangle className="h-4 w-4 text-gold" />
             <p className="mt-2 text-xs text-muted-foreground">

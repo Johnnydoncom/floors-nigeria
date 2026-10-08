@@ -14,7 +14,6 @@ import {
   type Segment,
 } from "./floor-mask";
 import { refineMask, type Grid, type Rgb } from "./refine-mask";
-import { loadImage } from "./images";
 import type { Point, Quad } from "./types";
 
 /**
@@ -26,7 +25,7 @@ import type { Point, Quad } from "./types";
  * device.
  *
  * SegFormer-B0 trained on ADE20K is the choice here: ADE20K has a dedicated
- * floor class, and the quantised B0 weights are under 3MB — small enough to
+ * floor class, and the quantised B0 weights are about 4MB — small enough to
  * fetch on Nigerian mobile data, which rules out the larger indoor-scene
  * models. It is loaded on demand, so visitors who never press the button never
  * pay for it.
@@ -66,7 +65,18 @@ const SAME_PLANE_TOLERANCE = 0.04;
  * across; refining much beyond this costs time without sharpening anything,
  * since the mask is scaled to the canvas afterwards regardless.
  */
-const REFINE_WIDTH = 1280;
+export const REFINE_WIDTH = 1280;
+
+/**
+ * Longest side of the image handed to the model.
+ *
+ * SegFormer resizes everything to 512 square internally, so a bigger input adds
+ * no detail — but the pipeline upsamples all 150 class maps back to whatever
+ * size it was given, in JavaScript. At a phone photo's size that was seconds of
+ * work and tens of megabytes; the refinement step restores a crisp boundary
+ * against the full photograph anyway.
+ */
+export const MODEL_INPUT_SIDE = 640;
 
 /** Share of the band averaged at each end when measuring the floor's extent. */
 const EDGE_BAND = 0.12;
@@ -109,34 +119,75 @@ export type FloorDetection = {
 };
 
 export type DetectionProgress = {
-  stage: "downloading" | "analysing";
+  /**
+   * `downloading` the model (with a percentage), `preparing` the runtime that
+   * executes it, then `analysing` the photograph.
+   */
+  stage: "downloading" | "preparing" | "analysing";
   /** 0–100 while the model downloads. */
   percent?: number;
 };
 
-type Segmenter = (image: string) => Promise<Segment[]>;
+/** What detection needs from the photograph, prepared on the main thread. */
+export type DetectionInput = {
+  /** The photograph, small, for the model. */
+  modelInput: Rgb;
+  /** The photograph at the refinement resolution, for snapping the boundary. */
+  photo: Rgb;
+};
 
-let segmenterPromise: Promise<Segmenter> | null = null;
+type Segmenter = (image: unknown) => Promise<Segment[]>;
+
+let segmenterPromise: Promise<{ segmenter: Segmenter; toImage: (input: Rgb) => unknown }> | null =
+  null;
+
+/**
+ * Where the ONNX runtime is served from. `scripts/vendor-ort.mjs` copies it out
+ * of node_modules at build time, into a folder named for its version so it can
+ * be cached forever; same-origin, so it is cached at all — the default CDN copy
+ * was refused by the browser's cache and downloaded again on every visit.
+ */
+const SELF_HOSTED_RUNTIME = "/vendor/ort";
 
 /**
  * Load the model once per session and share it across detections.
  */
-async function getSegmenter(
-  onProgress?: (progress: DetectionProgress) => void,
-): Promise<Segmenter> {
+async function getSegmenter(onProgress?: (progress: DetectionProgress) => void) {
   segmenterPromise ??= (async () => {
-    const { pipeline } = await import("@huggingface/transformers");
+    const { pipeline, env, RawImage } = await import("@huggingface/transformers");
+
+    await pointAtSelfHostedRuntime(env.backends.onnx as OnnxEnv);
+
+    // Several files download: a few kilobytes of configuration, then the
+    // weights. Progress is measured on the weights alone — counting a config
+    // file that finishes first showed 100% and then fell back to 10%.
+    const weights = new Map<string, { loaded: number; total: number }>();
 
     const segmenter = await pipeline("image-segmentation", MODEL_ID, {
       dtype: "q8",
-      progress_callback: (event: { status?: string; progress?: number }) => {
-        if (event.status === "progress") {
-          onProgress?.({ stage: "downloading", percent: Math.round(event.progress ?? 0) });
+      device: "wasm",
+      progress_callback: (event: {
+        status?: string;
+        file?: string;
+        loaded?: number;
+        total?: number;
+      }) => {
+        if (event.status === "progress" && event.file && event.total) {
+          if (!event.file.endsWith(".onnx")) return;
+          weights.set(event.file, { loaded: event.loaded ?? 0, total: event.total });
+          const loaded = [...weights.values()].reduce((sum, file) => sum + file.loaded, 0);
+          const total = [...weights.values()].reduce((sum, file) => sum + file.total, 0);
+          onProgress?.({ stage: "downloading", percent: Math.round((loaded / total) * 100) });
+        } else if (event.status === "ready") {
+          onProgress?.({ stage: "preparing" });
         }
       },
     });
 
-    return segmenter as unknown as Segmenter;
+    return {
+      segmenter: segmenter as unknown as Segmenter,
+      toImage: (input: Rgb) => new RawImage(input.data, input.width, input.height, 4),
+    };
   })();
 
   try {
@@ -148,27 +199,65 @@ async function getSegmenter(
   }
 }
 
+type OnnxEnv = {
+  versions?: { web?: string };
+  wasm?: { wasmPaths?: unknown };
+};
+
 /**
- * Find the floor in a room photograph and return it as a quad, or null when
- * the model finds nothing convincing — in which case the visitor marks it by
- * hand, exactly as before.
+ * Point the runtime at the self-hosted copy when this deployment has one, and
+ * leave the CDN default in place when it does not — detection must never fail
+ * because a build step was skipped.
+ *
+ * The plain SIMD build is chosen on every browser. Transformers.js picks the
+ * "asyncify" build outside Safari, which only WebGPU needs; it is 23MB against
+ * 13MB, and this model runs on the CPU.
  */
-export async function detectFloor(
-  imageSrc: string,
+async function pointAtSelfHostedRuntime(onnx: OnnxEnv): Promise<void> {
+  const version = onnx.versions?.web;
+
+  if (!version || !onnx.wasm) return;
+
+  const base = `${SELF_HOSTED_RUNTIME}/${version}`;
+
+  try {
+    const probe = await fetch(`${base}/ort-wasm-simd-threaded.mjs`, { method: "HEAD" });
+    if (!probe.ok) return;
+  } catch {
+    return;
+  }
+
+  onnx.wasm.wasmPaths = {
+    mjs: `${base}/ort-wasm-simd-threaded.mjs`,
+    wasm: `${base}/ort-wasm-simd-threaded.wasm`,
+  };
+}
+
+/**
+ * Find the floor in a prepared photograph and return its mask and quad, or null
+ * when the model finds nothing convincing — in which case the visitor marks it
+ * by hand.
+ *
+ * Runs in a Web Worker (`floor-detector.ts`): nothing here touches the DOM, so
+ * the model and every pass over the masks happen off the main thread and the
+ * page never freezes while a floor is being found.
+ */
+export async function analyseRoom(
+  input: DetectionInput,
   onProgress?: (progress: DetectionProgress) => void,
 ): Promise<FloorDetection | null> {
-  const segmenter = await getSegmenter(onProgress);
+  const { segmenter, toImage } = await getSegmenter(onProgress);
 
   onProgress?.({ stage: "analysing" });
 
-  const scene = classifyScene(await segmenter(imageSrc));
+  const scene = classifyScene(await segmenter(toImage(input.modelInput)));
 
   if (scene === null) return null;
 
   // Snap the model's soft, low-resolution boundary onto the edges the
   // photograph actually has, then reconcile it with the rest of the label map,
   // before anything is measured from it.
-  const sharpened = await sharpenAgainstPhoto(scene, imageSrc);
+  const sharpened = sharpenAgainstPhoto(scene, input.photo);
   const geometry = floorGeometryFromMask(cleanFloorMask(sharpened));
 
   if (geometry === null) return null;
@@ -203,56 +292,26 @@ export function floorGeometryFromMask(mask: Grid): { quad: Quad; mask: Grid } | 
 }
 
 /**
- * Refine the floor boundary against the photograph, at a working resolution the
- * whole scene is resampled to.
- *
- * Falls back to the model's own output if the photograph cannot be read back —
- * a cross-origin image without CORS headers — which costs sharpness but never
- * correctness.
+ * Refine the floor boundary against the photograph, at the refinement
+ * resolution the whole scene is resampled to.
  */
-async function sharpenAgainstPhoto(scene: LabelledScene, imageSrc: string): Promise<LabelledScene> {
-  try {
-    const image = await loadImage(imageSrc);
-    const aspect = image.naturalHeight / image.naturalWidth;
+function sharpenAgainstPhoto(scene: LabelledScene, photo: Rgb): LabelledScene {
+  const { width, height } = photo;
 
-    const width = Math.min(REFINE_WIDTH, image.naturalWidth);
-    const height = Math.round(width * aspect);
+  // Every mask and the photograph must line up pixel for pixel before the
+  // boundary can be re-decided against the photograph's own edges.
+  const at = (mask: Uint8Array) => resampleBinary(mask, scene, width, height);
+  const structure = at(scene.structure);
 
-    const photo = readPixels(image, width, height);
+  const floor = refineMask({ data: at(scene.floor), width, height }, photo, structure);
 
-    if (!photo) return scene;
-
-    // Every mask and the photograph must line up pixel for pixel before the
-    // boundary can be re-decided against the photograph's own edges.
-    const at = (mask: Uint8Array) => resampleBinary(mask, scene, width, height);
-    const structure = at(scene.structure);
-
-    const floor = refineMask({ data: at(scene.floor), width, height }, photo, structure);
-
-    return {
-      width,
-      height,
-      floor: floor.data,
-      structure,
-      occluder: at(scene.occluder),
-    };
-  } catch {
-    return scene;
-  }
-}
-
-function readPixels(image: CanvasImageSource, width: number, height: number): Rgb | null {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-
-  if (!context) return null;
-
-  context.drawImage(image, 0, 0, width, height);
-
-  return context.getImageData(0, 0, width, height);
+  return {
+    width,
+    height,
+    floor: floor.data,
+    structure,
+    occluder: at(scene.occluder),
+  };
 }
 
 /**
