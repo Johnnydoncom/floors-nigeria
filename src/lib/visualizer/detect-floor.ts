@@ -14,7 +14,7 @@ import {
   type Segment,
 } from "./floor-mask";
 import { refineMask, type Grid, type Rgb } from "./refine-mask";
-import { loadImage } from "./render";
+import { loadImage } from "./images";
 import type { Point, Quad } from "./types";
 
 /**

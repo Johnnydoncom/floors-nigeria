@@ -158,3 +158,59 @@ export function unproject(homography: Homography): (x: number, y: number) => Poi
 export function perspectiveWeight(homography: Homography, u: number, v: number): number {
   return homography.g * u + homography.h * v + 1;
 }
+
+/**
+ * Focal length assumed for a photograph, as a share of its longer side.
+ *
+ * A phone's main camera is about 26mm full-frame equivalent — roughly 70° across
+ * the long side — which puts the focal length near 0.7 of the long side in
+ * pixels. Photographs do not carry it reliably (EXIF is stripped by most
+ * sharing paths), and the result below is not sensitive to it: ±20% moves the
+ * aspect of a typical floor by a few percent.
+ */
+export const ASSUMED_FOCAL_SHARE = 0.7;
+
+/** Beyond these, the quad is not a rectangle on the floor and 1 is safer. */
+const MIN_PLANE_ASPECT = 0.25;
+const MAX_PLANE_ASPECT = 4;
+
+/**
+ * How deep the quad's rectangle is on the real floor, relative to its width.
+ *
+ * The unit square maps to a rectangle on the floor plane, but nothing says it is
+ * a *square* one: a quad marking a floor 4m wide and 6m deep is drawn exactly
+ * like one 4m by 4m, only foreshortened differently. Laying the material in
+ * unit-square coordinates therefore squashes or stretches every plank along the
+ * depth of the room.
+ *
+ * A camera maps the floor by H = K [A·r₁, B·r₂, t], where A and B are the
+ * rectangle's real sides and r₁, r₂ unit vectors. Undoing the intrinsics K
+ * leaves columns proportional to A·r₁ and B·r₂, so B / A is the ratio of their
+ * lengths — exact for a pinhole camera, given its focal length.
+ *
+ * `homography` maps the unit square to *pixels* in a photograph of the given
+ * size, with the principal point assumed at its centre.
+ */
+export function planeAspect(
+  homography: Homography,
+  width: number,
+  height: number,
+  focalShare = ASSUMED_FOCAL_SHARE,
+): number {
+  const focal = Math.max(width, height) * focalShare;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  if (!(focal > 0)) return 1;
+
+  const { a, b, d, e, g, h } = homography;
+
+  const across = Math.hypot((a - cx * g) / focal, (d - cy * g) / focal, g);
+  const along = Math.hypot((b - cx * h) / focal, (e - cy * h) / focal, h);
+
+  const aspect = along / across;
+
+  if (!Number.isFinite(aspect) || aspect <= 0) return 1;
+
+  return Math.min(MAX_PLANE_ASPECT, Math.max(MIN_PLANE_ASPECT, aspect));
+}

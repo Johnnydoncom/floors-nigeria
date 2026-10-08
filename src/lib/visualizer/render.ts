@@ -7,8 +7,16 @@ import {
   UNIT_DOMAIN,
   type MaterialDomain,
 } from "./coverage";
-import { perspectiveWeight, project, unitSquareToQuad, type Homography } from "./homography";
-import type { Placement, Point, Quad } from "./types";
+import {
+  perspectiveWeight,
+  planeAspect,
+  project,
+  unitSquareToQuad,
+  type Homography,
+} from "./homography";
+import { FINISH_SHEEN, lightingMaps } from "./lighting";
+import { materialTile, sizeOf, type MaterialTile } from "./material-tile";
+import type { Point, Quad, SurfaceLayer } from "./types";
 
 /**
  * Renders a floor material into a room photograph (§10).
@@ -70,42 +78,23 @@ const SEAM_BLEED_PX = 1.5;
  */
 const SEAM_BLEED_SHARE = 0.03;
 
-/**
- * Share of a product photograph used as the repeating tile.
- *
- * Catalogue photography is staged: a plank propped on a pallet, a tile on a
- * showroom floor, a sprig of greenery for scale. Tiling the whole frame
- * repeats the props across the floor. Taking a square from the middle gets
- * closer to the material itself, which is where photographers put it.
- *
- * This is damage limitation. A product with a proper seamless texture uploaded
- * against it looks better than any crop of a marketing shot can (§24).
- */
-const TILE_CROP = 0.62;
-
 export type RenderOptions = {
   photo: CanvasImageSource;
   photoWidth: number;
   photoHeight: number;
-  texture: CanvasImageSource | null;
-  quad: Quad;
-  placement: Placement;
   /**
-   * Floor pixels from automatic detection, opaque where material belongs.
-   *
-   * When present it decides *where* material is drawn and the quad only
-   * decides *how* perspective runs — which is what lets material stop at a
-   * chair leg. Without it the quad does both, as it must when the floor was
-   * marked by hand.
+   * The surfaces to dress, drawn in order. Today that is one floor; walls are
+   * the same homography on a vertical plane, which is why this is a list.
    */
-  mask?: CanvasImageSource | null;
+  surfaces: SurfaceLayer[];
 };
 
 /**
- * Draw the room, the material, then the room's own light back over it.
+ * Draw the room, then each surface's material with the room's own light back
+ * over it.
  */
 export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): void {
-  const { photo, photoWidth, photoHeight, texture, quad, placement, mask } = options;
+  const { photo, photoWidth, photoHeight, surfaces } = options;
   const context = canvas.getContext("2d");
 
   if (!context || photoWidth === 0 || photoHeight === 0) return;
@@ -116,6 +105,20 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, photoWidth, photoHeight);
   context.drawImage(photo, 0, 0, photoWidth, photoHeight);
+
+  for (const surface of surfaces) {
+    drawSurface(context, photo, photoWidth, photoHeight, surface);
+  }
+}
+
+function drawSurface(
+  context: CanvasRenderingContext2D,
+  photo: CanvasImageSource,
+  photoWidth: number,
+  photoHeight: number,
+  surface: SurfaceLayer,
+): void {
+  const { texture, quad, placement, mask } = surface;
 
   if (!texture) return;
 
@@ -129,6 +132,14 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
   const domain = mask
     ? domainCovering(homography, hullOfMask(mask), photoWidth, photoHeight)
     : UNIT_DOMAIN;
+
+  // The quad is a rectangle on the floor but rarely a square one. Its real
+  // depth comes from the perspective, and its width from the visitor, so the
+  // material can be laid in metres — planks at their real size and shape.
+  const metres = {
+    width: Math.max(0.1, placement.widthM),
+    depth: Math.max(0.1, placement.widthM * planeAspect(homography, photoWidth, photoHeight)),
+  };
 
   // The material is composed off-screen so it can be trimmed to the detected
   // floor before it reaches the photograph.
@@ -148,7 +159,7 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
 
   for (const band of domainBands(domain)) {
     const bandCorners = domainQuad(homography, band);
-    const plane = buildMaterialPlane(texture, placement, band);
+    const plane = buildMaterialPlane(surface, band, metres);
 
     if (!plane) continue;
 
@@ -164,20 +175,23 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
 
   floorContext.restore();
 
-  if (placement.lighting > 0) {
-    // Multiplying the original photograph back over the new floor carries its
-    // shadows, reflections and falloff onto the material, which is most of what
-    // makes the result read as the same room rather than a flat sticker.
-    floorContext.save();
-    floorContext.globalCompositeOperation = "multiply";
-    floorContext.globalAlpha = placement.lighting;
-    floorContext.drawImage(photo, 0, 0, photoWidth, photoHeight);
-    floorContext.restore();
+  // Multiply and screen paint transparent pixels too, so the room's light must
+  // land only where material was drawn. A floor is trimmed afterwards by its
+  // mask, or here by its quad; a rug covers only part of the floor, so its own
+  // outline is kept aside and restored.
+  const coverage = surface.materialKind === "rug" ? copyCanvas(floor) : null;
+
+  applyRoomLight(floorContext, photo, photoWidth, photoHeight, surface, mask ? null : corners);
+
+  if (coverage) {
+    floorContext.globalCompositeOperation = "destination-in";
+    floorContext.drawImage(coverage, 0, 0);
+    floorContext.globalCompositeOperation = "source-over";
   }
 
   if (mask) {
-    // Keep only the pixels the detector called floor. Multiply above ran on
-    // the full rectangle, so this also trims the lighting pass.
+    // Keep only the pixels the detector called floor. The lighting pass ran on
+    // the full rectangle, so this trims it too.
     floorContext.globalCompositeOperation = "destination-in";
     // Smoothing would feather the mask's boundary back out — the softness the
     // detector just spent its time removing — so the edge is scaled hard.
@@ -190,6 +204,50 @@ export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): v
   context.globalAlpha = placement.opacity;
   context.drawImage(floor, 0, 0);
   context.globalAlpha = 1;
+}
+
+/**
+ * Carry the room's shadows and highlights onto the new material (see
+ * `lighting.ts`). Falls back to multiplying the photograph itself when it
+ * cannot be read back, which keeps the shadows at the cost of some of the old
+ * floor's tone.
+ */
+function applyRoomLight(
+  floorContext: CanvasRenderingContext2D,
+  photo: CanvasImageSource,
+  photoWidth: number,
+  photoHeight: number,
+  surface: SurfaceLayer,
+  clip: Quad | null,
+): void {
+  const { placement, mask, quad } = surface;
+
+  if (placement.lighting <= 0) return;
+
+  const maps = lightingMaps(photo, photoWidth, photoHeight, { mask, quad });
+
+  floorContext.save();
+  if (clip) clipToQuad(floorContext, clip);
+
+  floorContext.globalCompositeOperation = "multiply";
+  floorContext.globalAlpha = placement.lighting;
+  floorContext.drawImage(maps?.shading ?? photo, 0, 0, photoWidth, photoHeight);
+
+  if (maps) {
+    floorContext.globalCompositeOperation = "screen";
+    floorContext.globalAlpha = Math.min(1, placement.lighting * FINISH_SHEEN[placement.finish]);
+    floorContext.drawImage(maps.highlights, 0, 0, photoWidth, photoHeight);
+  }
+
+  floorContext.restore();
+}
+
+function copyCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
+  const copy = document.createElement("canvas");
+  copy.width = source.width;
+  copy.height = source.height;
+  copy.getContext("2d")?.drawImage(source, 0, 0);
+  return copy;
 }
 
 /**
@@ -208,8 +266,7 @@ function hullOfMask(mask: CanvasImageSource): Point[] {
 
   if (cached) return cached;
 
-  const width = naturalWidth(mask);
-  const height = naturalHeight(mask);
+  const { width, height } = sizeOf(mask);
 
   if (width === 0 || height === 0) return [];
 
@@ -257,21 +314,23 @@ function clipToQuad(context: CanvasRenderingContext2D, [a, b, c, d]: Quad): void
  * The material, tiled, turned and brightened, on an off-screen canvas — the
  * floor as it would look seen from directly above, over the whole domain.
  *
- * The plane covers the domain rather than the quad, but a plank keeps the size
- * the visitor asked for: the tile's period is fixed in *material* units, so
- * widening the domain lays more planks rather than stretching the ones there.
- * The pattern is also anchored to the material's origin rather than to the
- * plane's middle, so a domain that changes — a corner dragged, a new mask —
- * moves no plank the visitor was already looking at.
+ * Inside, everything is in metres: the domain's width is the floor width the
+ * visitor gave, its depth follows from the perspective, and the tile carries
+ * its own physical size. So a plank is drawn at its real size and shape
+ * however the domain is widened — widening lays more planks rather than
+ * stretching the ones there. The pattern is anchored to a fixed point in
+ * material coordinates, so a domain that changes — a corner dragged, a new
+ * mask — moves no plank the visitor was already looking at.
  */
 function buildMaterialPlane(
-  texture: CanvasImageSource,
-  placement: Placement,
+  surface: SurfaceLayer,
   domain: MaterialDomain,
+  metres: { width: number; depth: number },
 ): HTMLCanvasElement | null {
+  const { texture, placement } = surface;
   const span = domainSpan(domain);
 
-  if (!(span.u > 0) || !(span.v > 0)) return null;
+  if (!texture || !(span.u > 0) || !(span.v > 0)) return null;
 
   // Resolution per axis, so a domain that runs deep towards the horizon does
   // not cost the near floor its detail. The two axes are foreshortened by very
@@ -282,69 +341,100 @@ function buildMaterialPlane(
   const width = Math.max(1, Math.round(span.u * pixelsPerUnitU));
   const height = Math.max(1, Math.round(span.v * pixelsPerUnitV));
 
+  const pxPerMetre = Math.max(pixelsPerUnitU / metres.width, pixelsPerUnitV / metres.depth);
+  const lengthM = placement.plankLengthMm / 1000;
+  const widthM = placement.plankWidthMm / 1000;
+
+  const tile = materialTile({
+    texture,
+    textureKey: surface.textureKey,
+    kind: surface.materialKind,
+    layout: placement.layout,
+    lengthM,
+    widthM,
+    isSeamless: surface.isSeamless,
+    pxPerM: pxPerMetre,
+  });
+
+  if (!tile) return null;
+
   const plane = document.createElement("canvas");
   plane.width = width;
   plane.height = height;
 
   const context = plane.getContext("2d");
-  const tile = cropToTile(texture);
-  const pattern = tile && context?.createPattern(tile, "repeat");
 
-  if (!context || !pattern || !tile) return null;
-
-  // A "tile" is one unit of the quad divided by how many the visitor asked to
-  // see across the room, so the control reads as plank size, not a scale factor.
-  const tileUnits = 1 / Math.max(1, placement.tiles);
-  const scale = tile.width > 0 ? tileUnits / tile.width : 1;
+  if (!context) return null;
 
   if (placement.brightness !== 1 && "filter" in context) {
     context.filter = `brightness(${placement.brightness})`;
   }
 
-  // Where the middle of the quad falls on this plane. The pattern is turned and
-  // phased about that fixed point in *material* coordinates, so widening the
-  // domain — a new mask, a dragged corner — lays more planks around the ones
-  // already on screen instead of shifting every plank the visitor was looking at.
-  const anchorX = (PATTERN_ANCHOR - domain.u0) * pixelsPerUnitU;
-  const anchorY = (PATTERN_ANCHOR - domain.v0) * pixelsPerUnitV;
+  const angle = ((placement.rotation + tile.baseRotation) * Math.PI) / 180;
 
   context.save();
-  context.translate(anchorX, anchorY);
-  // Into material coordinates before rotating: turning the pattern in the
-  // plane's own oblong pixels would shear the planks instead of turning them.
-  context.scale(pixelsPerUnitU, pixelsPerUnitV);
-  context.rotate((placement.rotation * Math.PI) / 180);
-  context.scale(scale, scale);
+  // Where the middle of the quad falls on this plane: the fixed point the
+  // pattern is turned and phased about.
+  context.translate(
+    (PATTERN_ANCHOR - domain.u0) * pixelsPerUnitU,
+    (PATTERN_ANCHOR - domain.v0) * pixelsPerUnitV,
+  );
+  // Into metres before rotating: turning the pattern in the plane's own oblong
+  // pixels would shear the planks instead of turning them.
+  context.scale(pixelsPerUnitU / metres.width, pixelsPerUnitV / metres.depth);
+  context.rotate(angle);
+
+  if (tile.repeat) {
+    drawRepeating(context, tile, domain, metres, angle);
+  } else {
+    // A rug: once, at its own size, in the middle of the marked area.
+    context.drawImage(tile.image, -lengthM / 2, -widthM / 2, lengthM, widthM);
+  }
+
+  context.restore();
+
+  return plane;
+}
+
+function drawRepeating(
+  context: CanvasRenderingContext2D,
+  tile: MaterialTile,
+  domain: MaterialDomain,
+  metres: { width: number; depth: number },
+  angle: number,
+): void {
+  const pattern = context.createPattern(tile.image, "repeat");
+
+  if (!pattern) return;
+
+  context.scale(tile.metresPerPx, tile.metresPerPx);
   context.fillStyle = pattern;
 
   // Fill exactly the plane, expressed in the pattern's own rotated frame, plus
   // a tile of margin. Filling a generous square around the origin instead would
   // repeat the pattern over an area growing with the square of the domain's
   // depth, nearly all of it outside the plane.
-  const bounds = patternBounds(domain, placement.rotation, scale, tile.width);
+  const bounds = patternBounds(domain, metres, angle, tile);
 
   context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-  context.restore();
-
-  return plane;
 }
 
 /**
- * The domain's rectangle in the pattern's own coordinates: turned back by the
- * lay angle and divided by the tile scale, which is exactly the frame the fill
- * happens in. Margin is a tile either side, since rotation pulls the pattern in
- * from outside the domain.
+ * The domain's rectangle in the pattern's own coordinates: into metres about
+ * the anchor, turned back by the lay angle, and divided by the tile's pixel
+ * size — exactly the frame the fill happens in. Margin is a tile either side,
+ * since rotation pulls the pattern in from outside the domain.
  */
 function patternBounds(
   domain: MaterialDomain,
-  rotation: number,
-  scale: number,
-  tileWidth: number,
+  metres: { width: number; depth: number },
+  angle: number,
+  tile: MaterialTile,
 ): { x: number; y: number; width: number; height: number } {
-  const angle = (-rotation * Math.PI) / 180;
-  const cos = Math.cos(angle) / Math.max(scale, 1e-9);
-  const sin = Math.sin(angle) / Math.max(scale, 1e-9);
-  const margin = tileWidth;
+  const cos = Math.cos(-angle);
+  const sin = Math.sin(-angle);
+  const perPx = Math.max(tile.metresPerPx, 1e-9);
+  const margin = Math.max(tile.image.width, tile.image.height);
 
   let minX = Infinity;
   let minY = Infinity;
@@ -352,13 +442,15 @@ function patternBounds(
   let maxY = -Infinity;
 
   for (const [u, v] of [
-    [domain.u0 - PATTERN_ANCHOR, domain.v0 - PATTERN_ANCHOR],
-    [domain.u1 - PATTERN_ANCHOR, domain.v0 - PATTERN_ANCHOR],
-    [domain.u1 - PATTERN_ANCHOR, domain.v1 - PATTERN_ANCHOR],
-    [domain.u0 - PATTERN_ANCHOR, domain.v1 - PATTERN_ANCHOR],
+    [domain.u0, domain.v0],
+    [domain.u1, domain.v0],
+    [domain.u1, domain.v1],
+    [domain.u0, domain.v1],
   ]) {
-    const x = u * cos - v * sin;
-    const y = u * sin + v * cos;
+    const mx = (u - PATTERN_ANCHOR) * metres.width;
+    const my = (v - PATTERN_ANCHOR) * metres.depth;
+    const x = (mx * cos - my * sin) / perPx;
+    const y = (mx * sin + my * cos) / perPx;
 
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
@@ -372,42 +464,6 @@ function patternBounds(
     width: maxX - minX + margin * 2,
     height: maxY - minY + margin * 2,
   };
-}
-
-/**
- * A square from the middle of the product photograph, to repeat as the tile.
- *
- * Squaring it also stops a portrait or landscape photo from stretching into
- * planks that are the wrong shape.
- */
-function cropToTile(texture: CanvasImageSource): HTMLCanvasElement | null {
-  const width = naturalWidth(texture);
-  const height = naturalHeight(texture);
-
-  if (width === 0 || height === 0) return null;
-
-  const side = Math.round(Math.min(width, height) * TILE_CROP);
-  const tile = document.createElement("canvas");
-  tile.width = side;
-  tile.height = side;
-
-  const context = tile.getContext("2d");
-
-  if (!context) return null;
-
-  context.drawImage(
-    texture,
-    Math.round((width - side) / 2),
-    Math.round((height - side) / 2),
-    side,
-    side,
-    0,
-    0,
-    side,
-    side,
-  );
-
-  return tile;
 }
 
 /**
@@ -563,51 +619,4 @@ function isFinitePoint(point: Point): boolean {
 
 function distance(from: Point, to: Point): number {
   return Math.hypot(to.x - from.x, to.y - from.y);
-}
-
-function naturalHeight(source: CanvasImageSource): number {
-  if (typeof HTMLImageElement !== "undefined" && source instanceof HTMLImageElement) {
-    return source.naturalHeight;
-  }
-
-  if (typeof HTMLCanvasElement !== "undefined" && source instanceof HTMLCanvasElement) {
-    return source.height;
-  }
-
-  if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
-    return source.height;
-  }
-
-  return 0;
-}
-
-function naturalWidth(source: CanvasImageSource): number {
-  if (typeof HTMLImageElement !== "undefined" && source instanceof HTMLImageElement) {
-    return source.naturalWidth;
-  }
-
-  if (typeof HTMLCanvasElement !== "undefined" && source instanceof HTMLCanvasElement) {
-    return source.width;
-  }
-
-  if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
-    return source.width;
-  }
-
-  return 0;
-}
-
-/**
- * Load an image for canvas use, requesting CORS so the result can still be
- * exported. Same-origin media (everything served through `/media`) is
- * unaffected either way.
- */
-export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Could not load image: ${src}`));
-    image.src = src;
-  });
 }

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { MessageCircle, Ruler, Sparkles } from "lucide-react";
+import { MessageCircle, PencilLine, Ruler, Sparkles } from "lucide-react";
 import { getVisualization } from "@/lib/api/visualizations";
 import { naira, whatsAppLink } from "@/lib/format";
 import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
@@ -57,6 +57,15 @@ export default async function SharedVisualizationPage({ params }: PageProps) {
             className="object-contain"
           />
         </div>
+
+        {visualization.source_url || typeof visualization.settings.room === "string" ? (
+          <Button asChild variant="outline" className="mt-4 h-11">
+            <Link href={`/visualizer?design=${token}`}>
+              <PencilLine className="h-4 w-4" aria-hidden />
+              Open in the visualizer to try other floors
+            </Link>
+          </Button>
+        ) : null}
 
         <p className="mt-4 max-w-2xl text-xs text-muted-foreground">
           This preview is a decision-support tool, not an exact match. Lighting, camera and screen

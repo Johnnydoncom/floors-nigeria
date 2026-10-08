@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Camera, Grid2x2, Loader2, MessageCircle, Ruler, Scan } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ArLauncher } from "@/components/visualizer/ArLauncher";
 import { MaterialPicker } from "@/components/visualizer/MaterialPicker";
 import { naira, number, whatsAppLink } from "@/lib/format";
 import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { DEFAULT_PLAN, floorArea, perimeter, type RoomPlan } from "@/lib/room/plan";
 import { estimateMaterial, plankSize } from "@/lib/room/material";
-import { checkArSupport, type ArSupport } from "@/lib/room/ar-session";
+import { arSpecFor } from "@/lib/room/ar-material";
+import { absoluteUrl } from "@/lib/structured-data";
 import type { TextureChoice } from "@/lib/visualizer/types";
 import { PlanEditor } from "./PlanEditor";
 import type { CameraMode } from "./RoomScene";
@@ -52,11 +53,6 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
   const [view, setView] = useState<View>("plan");
   const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
   const [rotation, setRotation] = useState(0);
-  const [arSupport, setArSupport] = useState<ArSupport>("checking");
-  const [isArRunning, setIsArRunning] = useState(false);
-
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const arRef = useRef<{ end: () => void } | null>(null);
 
   const variant = material?.variant ?? null;
   const areaSqm = floorArea(plan);
@@ -67,32 +63,12 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
   });
   const plank = plankSize(variant);
 
-  useEffect(() => {
-    void checkArSupport().then(setArSupport);
-  }, []);
-
-  // Leaving the page mid-session would otherwise strand the camera.
-  useEffect(() => () => arRef.current?.end(), []);
-
-  const startAr = useCallback(async () => {
-    if (!material) return;
-
-    try {
-      const { startArSession } = await import("@/lib/room/ar-session");
-
-      arRef.current = await startArSession({
-        textureUrl: material.textureUrl,
-        variant,
-        rotationDegrees: rotation,
-        overlay: overlayRef.current,
-        onEnd: () => setIsArRunning(false),
-      });
-
-      setIsArRunning(true);
-    } catch {
-      toast.error("Your device would not start an AR session. Try the 3D room instead.");
-    }
-  }, [material, rotation, variant]);
+  // The same floor in AR: straight lay at the product's real plank size,
+  // turned the way the 3D room has it.
+  const arSpec = useMemo(
+    () => (material ? arSpecFor(material, { rotationDegrees: rotation }) : null),
+    [material, rotation],
+  );
 
   return (
     <div className="container-fluid grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -165,12 +141,12 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
             />
           </div>
 
-          <ArButton
-            support={arSupport}
-            isRunning={isArRunning}
-            hasMaterial={material !== null}
-            onStart={startAr}
-            onStop={() => arRef.current?.end()}
+          <ArLauncher
+            spec={arSpec}
+            productName={material?.productName ?? "this floor"}
+            phoneUrl={absoluteUrl("/room-designer")}
+            designerHref="/room-designer"
+            className="ml-auto"
           />
         </div>
 
@@ -259,62 +235,7 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
           </section>
         )}
       </aside>
-
-      {/* Shown over the camera feed during an AR session. */}
-      <div
-        ref={overlayRef}
-        className={isArRunning ? "fixed inset-x-0 bottom-0 z-50 p-6" : "hidden"}
-      >
-        {isArRunning && (
-          <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-            <p className="bg-charcoal-dark/80 px-4 py-2 text-sm text-primary-foreground">
-              Point at your floor, then tap to place the material.
-            </p>
-            <Button className="h-11 rounded-none" onClick={() => arRef.current?.end()}>
-              Exit AR
-            </Button>
-          </div>
-        )}
-      </div>
     </div>
-  );
-}
-
-function ArButton({
-  support,
-  isRunning,
-  hasMaterial,
-  onStart,
-  onStop,
-}: {
-  support: ArSupport;
-  isRunning: boolean;
-  hasMaterial: boolean;
-  onStart: () => void;
-  onStop: () => void;
-}) {
-  if (support === "checking") return null;
-
-  if (support !== "supported") {
-    return (
-      <p className="text-xs text-muted-foreground">
-        {support === "insecure"
-          ? "AR needs a secure (https) connection."
-          : "AR is not available on this device — iPhones and iPads do not yet support it in the browser. The 3D room works everywhere."}
-      </p>
-    );
-  }
-
-  return (
-    <Button
-      variant={isRunning ? "default" : "outline"}
-      className="ml-auto h-11 rounded-none"
-      disabled={!hasMaterial}
-      onClick={isRunning ? onStop : onStart}
-    >
-      <Camera className="h-4 w-4" aria-hidden />
-      {isRunning ? "Exit AR" : "View in your room (AR)"}
-    </Button>
   );
 }
 

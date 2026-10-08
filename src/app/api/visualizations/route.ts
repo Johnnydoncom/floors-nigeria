@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { api, ApiError } from "@/lib/api/client";
-import { getToken } from "@/lib/api/auth";
+import { getClientIp, getGuestSessionToken, getToken } from "@/lib/api/auth";
 import { absoluteUrl } from "@/lib/structured-data";
 import type { Envelope } from "@/lib/api/types";
 
@@ -17,9 +17,15 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
 
+    const guestSession = await getGuestSessionToken();
+
     const { data } = await api.post<Envelope<SavedVisualization>>("/v1/visualizations", {
       body: form,
       token: await getToken(),
+      clientIp: await getClientIp(),
+      // A guest's designs are tied to their browser session, so they can be
+      // found again from the account once the visitor signs up (§14).
+      headers: guestSession ? { "X-Session-Token": guestSession } : undefined,
     });
 
     return NextResponse.json(

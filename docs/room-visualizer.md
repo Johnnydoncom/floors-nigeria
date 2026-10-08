@@ -5,52 +5,82 @@ and how the floor is found in the first place.
 
 ## The journey
 
-1. **Add a room.** Upload a photo, take one on a phone, or start from a demo
-   room. An upload becomes an object URL and is read straight into a canvas —
-   it never touches the network.
-2. **The floor is found automatically.** A segmentation model labels the floor
-   pixels; the visitor can drag the four corners to correct the perspective at
-   any point, and marks the floor by hand if detection cannot help.
-3. **Choose a material.** The picker is the live catalogue, one entry per
-   colour a product comes in, each with its real price.
-4. **Fine-tune.** Plank size, direction, material brightness, and how strongly
-   the room's own light shows through.
-5. **Keep it.** Download a PNG, or save to get a share link.
+1. **Choose a floor.** From a product page ("See it in your room" opens the
+   studio on that exact variation, and a QR code carries it to a phone), or
+   inside the studio: search, filter by type, colour, brand and price, keep
+   favourites, and come back to recently tried floors.
+2. **Add a room.** Upload a photo, take one on a phone, or start from a sample
+   room. Uploads are downscaled in the browser (`images.ts`) and never touch the
+   network until the visitor saves or sends them.
+3. **The floor is found automatically.** A segmentation model labels the floor
+   pixels. The visitor can correct the perspective with four corners, paint
+   floor in or out, or draw round an area — irregular rooms and floors split by
+   furniture included.
+4. **Lay it.** Pattern (as photographed, staggered, straight, herringbone,
+   diagonal, grid), direction with 0°/45°/90° presets, real plank size, floor
+   width, finish, and how strongly the room's own light shows through.
+5. **Compare.** A draggable before/after wipe, the two side by side, or two
+   floors in the same room. Zoom and pan to inspect.
+6. **Keep and share.** Save to a link; share it through the phone's share sheet,
+   WhatsApp, email, a copied link or a QR code; download the render or a
+   labelled before-and-after image. Saved designs reopen in the studio.
+7. **Act on it.** Add to the quote list with the area from the estimator (m² or
+   ft²), request a quote or order a sample (both reach the CRM with the render
+   attached), ask on WhatsApp, find a showroom — or view the floor in AR.
 
 ## Where the work happens
 
-| Path                                        | Responsibility                                            |
-| ------------------------------------------- | --------------------------------------------------------- |
-| `src/lib/visualizer/homography.ts`          | The projective map from material to photograph.           |
-| `src/lib/visualizer/coverage.ts`            | How much material to lay, so the whole floor is covered.  |
-| `src/lib/visualizer/floor-mask.ts`          | The label map sorted into floor, structure and occluders. |
-| `src/lib/visualizer/detect-floor.ts`        | Segmentation model → floor mask and perspective quad.     |
-| `src/lib/visualizer/render.ts`              | Canvas rendering: tiling, the mesh, and light blending.   |
-| `src/lib/visualizer/types.ts`               | Geometry and placement types, in normalised coordinates.  |
-| `src/components/visualizer/RoomStage.tsx`   | The canvas, corner handles and before/after wipe.         |
-| `src/components/visualizer/MaterialPicker.tsx` | Catalogue materials as swatches.                       |
-| `src/components/visualizer/VisualizerStudio.tsx` | State, controls, download, save and share.           |
-| `src/components/visualizer/useFloorDetection.ts` | Runs detection per room, out of the render path.    |
-| `src/app/(site)/visualizer/page.tsx`        | Server component; fetches the catalogue.                  |
-| `src/app/api/visualizations/route.ts`       | Proxies a save to Laravel, keeping the API URL server-side. |
-| `scripts/visualizer-coverage.test.mjs`      | The coverage guarantee, checked without a browser.        |
-| `scripts/floor-mask.test.mjs`               | The mask rules, against the mistakes the model makes.     |
+| Path                                                          | Responsibility                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/lib/visualizer/homography.ts`                            | The projective map, and the floor's true proportions.        |
+| `src/lib/visualizer/coverage.ts`                              | How much material to lay, so the whole floor is covered.     |
+| `src/lib/visualizer/floor-mask.ts`                            | The label map sorted into floor, structure and occluders.    |
+| `src/lib/visualizer/detect-floor.ts`                          | Segmentation model → floor mask and perspective quad.        |
+| `src/lib/visualizer/patterns.ts`                              | Laying patterns as geometry: one repeating period each.      |
+| `src/lib/visualizer/material-tile.ts`                         | A texture baked into planks or tiles, with joints.           |
+| `src/lib/visualizer/lighting.ts`                              | The room's light, separated from the old floor.              |
+| `src/lib/visualizer/mask-edits.ts`                            | Hand corrections to the floor area, as replayable edits.     |
+| `src/lib/visualizer/render.ts`                                | Canvas rendering of surface layers: mesh, light, mask.       |
+| `src/lib/visualizer/compose.ts`                               | The labelled before-and-after image.                         |
+| `src/lib/visualizer/images.ts`                                | Upload downscaling, optimized textures, texture cache.       |
+| `src/lib/visualizer/library.ts`                               | Favourites, recently tried and saved designs (browser).      |
+| `src/lib/visualizer/types.ts`                                 | Geometry, placement and surface types.                       |
+| `src/lib/room/materials.ts`                                   | Catalogue products → materials, with kind and variation.     |
+| `src/lib/room/ar-*.ts`, `quick-look.ts`                       | AR: capability check, floor patch, WebXR, Quick Look.        |
+| `src/lib/analytics.ts`                                        | Typed analytics events to GTM / gtag / a DOM event.          |
+| `src/components/visualizer/RoomStage.tsx`                     | Canvas, compare modes, zoom/pan, corners, mask painting.     |
+| `src/components/visualizer/VisualizerStudio.tsx`              | State, links in, save and share orchestration.               |
+| `src/components/visualizer/MaterialBrowser.tsx`               | Search, filters, favourites and recent floors.               |
+| `src/components/visualizer/AdjustPanel.tsx`                   | Pattern, direction, size, finish and light.                  |
+| `src/components/visualizer/MaterialDetails.tsx`               | The product card, estimator and every CTA.                   |
+| `src/components/visualizer/ShareDialog.tsx`, `LeadDialog.tsx` | Sharing; quote and sample requests.                          |
+| `src/components/visualizer/ArLauncher.tsx`                    | "View in your room" for whichever AR the device has.         |
+| `src/components/visualizer/useFloorDetection.ts`              | Runs detection per room, out of the render path.             |
+| `src/app/(site)/visualizer/page.tsx`                          | Server component; popular materials and filter choices.      |
+| `src/app/api/catalog/materials/route.ts`                      | Catalogue search/filter and product deep links as materials. |
+| `src/app/api/visualizations/route.ts`                         | Proxies a save to Laravel, keeping the API URL server-side.  |
+| `src/app/api/visualizations/[token]/route.ts`                 | A saved design, for reopening in the studio.                 |
+| `src/app/api/leads/route.ts`                                  | Quote and sample requests → `POST /v1/quotes`.               |
+| `scripts/visualizer-coverage.test.mjs`                        | The coverage guarantee, checked without a browser.           |
+| `scripts/floor-mask.test.mjs`                                 | The mask rules, against the mistakes the model makes.        |
+| `scripts/patterns.test.mjs`                                   | Every layout tiles; planks keep their real proportions.      |
 
 Everything renders in the browser, including detection. The only network calls
-are the model download and the save, which is the customer's explicit choice —
-good for privacy and for anyone on a Nigerian mobile connection.
+are the model download, catalogue browsing, and saving or sending — the last
+two the customer's explicit choice. Good for privacy and for anyone on a
+Nigerian mobile connection.
 
 ## Mask and quad answer different questions
 
 This distinction is the heart of the design, and conflating the two is what
 made an earlier version lay floors across sofas.
 
-- The **mask** is the exact set of floor pixels. It decides *where* material
+- The **mask** is the exact set of floor pixels. It decides _where_ material
   may be drawn, and it is what lets material stop at a chair leg.
-- The **quad** is four points on the floor plane. It decides *how* the material
+- The **quad** is four points on the floor plane. It decides _how_ the material
   recedes, and nothing else.
 - The **domain** is a rectangle in the material's own coordinates — `[u0,u1] ×
-  [v0,v1]`, free to reach well outside the unit square. It decides *how much*
+[v0,v1]`, free to reach well outside the unit square. It decides _how much_
   material is laid.
 
 A quad alone cannot express "floor, except where the sofa is" — a real floor's
@@ -69,7 +99,7 @@ decide the outline (`coverage.ts`).
 
 Widening is safe in a way that clipping is not. An oversized domain costs mesh
 cells and nothing else, because the mask trims the overhang; an undersized one
-costs bare floor. So the quad is *never* clipped to when a mask is present —
+costs bare floor. So the quad is _never_ clipped to when a mask is present —
 that clip is what put the floor back inside the quad.
 
 Concretely: the mesh is composed off-screen, the lighting pass is applied, and
@@ -86,7 +116,7 @@ not re-scan the floor.
 
 Two things are refused rather than trusted. A point mapping to behind the camera
 is not on the visible floor plane and would drag the domain through infinity, so
-it is dropped. A point past the domain's bound is *clamped*, not dropped —
+it is dropped. A point past the domain's bound is _clamped_, not dropped —
 dropping it silently leaves that floor bare, which is the whole failure being
 fixed. The domain is then pulled back until all four corners sit in front of the
 horizon, which for a divisor linear in `(u, v)` is enough to keep the whole
@@ -184,6 +214,7 @@ From the model's per-pixel labels:
    filling half a photograph — and eight-connected, so a patch pinched to a
    diagonal by a chair leg stays one patch rather than two half-sized ones that
    then both fail.
+
 3. The perspective quad is built from the two things a floor mask reports
    reliably: how far up the photograph the floor reaches, and roughly where it
    recedes to. The near edge spans the floor's width at the bottom of frame;
@@ -199,7 +230,7 @@ From the model's per-pixel labels:
 Step 3 deserves its scars. Fitting straight lines to the mask's left and right
 boundaries seems obvious and is wrong: on a real room it latches onto a sliver
 of floor past a staircase and skews the whole quad. Measuring the floor's
-*extent* over a band of rows is far steadier, and only has to be approximately
+_extent_ over a band of rows is far steadier, and only has to be approximately
 right because the mask handles containment.
 
 ### Snapping the boundary to the photograph
@@ -230,24 +261,100 @@ would feather the boundary straight back out.
 Detection never blocks: the room and material render immediately against a
 default floor area, and the detected result replaces it when ready.
 
-## Textures
+## Textures and patterns
 
-The material tiled across the floor is a square taken from the middle of the
-product photograph. Catalogue photography is staged — a plank propped on a
-pallet, a tile in shrink wrap, a sprig of greenery for scale — and tiling the
-whole frame repeats those props across the room.
+A product texture is either a **dedicated seamless asset** uploaded to the
+`visualizer_texture` media collection, or the marketing photograph standing in
+for one. The API says which (`visualizer_texture_is_dedicated`), and the
+difference decides everything below.
 
-The crop is damage limitation, not a fix. Products carry a dedicated
-`visualizer_texture` media collection for a seamless, render-optimised asset,
-and it takes precedence over the hero image whenever one is uploaded (§24).
-Until a product has one, its preview is only as good as the middle of its
-marketing shot.
+Catalogue photography is staged — a plank propped on a pallet, a skirting board
+in frame, a lobby with dark inlay bands — so a photograph is cropped to its
+middle and, by default, shown **as photographed**: repeated as it is, with no
+joints of our own. Cutting a photograph of a whole floor into planks puts its
+seams and props inside every board; that was tried against the catalogue's own
+imagery, and it is why this is not the default. A dedicated texture defaults to
+the product's natural pattern — staggered planks, a tile grid — and every layout
+is a tap away either way.
+
+### One period per pattern
+
+Each layout is a rectangle that tiles the plane by plain translation, plus the
+planks inside it (`patterns.ts`). The renderer bakes one period into a canvas
+and repeats it, so a herringbone costs one bake per material change, not one
+per slider movement. Planks hanging over an edge are drawn at the neighbouring
+offsets too, which makes every period seamless without special cases.
+
+- **Staggered / straight** — rows a whole number of planks wide, each shifted
+  by half a plank, or by a fixed "random" offset that keeps neighbouring rows'
+  end joints at least a fifth of a plank apart.
+- **Herringbone** — horizontal plank _k_ at (kW, kW), its vertical partner at
+  (kW − W, kW). The lattice is (W, W) and (2L, 0), so with L a whole number of
+  widths the square 2L period holds exactly 2L/W pairs. Laid at 45° so the
+  zigzag runs along the room.
+- **Diagonal** — a grid (tiles) or a stagger (planks), turned 45°.
+- **Grid** — stack bond.
+
+`npm run test:visualizer` samples every layout and asserts each point is
+covered by exactly one plank: a gap would show the old floor, an overlap would
+draw one plank over another. The first version of the row layout failed it — a
+duplicated leading plank — which is why the test exists.
+
+### Baking a plank
+
+Each plank is a strip of the texture with the plank's own proportions, taken
+from a different place than its neighbours, randomly flipped, and toned a few
+percent lighter or darker — a uniform field is what makes a render look
+printed. Randomness is seeded from the texture, so a design looks the same every
+time it opens. A texture whose grain runs down the image is first turned a
+quarter (gradient energy along x versus y on a 64px copy), so planks are never
+striped across their width. Planks sample in proportion to their real length
+against an assumed 1.5m texture span, so a 600mm herringbone block shows the
+same grain scale as a 1220mm board.
+
+Planks get a micro-bevel — shadow on the far edges, a catch of light on the
+near — and tiles get grout a little lighter and greyer than the tile. The bake
+also produces a height map of the joints, which the AR view turns into a normal
+map: real grooves that catch light, where the photo view has to paint them.
+
+Bakes are sized to the resolution the plane draws them at (bucketed by powers of
+√2 and cached), so a joint stays a crisp pixel or two rather than an eighth of
+one shimmering after a heavy downscale.
+
+### True proportions
+
+The unit square maps to a rectangle on the floor, but nothing says a _square_
+one: a quad marking a floor 4m wide and 6m deep is drawn exactly like one 4m by
+4m, only foreshortened differently, and laying material in unit-square
+coordinates squashes every plank along the room. `planeAspect` undoes the
+camera: H = K[A·r₁, B·r₂, t], so once the intrinsics are removed the two
+columns' lengths are in the ratio B : A. The focal length is assumed (0.7 × the
+long side, a 26mm-equivalent phone camera); ±20% moves the result by a few
+percent, and absurd quads clamp to a safe range. Tested against a synthetic
+pinhole camera photographing floors of known size, angled and off-centre shots
+included.
+
+With depth known, the plane is laid **in metres**: its width is the visitor's
+"floor width in the photo" — the one measurement a photograph cannot supply —
+and planks are drawn at the variation's real millimetres against it.
+
+### Light
+
+Multiplying the raw photograph back over the material carried the _old floor_
+with it: a dark floor darkened the new one, a red tile tinted it, and highlights
+were lost because a multiply can only darken. `lighting.ts` divides each pixel's
+blurred luminance by the floor's average. Below 1 is colourless shading centred
+on the floor's own exposure, multiplied; above 1 is highlight, screened in
+proportion to the finish (matte, satin, gloss). The blur takes out the old
+floor's grain and grout lines, which are texture, not light. Computed once per
+photo and floor area. Reflections of dark furniture in a glossy old floor still
+read as shadows; "Room lighting" turns them down.
 
 ## The homography
 
 A floor is flat. A camera maps one plane to another by a **homography** — a 3×3
 matrix in homogeneous coordinates. So if we know where the floor's four corners
-landed in the photo, we know where *every* point of the material lands. No depth
+landed in the photo, we know where _every_ point of the material lands. No depth
 data and no camera calibration — four corners is the entire input.
 
 ```
@@ -266,7 +373,7 @@ converge instead of marching along at a uniform size.
 The general Direct Linear Transform solves an 8×8 system for four arbitrary
 point correspondences. Here the source is always the unit square — `(0,0)`,
 `(1,0)`, `(1,1)`, `(0,1)` — and that system collapses to closed-form arithmetic
-(Heckbert, *Fundamentals of Texture Mapping and Image Warping*, §2.2). It is
+(Heckbert, _Fundamentals of Texture Mapping and Image Warping_, §2.2). It is
 exact, allocates nothing, and cannot fail to converge.
 
 Two shapes are special-cased: a parallelogram (a floor viewed square-on) has no
@@ -308,7 +415,7 @@ pattern runs continuously across the joins, and widening the domain lays more
 planks around the ones already on screen rather than shifting every plank the
 visitor was looking at.
 
-### Why not WebGL?
+### Why not WebGL for the photo?
 
 A fragment shader would do the divide per pixel and be the obvious choice for a
 desktop tool. This one is aimed at mid-range Android phones on mobile data,
@@ -318,11 +425,12 @@ not sixty times a second — so the cost lands once per adjustment.
 
 ### Making it look real
 
-Perspective alone gives a floor-shaped sticker. The photograph is then
-**multiplied back over** the rendered material, carrying its shadows,
-reflections and light falloff onto the new floor. That single composite does
-most of the work of making the result read as the same room, and its strength
-is the "Room lighting" control.
+Perspective alone gives a floor-shaped sticker. The room's own light is then
+laid back over the rendered material — its shadows and falloff multiplied, its
+highlights screened by finish (see _Light_, above) — which does most of the work
+of making the result read as the same room. Its strength is the "Room lighting"
+control. Where the photograph cannot be read back, the renderer falls back to
+multiplying the photograph itself.
 
 ## Verifying it without a browser
 
@@ -353,7 +461,7 @@ leaving that to whichever Node is installed — Node only understands a `.ts`
 file unaided from v22.18 on. So there is no test runner and no bundler to keep
 up to date, and no version of Node the suite quietly refuses to run on.
 
-What numbers cannot confirm is whether a room *looks* right. That needs eyes on
+What numbers cannot confirm is whether a room _looks_ right. That needs eyes on
 a real photograph.
 
 ## Saving and sharing
@@ -369,11 +477,43 @@ Placement is stored in **normalised coordinates** (0–1 of the photo's width an
 height), so a saved visualisation survives a different screen size or a
 re-render at another resolution.
 
+Saving also stores the layout, plank size, floor width, finish, lighting, the
+hand edits to the floor area and — for a sample room — its path, so
+`/visualizer?design={token}` reopens a design for editing rather than only
+viewing. The quad is restored as saved, detection supplies the mask again, and
+the edits replay on top. Edits are kept as normalised operations, not pixels,
+which is also how undo works: a stack of full-resolution mask snapshots would
+cost a phone tens of megabytes.
+
+A guest's saves carry their session token, so they can be claimed into an
+account later. The browser keeps its own list of saved designs (`library.ts`),
+with favourites and recently tried floors; favourites are also sent to the
+account when there is one.
+
+## Leads
+
+"Request a quote" and "Order a sample" post to `POST /api/leads`, which passes
+the multipart body to the existing `POST /v1/quotes` with source `visualizer`.
+The CRM gets a contact, a lead, an opportunity and a quote, with the render
+attached and the visualised layout in the line note. A quote line carries the
+variation and the estimator's area, priced server-side; a sample line carries
+only the product and is priced at zero. No new endpoint, no schema change.
+
+## Analytics
+
+`track()` (`src/lib/analytics.ts`) sends typed events to GTM's `dataLayer` or to
+`gtag`, whichever is loaded, and dispatches a `floorsng:analytics` DOM event:
+visualizer opened, room selected, floor detected or failed, floor area edited,
+product selected, visualization completed, layout changed, comparison used,
+favourite saved, design saved or shared, image downloaded, lead submitted, CTA
+clicked, AR launched, QR shown. Nothing is loaded by default, and tracking never
+breaks a page.
+
 ## The room designer
 
 A second, complementary tool at `/room-designer`. Where the photo visualizer
-answers *"how would this look in my room?"*, the designer answers *"how much do
-I need, and what will it cost?"*
+answers _"how would this look in my room?"_, the designer answers _"how much do
+I need, and what will it cost?"_
 
 - `src/lib/room/plan.ts` — the room: rectangle or L-shape, in metres. Area is
   the shoelace formula over the outline, so a new room shape needs no new
@@ -397,16 +537,24 @@ the designer's reason to exist.
 
 ### AR
 
-WebXR `immersive-ar` with a hit-test: point the phone at the floor, tap, and a
-2.4m patch of the material is placed at that pose at true scale. Written
-against three.js directly rather than through React — an XR session owns its
-own render loop, and reconciling that with a React renderer buys nothing for a
-single textured plane.
+One button, whichever AR the device has (`ArLauncher`, used by both tools):
 
-**Android Chrome only.** iOS Safari does not support WebXR and needs AR Quick
-Look with a USDZ file, which is a different pipeline, not a fallback flag. The
-button is hidden with an explanation on unsupported devices, and the 3D room
-works everywhere.
+- **Android Chrome** — WebXR `immersive-ar` with a hit-test: point the phone at
+  the floor, tap, and a 2.4m patch is placed at true scale. Written against
+  three.js directly; an XR session owns its own render loop.
+- **iPhone and iPad** — Safari has no WebXR, but opens a USDZ model in AR Quick
+  Look from a `rel="ar"` link. The model is exported in the browser by
+  three.js's `USDZExporter` from the same patch, anchored to a horizontal plane,
+  with content scaling off so it stays true size. No server pipeline: any
+  catalogue material works the moment it is listed.
+- **Everything else** — a QR code carrying the same floor to a phone, and the 3D
+  room.
+
+The patch is baked by the same pattern code as the photo view — the chosen
+layout, plank size and direction — with the joints' normal map and a roughness
+from the finish. It is baked rather than repeated on the GPU because Quick Look
+ignores texture repeats on some versions. Capability detection lives in
+`ar-support.ts`, apart from three.js, so asking costs the page nothing.
 
 ## Extending it
 

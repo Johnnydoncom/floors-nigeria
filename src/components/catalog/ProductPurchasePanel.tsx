@@ -12,6 +12,7 @@ import { ProductGallery, type GalleryImage } from "./ProductGallery";
 import { FavoriteButton } from "./FavoriteButton";
 import { OptionPicker } from "./OptionPicker";
 import { useVariantSelection } from "./useVariantSelection";
+import { VisualizerQrButton } from "@/components/visualizer/VisualizerQrButton";
 
 const MINIMUM_QUANTITY = 1;
 
@@ -165,14 +166,21 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
           </Button>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button asChild variant="outline" className="h-12 rounded-none">
-              <Link
-                href={`/visualizer?product=${product.slug}${variant ? `&variant=${variant.sku}` : ""}`}
-              >
-                <Sparkles className="h-4 w-4" aria-hidden />
-                See it in your room
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild variant="outline" className="h-12 min-w-0 flex-1 rounded-none">
+                <Link
+                  href={`/visualizer?product=${product.slug}${variant ? `&variant=${variant.sku}` : ""}`}
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                  See it in your room
+                </Link>
+              </Button>
+              <VisualizerQrButton
+                productSlug={product.slug}
+                productName={product.name}
+                variantSku={variant?.sku}
+              />
+            </div>
             <Button asChild variant="outline" className="h-12 rounded-none">
               <Link
                 href={`/calculator?product=${product.slug}${variant ? `&variant=${variant.sku}` : ""}`}

@@ -63,7 +63,11 @@ export default function ContactPage() {
           </Suspense>
         </div>
 
-        <aside className="space-y-4 lg:col-span-5" aria-label="Showrooms and opening hours">
+        <aside
+          id="showrooms"
+          className="scroll-mt-28 space-y-4 lg:col-span-5"
+          aria-label="Showrooms and opening hours"
+        >
           <a
             href={whatsAppLink(
               WHATSAPP_NUMBER,

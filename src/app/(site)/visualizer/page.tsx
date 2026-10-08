@@ -1,73 +1,113 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { Camera, Layers, ScanLine } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
-import { Camera, MousePointerClick, Ruler } from "lucide-react";
-import { getProducts } from "@/lib/api/catalog";
+import { getFilterOptions, getProducts } from "@/lib/api/catalog";
+import type { FilterOptions } from "@/lib/api/types";
 import { toTextureChoices } from "@/lib/room/materials";
-import { VisualizerStudio, type DemoRoom } from "@/components/visualizer/VisualizerStudio";
+import { VisualizerStudio, type SampleRoom } from "@/components/visualizer/VisualizerStudio";
+import type { VisualizerFilters } from "@/components/visualizer/MaterialBrowser";
 
 export const metadata: Metadata = pageMetadata({
   title: "Room Visualizer — See Flooring in Your Room",
   description:
-    "See any Floor Nigeria floor in your own room. Upload a photo, mark the floor and try real products to scale before you buy.",
+    "See any Floor Nigeria floor in your own room. Upload a photo and the floor is found automatically — then try real products, patterns and finishes, compare them, view them in AR and share the result.",
   path: "/visualizer",
 });
 
 /** Rooms to try when a visitor has not photographed their own yet. */
-const DEMO_ROOMS: DemoRoom[] = [
+const SAMPLE_ROOMS: SampleRoom[] = [
   { src: "/images/hero-living.jpg", label: "Living room" },
   { src: "/images/project-residence.jpg", label: "Residence" },
   { src: "/images/project-office.jpg", label: "Office" },
   { src: "/images/project-hotel.jpg", label: "Hotel lobby" },
 ];
 
-/** Materials offered in the studio, enough to compare without overwhelming. */
+/** Materials shipped with the page, for an instant first screen. */
 const MATERIAL_LIMIT = 24;
 
 /**
  * The room visualizer (§10).
  *
- * The catalogue is fetched here and handed to the studio, so the materials on
- * offer are the ones actually for sale — with their prices — rather than a
- * separate set of demo textures.
+ * The most popular materials and the filter choices are fetched here and
+ * handed to the studio, so it opens instantly on the floors actually for sale;
+ * everything else in the catalogue is a search away inside it.
  */
 export default async function VisualizerPage() {
-  const { data: products } = await getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" });
+  const [{ data: products }, filterOptions] = await Promise.all([
+    getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" }),
+    getFilterOptions(),
+  ]);
   const materials = products.flatMap(toTextureChoices);
 
   return (
     <>
       <section className="bg-charcoal-dark pt-header text-primary-foreground">
         <div className="container-fluid py-10 lg:py-14">
-          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-light">
-            Room Visualizer
-          </p>
+          <p className="eyebrow text-gold-light">Room Visualizer</p>
           <h1 className="mt-2 max-w-3xl text-balance font-display text-4xl tracking-tight md:text-5xl">
             See it on your own floor before you buy.
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-primary-foreground/70">
-            Photograph your room, mark where the floor is, and try any of our materials on it to
-            scale. Nothing is uploaded until you choose to save.
+            Photograph your room and we find the floor for you. Try any of our floors on it — in the
+            pattern, direction and finish you want — then compare, share, or see it in AR. Nothing
+            is uploaded until you choose to save.
           </p>
 
           <ol className="mt-8 grid gap-4 sm:grid-cols-3">
             <Step icon={<Camera className="h-4 w-4" aria-hidden />} title="Add your room">
-              Upload a photo, or start from one of ours.
+              Upload or take a photo, or start from one of ours.
             </Step>
-            <Step
-              icon={<MousePointerClick className="h-4 w-4" aria-hidden />}
-              title="Mark the floor"
-            >
-              Drag the four corners onto the floor area.
+            <Step icon={<ScanLine className="h-4 w-4" aria-hidden />} title="We find the floor">
+              Furniture stays put. Paint or draw to fine-tune.
             </Step>
-            <Step icon={<Ruler className="h-4 w-4" aria-hidden />} title="Try materials">
-              Switch floors, sizes and direction until it looks right.
+            <Step icon={<Layers className="h-4 w-4" aria-hidden />} title="Try, compare, decide">
+              Switch floors and patterns, then request a quote or a sample.
             </Step>
           </ol>
         </div>
       </section>
 
-      <VisualizerStudio materials={materials} demoRooms={DEMO_ROOMS} />
+      {/* The studio follows ?product, ?variant and ?design links, which are
+          only known in the browser — the shell prerenders without them. */}
+      <Suspense fallback={<StudioSkeleton />}>
+        <VisualizerStudio
+          materials={materials}
+          sampleRooms={SAMPLE_ROOMS}
+          filters={visualizerFilters(filterOptions)}
+        />
+      </Suspense>
     </>
+  );
+}
+
+/** The catalogue's filters, trimmed to what the studio offers. */
+function visualizerFilters(options: FilterOptions): VisualizerFilters {
+  const colour =
+    options.attributes.find((attribute) => attribute.swatch_type === "color") ??
+    options.attributes.find((attribute) => /colou?r/i.test(attribute.slug));
+
+  return {
+    categories: options.categories.map(({ slug, name }) => ({ slug, name })),
+    brands: options.brands,
+    colour: colour
+      ? {
+          attribute: colour.slug,
+          terms: colour.values
+            .slice(0, 40)
+            .map((term) => ({ slug: term.slug, label: term.label, hex: term.color_hex })),
+        }
+      : null,
+    price: { min: options.price.min, max: options.price.max },
+  };
+}
+
+function StudioSkeleton() {
+  return (
+    <div className="container-fluid grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="aspect-[4/3] animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+      <div className="hidden h-96 animate-pulse rounded-lg bg-muted motion-reduce:animate-none lg:block" />
+    </div>
   );
 }
 
@@ -81,7 +121,7 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <li className="border border-white/10 p-4">
+    <li className="rounded-lg border border-white/10 p-4">
       <p className="flex items-center gap-2 font-display text-sm font-semibold text-gold-light">
         {icon}
         {title}

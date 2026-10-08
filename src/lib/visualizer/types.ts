@@ -1,4 +1,4 @@
-import type { Variant } from "@/lib/api/types";
+import type { StockStatus, Variant } from "@/lib/api/types";
 
 /**
  * Room visualizer types (§10).
@@ -16,10 +16,38 @@ export type Point = { x: number; y: number };
  */
 export type Quad = [Point, Point, Point, Point];
 
+/**
+ * How the material is laid.
+ *
+ * `natural` repeats the texture as photographed, with no joints of our own —
+ * the honest choice for a marketing photograph that already shows a floor, and
+ * for broadloom carpet. Every other layout cuts the texture into planks or
+ * tiles of the product's real size and lays them in that pattern.
+ */
+export type LayoutPattern =
+  "natural" | "straight" | "staggered" | "herringbone" | "diagonal" | "grid";
+
+/** What sort of floor a product is, which decides its default layout and joints. */
+export type MaterialKind = "plank" | "tile" | "carpet" | "rug";
+
+/**
+ * The surfaces a room can be dressed on. Only floors are offered today; walls
+ * are the same homography on a vertical plane, and the renderer takes a list of
+ * surface layers so adding them is a UI change rather than a rewrite.
+ */
+export type SurfaceKind = "floor" | "wall";
+
+/** Surface finish, which decides how much of the room's own light glints off it. */
+export type Finish = "matte" | "satin" | "gloss";
+
 export type Placement = {
-  /** Planks across the near edge of the floor — the practical "zoom". */
-  tiles: number;
-  /** Degrees the material is turned by, for diagonal or herringbone lays. */
+  /**
+   * Real width, in metres, of the marked floor area — the one measurement a
+   * photograph cannot supply. Planks are laid at their true size against it,
+   * so this is the control that makes them look the right size.
+   */
+  widthM: number;
+  /** Degrees the material is turned by, on top of the layout's own angle. */
   rotation: number;
   /** How strongly the room's own light and shadow show through the material. */
   lighting: number;
@@ -27,17 +55,25 @@ export type Placement = {
   brightness: number;
   /** Material opacity, for judging a subtle finish against the existing floor. */
   opacity: number;
+  layout: LayoutPattern;
+  /** Plank or tile length and width in millimetres; for a rug, its size. */
+  plankLengthMm: number;
+  plankWidthMm: number;
+  finish: Finish;
 };
 
 export type RoomSource = {
-  /** Object URL for an upload, or a path for a demo room. */
+  /** Object URL for an upload, or a path for a sample room or saved design. */
   src: string;
   label: string;
   /** Present when the visitor uploaded the photo, for saving it alongside. */
   file?: File;
+  /** Where the room came from, for analytics and for what saving should send. */
+  origin?: "sample" | "upload" | "camera" | "design";
 };
 
 export type TextureChoice = {
+  productId?: number;
   productSlug: string;
   productName: string;
   variantId: number | null;
@@ -49,20 +85,59 @@ export type TextureChoice = {
    * The variation this material comes from, when one is known.
    *
    * The room designer needs its real plank size and pack coverage to lay the
-   * floor at true scale and price the room; the photo visualizer does not, and
-   * tolerates it being absent.
+   * floor at true scale and price the room; the photo visualizer uses the same
+   * size to cut planks, and tolerates it being absent.
    */
   variant: Variant | null;
   /** Waste allowance for this product, for material estimates (§12). */
   wastePercentage: number;
+  /** What sort of floor this is, from its category. */
+  kind?: MaterialKind;
+  /**
+   * True when the texture is a dedicated seamless render asset rather than the
+   * marketing photograph standing in for one (§24). Decides whether the photo
+   * is cropped and whether joints are laid by default.
+   */
+  isSeamless?: boolean;
+  imageUrl?: string | null;
+  brandName?: string | null;
+  categoryName?: string | null;
+  skuFamily?: string | null;
+  priceUnit?: string | null;
+  availability?: { status: StockStatus; label: string; isOrderable: boolean } | null;
+};
+
+/**
+ * One surface to dress: where it is, how it recedes, and what is laid on it.
+ * A room is rendered as a list of these over the photograph.
+ */
+export type SurfaceLayer = {
+  kind: SurfaceKind;
+  texture: CanvasImageSource | null;
+  /** Identifies the texture for caching its prepared tiles. */
+  textureKey: string;
+  quad: Quad;
+  placement: Placement;
+  materialKind: MaterialKind;
+  isSeamless: boolean;
+  /**
+   * Pixels of this surface, opaque where material belongs. When present it
+   * decides *where* material is drawn and the quad only decides *how*
+   * perspective runs. Without it the quad does both.
+   */
+  mask?: CanvasImageSource | null;
 };
 
 export const DEFAULT_PLACEMENT: Placement = {
-  tiles: 6,
+  widthM: 4,
   rotation: 0,
-  lighting: 0.75,
+  lighting: 0.8,
   brightness: 1,
   opacity: 1,
+  layout: "natural",
+  plankLengthMm: 1220,
+  plankWidthMm: 183,
+  finish: "satin",
 };
 
 /**

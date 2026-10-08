@@ -164,6 +164,8 @@ export type Variant = {
   swatch_image_url: string | null;
   swatch_color_hex: string | null;
   visualizer_texture_url: string | null;
+  /** True when a dedicated seamless texture exists, not the hero standing in. */
+  visualizer_texture_is_dedicated?: boolean;
   media?: Media[];
 };
 
@@ -182,6 +184,8 @@ export type ProductCard = {
   thumb_url: string | null;
   /** Rendering asset the room visualizer tiles across a floor. */
   visualizer_texture_url: string | null;
+  /** True when a dedicated seamless texture exists, not the hero standing in. */
+  visualizer_texture_is_dedicated?: boolean;
   /** Waste allowance to add when estimating material for a room. */
   waste_percentage: number;
   price_from: number | null;

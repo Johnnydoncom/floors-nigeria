@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { plankSize } from "./material";
-import type { Variant } from "@/lib/api/types";
+import { buildFloorPatch, type ArMaterialSpec } from "./ar-material";
 
 /**
  * Augmented reality floor preview (§10, "live placement").
@@ -14,49 +13,19 @@ import type { Variant } from "@/lib/api/types";
  * React renderer buys nothing when the scene is a single textured plane.
  */
 
-/** Size of the material patch placed on the floor, in metres. */
-const PATCH_SIZE = 2.4;
+import type { ArHandle } from "./ar-support";
 
-export type ArSupport = "checking" | "supported" | "unsupported" | "insecure";
-
-/**
- * Whether this device can run an immersive AR session.
- *
- * Android Chrome supports WebXR; iOS Safari does not, and needs AR Quick Look
- * with a USDZ file instead — a different pipeline, not a fallback flag.
- */
-export async function checkArSupport(): Promise<ArSupport> {
-  if (typeof navigator === "undefined") return "unsupported";
-
-  // WebXR is only exposed on secure origins, which includes localhost.
-  if (typeof window !== "undefined" && !window.isSecureContext) return "insecure";
-
-  const xr = (navigator as Navigator & { xr?: XRSystem }).xr;
-
-  if (!xr) return "unsupported";
-
-  try {
-    return (await xr.isSessionSupported("immersive-ar")) ? "supported" : "unsupported";
-  } catch {
-    return "unsupported";
-  }
-}
-
-export type ArHandle = { end: () => void };
+export type { ArHandle };
 
 /**
  * Start an AR session that lays the material wherever the phone is pointed.
  */
 export async function startArSession({
-  textureUrl,
-  variant,
-  rotationDegrees,
+  spec,
   overlay,
   onEnd,
 }: {
-  textureUrl: string;
-  variant?: Variant | null;
-  rotationDegrees: number;
+  spec: ArMaterialSpec;
   /** Element shown over the camera feed, for the exit button and hints. */
   overlay?: HTMLElement | null;
   onEnd?: () => void;
@@ -80,9 +49,13 @@ export async function startArSession({
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera();
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbaa, 2));
+  // Soft light from above, so the joints' normal map reads as grooves.
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbaa, 2.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+  sun.position.set(1, 3, 2);
+  scene.add(sun);
 
-  const patch = await buildPatch(textureUrl, variant, rotationDegrees);
+  const patch = await buildFloorPatch(spec);
   patch.visible = false;
   scene.add(patch);
 
@@ -138,35 +111,6 @@ export async function startArSession({
       void session.end().catch(() => cleanup());
     },
   };
-}
-
-/**
- * A square of flooring at true plank scale, lying flat.
- */
-async function buildPatch(
-  textureUrl: string,
-  variant: Variant | null | undefined,
-  rotationDegrees: number,
-): Promise<THREE.Mesh> {
-  const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
-  const { lengthM, widthM } = plankSize(variant);
-
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.repeat.set(PATCH_SIZE / lengthM, PATCH_SIZE / widthM);
-  texture.center.set(0.5, 0.5);
-  texture.rotation = (rotationDegrees * Math.PI) / 180;
-
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(PATCH_SIZE, PATCH_SIZE),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true }),
-  );
-
-  // PlaneGeometry stands upright by default; lay it on the floor.
-  mesh.rotation.x = -Math.PI / 2;
-
-  return mesh;
 }
 
 /**
