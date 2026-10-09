@@ -88,6 +88,20 @@ export async function login(credentials: Credentials): Promise<TokenResponse["da
   return data;
 }
 
+/**
+ * Sign in to the staff workspace. The API only issues a token to active
+ * staff, so a customer's password never opens a workspace session.
+ */
+export async function staffLogin(credentials: Credentials): Promise<TokenResponse["data"]> {
+  const { data } = await api.post<TokenResponse>("/v1/auth/staff-login", {
+    body: credentials,
+    clientIp: await getClientIp(),
+  });
+
+  await storeToken(data.token);
+  return data;
+}
+
 export async function register(details: RegistrationDetails): Promise<TokenResponse["data"]> {
   const { data } = await api.post<TokenResponse>("/v1/auth/register", {
     body: { ...details, session_token: await getGuestSessionToken() },

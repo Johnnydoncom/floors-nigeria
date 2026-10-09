@@ -146,10 +146,14 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
 
   if (!parsed.success) return invalid(parsed.error, formData);
 
-  const failure = await attempt(() => login(parsed.data), formData);
+  let isStaff = false;
+  const failure = await attempt(async () => {
+    isStaff = (await login(parsed.data)).user.is_staff;
+  }, formData);
   if (failure) return failure;
 
-  redirect(safeRedirectPath(text(formData, "next")));
+  // Staff land in the workspace unless they were heading somewhere specific.
+  redirect(safeRedirectPath(text(formData, "next"), isStaff ? "/admin" : "/account"));
 }
 
 const signUpSchema = z

@@ -20,6 +20,10 @@ export function proxy(request: NextRequest): NextResponse {
     return guardAccount(request);
   }
 
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return guardWorkspace(request);
+  }
+
   return consolidateCatalogueUrl(request);
 }
 
@@ -41,6 +45,23 @@ function guardAccount(request: NextRequest): NextResponse {
 
   const signIn = new URL("/account/login", request.url);
   if (pathname !== "/account") signIn.searchParams.set("next", `${pathname}${search}`);
+
+  return NextResponse.redirect(signIn);
+}
+
+/**
+ * The staff workspace needs a session too. Whether it belongs to staff is
+ * checked against the API by the admin layout.
+ */
+function guardWorkspace(request: NextRequest): NextResponse {
+  const { pathname, search } = request.nextUrl;
+
+  if (pathname === "/admin/login" || request.cookies.has(AUTH_COOKIE)) {
+    return NextResponse.next();
+  }
+
+  const signIn = new URL("/admin/login", request.url);
+  signIn.searchParams.set("next", `${pathname}${search}`);
 
   return NextResponse.redirect(signIn);
 }
@@ -74,5 +95,5 @@ function consolidateCatalogueUrl(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/products", "/account", "/account/:path*"],
+  matcher: ["/products", "/account", "/account/:path*", "/admin", "/admin/:path*"],
 };

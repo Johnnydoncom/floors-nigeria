@@ -116,6 +116,33 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   return rewriteMediaUrls((await response.json()) as T);
 }
 
+/**
+ * An unparsed request to Laravel, for the admin proxy: it streams downloads
+ * (CSV exports, quote attachments) and passes bodies through untouched.
+ */
+export function rawApiFetch(
+  path: string,
+  init: Omit<RequestInit, "headers"> & {
+    token: string;
+    clientIp?: string;
+    headers?: Record<string, string>;
+  },
+): Promise<Response> {
+  const { token, clientIp, headers, ...rest } = init;
+
+  return fetch(`${API_BASE}${path}`, {
+    ...rest,
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(STOREFRONT_API_KEY ? { "X-Storefront-Key": STOREFRONT_API_KEY } : {}),
+      ...(STOREFRONT_API_KEY && clientIp ? { "X-Client-IP": clientIp } : {}),
+      ...headers,
+    },
+  });
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>("GET", path, options),
   post: <T>(path: string, options?: RequestOptions) => request<T>("POST", path, options),

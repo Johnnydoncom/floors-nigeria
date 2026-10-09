@@ -1,17 +1,14 @@
-import { Suspense } from "react";
-import { SiteHeader } from "@/components/site/header/SiteHeader";
-import { Footer } from "@/components/site/Footer";
+import type { Metadata } from "next";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Suspense fallback={<div className="h-header" aria-hidden />}>
-        <SiteHeader />
-      </Suspense>
-      <main id="main" className="min-h-screen">
-        {children}
-      </main>
-      <Footer />
-    </>
-  );
+export const metadata: Metadata = {
+  title: { default: "Workspace", template: "%s · Workspace" },
+  robots: { index: false, follow: false },
+};
+
+/**
+ * `/admin` holds the staff workspace (`(workspace)`, inside the shell) and
+ * its own sign-in page (`login`, outside it).
+ */
+export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

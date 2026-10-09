@@ -24,8 +24,8 @@ const ALLOWED_ROLES = ["super_admin", "catalog_manager"];
  */
 export default function VisualizerTexturesPage() {
   return (
-    <div className="min-h-screen bg-surface pt-header">
-      <div className="container-fluid py-8 lg:py-10">
+    <div>
+      <div>
         <p className="eyebrow">Catalogue tools</p>
         <h1 className="mt-2 font-display text-3xl tracking-tight">Visualizer textures</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
