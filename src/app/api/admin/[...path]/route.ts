@@ -31,6 +31,9 @@ const CATALOGUE_PATHS = new Set([
   "settings",
 ]);
 
+/** First path segments whose writes change CMS pages, the journal or the portfolio. */
+const CONTENT_PATHS = new Set(["pages", "posts", "portfolio", "media"]);
+
 export const GET = forward;
 export const POST = forward;
 export const PUT = forward;
@@ -99,6 +102,10 @@ async function forward(request: NextRequest, { params }: Params) {
     ]) {
       revalidateTag(tag, "max");
     }
+  }
+
+  if (upstream.ok && method !== "GET" && CONTENT_PATHS.has(path[0])) {
+    revalidateTag(CacheTags.content, "max");
   }
 
   const upstreamType = upstream.headers.get("content-type") ?? "";

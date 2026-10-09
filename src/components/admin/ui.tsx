@@ -125,6 +125,17 @@ const STATUS_TONE: Record<string, Tone> = {
   out_of_stock: "danger",
   made_to_order: "info",
   discontinued: "neutral",
+  // Orders & payments
+  processing: "progress",
+  out_for_delivery: "progress",
+  unpaid: "warning",
+  paid: "success",
+  failed: "danger",
+  refunded: "neutral",
+  successful: "success",
+  // Content
+  published: "success",
+  live: "success",
   // Reviews
   pending: "warning",
   approved: "success",

@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 /**
- * Sample request capture in the footer.
+ * Sample request capture in the footer. It starts the request with an email
+ * and hands over to the contact form, preset for samples, to say which floors
+ * and where to send them.
  *
  * Isolated as a client island so the footer itself stays a Server Component
  * and ships no JavaScript on content pages (§19, §28).
  */
 export function SampleRequestForm({ className }: { className?: string }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
 
   return (
@@ -19,9 +22,7 @@ export function SampleRequestForm({ className }: { className?: string }) {
       className={cn("flex flex-col gap-3 sm:flex-row", className)}
       onSubmit={(event) => {
         event.preventDefault();
-        // Wired to the quote/lead endpoint when sample requests ship (§4).
-        toast.success("Thank you — a consultant will be in touch about samples.");
-        setEmail("");
+        router.push(`/contact?enquiry=samples&email=${encodeURIComponent(email.trim())}#enquiry`);
       }}
     >
       <label htmlFor="sample-email" className="sr-only">

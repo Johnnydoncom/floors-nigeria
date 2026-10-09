@@ -57,7 +57,7 @@ export default function ContactPage() {
       </section>
 
       <section className="container-fluid grid gap-8 py-14 lg:grid-cols-12">
-        <div className="lg:col-span-7">
+        <div id="enquiry" className="scroll-mt-28 lg:col-span-7">
           <Suspense fallback={<ContactForm />}>
             <ContactFormFromQuery />
           </Suspense>

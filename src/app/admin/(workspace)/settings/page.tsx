@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="Business details, VAT and quote validity, calculator defaults, service areas and the visualizer. Every change is recorded in the audit log."
+        description="Business details, VAT and quote validity, calculator defaults, service areas, checkout charges, payment gateways and the visualizer. Every change is recorded in the audit log; gateway secrets are stored encrypted and never shown again."
       />
       <SettingsForm
         settings={settings}

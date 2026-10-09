@@ -36,6 +36,10 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
   on_hold: "neutral",
   completed: "success",
   cancelled: "danger",
+  // Orders
+  pending: "progress",
+  processing: "progress",
+  out_for_delivery: "progress",
   // Appointments
   scheduled: "progress",
   confirmed: "success",

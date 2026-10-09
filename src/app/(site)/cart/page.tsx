@@ -14,7 +14,7 @@ export default function CartPage() {
   return (
     <div className="pt-header pb-24">
       <div className="container-fluid">
-        <p className="eyebrow">Checkout step 1 of 2</p>
+        <p className="eyebrow">Cart</p>
         <h1 className="mt-3 font-display text-4xl tracking-tight md:text-5xl">Your cart</h1>
 
         <CartView />

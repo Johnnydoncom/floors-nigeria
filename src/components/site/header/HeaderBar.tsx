@@ -133,7 +133,7 @@ export function HeaderBar({ navigation }: { navigation: NavigationData }) {
 
           <button
             type="button"
-            aria-label={`Quote list, ${cart.count} item${cart.count === 1 ? "" : "s"}`}
+            aria-label={`Cart, ${cart.count} item${cart.count === 1 ? "" : "s"}`}
             onClick={() => cart.setOpen(true)}
             className="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-muted"
           >

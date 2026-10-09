@@ -69,6 +69,10 @@ export type Lookups = {
     lead_source: Option[];
     opportunity_stage: StageOption[];
     quote_status: Option[];
+    order_status: Option[];
+    payment_status: Option[];
+    payment_gateway: Option[];
+    content_status: Option[];
     appointment_type: Option[];
     appointment_status: Option[];
     survey_status: Option[];
@@ -723,6 +727,8 @@ export type Setting = {
   input: string;
   help: string | null;
   value: unknown;
+  /** For write-only secrets: whether one is stored. */
+  is_set: boolean | null;
   is_public: boolean;
 };
 
@@ -812,4 +818,148 @@ export type Dashboard = {
   appointments?: Appointment[];
   tasks?: { open: number; overdue: number; due_today: number; items: Task[] };
   activity?: Activity[];
+};
+
+// --- Storefront orders ---------------------------------------------------------
+
+export type AdminOrderItem = {
+  id: number;
+  product_id: number | null;
+  product_variant_id: number | null;
+  product_name: string;
+  variant_name: string | null;
+  sku: string | null;
+  product_slug: string | null;
+  image_url: string | null;
+  unit: string;
+  unit_label: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+};
+
+export type AdminPayment = {
+  id: number;
+  gateway: string;
+  gateway_label: string;
+  reference: string;
+  gateway_transaction_id: string | null;
+  amount: number;
+  status: "pending" | "successful" | "failed";
+  channel: string | null;
+  failure_reason: string | null;
+  note: string | null;
+  recorded_by: { id: number; name: string } | null;
+  paid_at: string | null;
+  created_at: string | null;
+  can_recheck: boolean;
+};
+
+export type AdminOrder = {
+  id: number;
+  reference: string;
+  status: string;
+  status_label: string;
+  payment_status: string;
+  payment_status_label: string;
+  payment_method: string;
+  payment_method_label: string;
+  fulfilment: "delivery" | "pickup";
+  fulfilment_label: string;
+  requires_installation: boolean;
+  preferred_installation_date: string | null;
+  full_name: string;
+  email: string;
+  phone: string;
+  address_line: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+  staff_notes: string | null;
+  subtotal: number;
+  installation_fee: number;
+  delivery_fee: number;
+  vat_rate: number;
+  vat_amount: number;
+  total: number;
+  amount_paid?: number;
+  currency: string;
+  item_count?: number;
+  customer?: { id: number; full_name: string } | null;
+  owner?: { id: number; name: string } | null;
+  has_account: boolean;
+  items?: AdminOrderItem[];
+  payments?: AdminPayment[];
+  paid_at: string | null;
+  cancelled_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+// --- Content (§18) ---------------------------------------------------------------
+
+export type ContentSeoFields = {
+  title: string | null;
+  description: string | null;
+  canonical: string | null;
+  noindex: boolean;
+};
+
+type ContentRecord = {
+  id: number;
+  title: string;
+  slug: string;
+  status: "draft" | "published";
+  status_label: string;
+  is_live: boolean;
+  published_at: string | null;
+  cover_image: string | null;
+  image_url: string | null;
+  public_url: string;
+  seo: ContentSeoFields;
+  /** Images by collection; only on the editor. */
+  media?: Record<string, MediaItem[]>;
+  body?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type AdminPage = ContentRecord & {
+  eyebrow: string | null;
+  excerpt: string | null;
+  show_in_footer: boolean;
+  sort_order: number;
+  author: { id: number; name: string } | null;
+  faqs?: { question: string; answer: string }[];
+};
+
+export type AdminPost = ContentRecord & {
+  category: string;
+  category_slug: string;
+  excerpt: string | null;
+  author_name: string | null;
+  author: { id: number; name: string } | null;
+  byline: string;
+  reading_minutes: number;
+  is_featured: boolean;
+  tags: string[];
+  floors: string[];
+};
+
+export type AdminPortfolio = ContentRecord & {
+  project_id: number | null;
+  project?: { id: number; label: string } | null;
+  client_name: string | null;
+  sector: string;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  area_sqm: number | null;
+  completed_on: string | null;
+  summary: string | null;
+  is_featured: boolean;
+  sort_order: number;
+  floors: string[];
+  photo_count: number;
 };

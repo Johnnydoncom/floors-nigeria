@@ -3,6 +3,7 @@ import { Instagram, Linkedin, Youtube, Phone, Mail, MapPin } from "lucide-react"
 import { SampleRequestForm } from "./SampleRequestForm";
 import { Logo } from "./Logo";
 import { getNavigation } from "@/lib/api/navigation";
+import { getPages } from "@/lib/api/content";
 import { SHOWROOM_EMAIL, SHOWROOM_PHONE } from "@/lib/site-contact";
 
 /**
@@ -48,11 +49,18 @@ const cols = [
   },
 ];
 
+/** Pages shown in the bottom bar rather than a column. */
+const LEGAL_SLUGS = new Set(["terms", "privacy-policy", "cookie-policy", "returns"]);
+
 export async function Footer() {
   // A catalogue outage should not take the footer down with it.
-  const floors = await getNavigation()
-    .then((navigation) => navigation.floors)
-    .catch(() => []);
+  const [floors, pages] = await Promise.all([
+    getNavigation()
+      .then((navigation) => navigation.floors)
+      .catch(() => []),
+    getPages().catch(() => []),
+  ]);
+  const footerPages = pages.filter((page) => page.show_in_footer);
 
   const columns = [
     {
@@ -62,8 +70,23 @@ export async function Footer() {
         ["All categories", "/categories"] as [string, string],
       ],
     },
-    ...cols,
+    ...cols.map((column) =>
+      column.title === "Company"
+        ? {
+            ...column,
+            // Help pages editors flag for the footer (FAQs, delivery…), except
+            // legal pages, which sit in the bottom bar.
+            links: [
+              ...column.links,
+              ...footerPages
+                .filter((page) => !LEGAL_SLUGS.has(page.slug))
+                .map((page): [string, string] => [page.title, `/${page.slug}`]),
+            ],
+          }
+        : column,
+    ),
   ];
+  const legalPages = footerPages.filter((page) => LEGAL_SLUGS.has(page.slug));
 
   const socials = [
     { label: "Instagram", icon: Instagram },
@@ -163,6 +186,13 @@ export async function Footer() {
             © {COPYRIGHT_YEAR} Floors Nigeria Limited · RC 1234567
           </p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-primary-foreground/50">
+            {legalPages.map((page) => (
+              <li key={page.slug}>
+                <Link href={`/${page.slug}`} className="transition hover:text-gold-light">
+                  {page.title}
+                </Link>
+              </li>
+            ))}
             <li>ISO 9001 Certified</li>
             <li>FSC® Sourced Timber</li>
             <li>25-Year Warranty</li>

@@ -18,7 +18,8 @@ import { JsonLd } from "@/components/site/JsonLd";
 import { getCategories, getProducts } from "@/lib/api/catalog";
 import { FloorCard } from "@/components/catalog/FloorCard";
 import { resolveFloorFamilies } from "@/lib/floor-families";
-import { PROJECTS } from "@/lib/content/projects";
+import { getPortfolio } from "@/lib/api/content";
+import { ProjectCard } from "@/components/content/ProjectCard";
 import { ProductCard } from "@/components/catalog/ProductCard";
 import { ProductGridSkeleton } from "@/components/catalog/ProductGrid";
 import { organizationSchema, websiteSchema } from "@/lib/structured-data";
@@ -297,31 +298,9 @@ export default function Home() {
           ))}
         </dl>
 
-        <div className="mt-8 grid gap-x-5 gap-y-8 md:grid-cols-3">
-          {PROJECTS.slice(0, 3).map((p, i) => (
-            <Reveal key={p.slug} delay={i * 0.08}>
-              <Link href={`/projects/${p.slug}`} className="group block">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
-                  <Image
-                    src={p.image}
-                    alt={`${p.name}, ${p.location}`}
-                    fill
-                    sizes="(min-width: 768px) 33vw, 100vw"
-                    className="object-cover transition-transform duration-[1.2s] group-hover:scale-105"
-                  />
-                </div>
-                <div className="pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {p.sector} · {p.area}
-                  </p>
-                  <h3 className="mt-1 font-display text-xl tracking-tight transition group-hover:text-gold md:text-2xl">
-                    {p.name}
-                  </h3>
-                </div>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
+        <Suspense fallback={<ProjectGridSkeleton />}>
+          <ProjectGrid />
+        </Suspense>
       </section>
 
       {/* TESTIMONIALS */}
@@ -446,6 +425,36 @@ async function FloorGrid() {
             image={floor.image}
           />
         </Reveal>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Featured portfolio projects from the CMS, falling back to the most recent.
+ */
+async function ProjectGrid() {
+  let projects = await getPortfolio({ featured: true, limit: 3 });
+  if (projects.length === 0) projects = await getPortfolio({ limit: 3 });
+
+  if (projects.length === 0) return null;
+
+  return (
+    <div className="mt-8 grid gap-x-5 gap-y-8 md:grid-cols-3">
+      {projects.map((project, i) => (
+        <Reveal key={project.id} delay={i * 0.08}>
+          <ProjectCard project={project} />
+        </Reveal>
+      ))}
+    </div>
+  );
+}
+
+function ProjectGridSkeleton() {
+  return (
+    <div className="mt-8 grid gap-x-5 gap-y-8 md:grid-cols-3">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-muted" />
       ))}
     </div>
   );

@@ -162,4 +162,6 @@ export const CacheTags = {
   collections: "collections",
   filterOptions: "filter-options",
   taxonomies: "taxonomies",
+  /** CMS pages, the journal and the portfolio. */
+  content: "content",
 } as const;

@@ -2,14 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Heart, LayoutGrid, LogOut, MapPin, Settings, Truck } from "lucide-react";
+import {
+  FileText,
+  Heart,
+  LayoutGrid,
+  LogOut,
+  MapPin,
+  Settings,
+  ShoppingBag,
+  Truck,
+} from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { signOut } from "@/app/account/actions";
 import { cn } from "@/lib/utils";
 
 export const ACCOUNT_SECTIONS = [
   { href: "/account", label: "Overview", icon: LayoutGrid },
-  { href: "/account/projects", label: "Orders & projects", icon: Truck },
+  { href: "/account/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/account/projects", label: "Projects & visits", icon: Truck },
   { href: "/account/quotes", label: "Quotes", icon: FileText },
   { href: "/account/saved", label: "Saved", icon: Heart },
   { href: "/account/addresses", label: "Addresses", icon: MapPin },

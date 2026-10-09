@@ -11,6 +11,7 @@ import type {
   AuthUser,
   ContactChannel,
   Envelope,
+  Order,
   Paginated,
   ProductCard,
   Quote,
@@ -75,6 +76,10 @@ export async function getAppointments(): Promise<{ upcoming: Appointment[]; past
     api.get<Envelope<{ upcoming: Appointment[]; past: Appointment[] }>>("/v1/me/appointments", o),
   );
   return data;
+}
+
+export async function getOrders(page = 1): Promise<Paginated<Order>> {
+  return authed((o) => api.get<Paginated<Order>>("/v1/me/orders", { ...o, query: { page } }));
 }
 
 export async function getQuotes(page = 1): Promise<Paginated<Quote>> {

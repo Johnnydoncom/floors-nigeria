@@ -437,3 +437,176 @@ export type AccountSummary = {
   next_appointment: Appointment | null;
   recent_quotes: Quote[];
 };
+
+// --- Content (§18) ------------------------------------------------------------
+
+export type Faq = { question: string; answer: string };
+
+export type ContentPageSummary = {
+  id: number;
+  title: string;
+  slug: string;
+  eyebrow: string | null;
+  excerpt: string | null;
+  image_url: string | null;
+  show_in_footer: boolean;
+  published_at: string | null;
+  updated_at: string | null;
+};
+
+export type ContentPage = ContentPageSummary & {
+  body: string | null;
+  faqs: Faq[];
+  gallery: Media[];
+  seo: Seo;
+};
+
+export type PostCategory = { name: string; slug: string; count: number };
+
+export type BlogPostCard = {
+  id: number;
+  title: string;
+  slug: string;
+  category: { name: string; slug: string };
+  excerpt: string | null;
+  image_url: string | null;
+  author: string;
+  reading_minutes: number;
+  is_featured: boolean;
+  tags: string[];
+  published_at: string | null;
+  updated_at: string | null;
+};
+
+export type BlogPost = BlogPostCard & {
+  body: string | null;
+  floors: string[];
+  gallery: Media[];
+  seo: Seo;
+};
+
+export type PostList = Paginated<BlogPostCard> & { categories: PostCategory[] };
+
+export type PortfolioProject = {
+  id: number;
+  title: string;
+  slug: string;
+  client_name: string | null;
+  sector: string;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  area_sqm: number | null;
+  completed_on: string | null;
+  summary: string;
+  image_url: string | null;
+  is_featured: boolean;
+  floors: string[];
+  photo_count?: number;
+  published_at: string | null;
+  updated_at: string | null;
+};
+
+export type PortfolioProjectDetail = PortfolioProject & {
+  body: string | null;
+  gallery: Media[];
+  before: Media[];
+  after: Media[];
+  seo: Seo;
+};
+
+// --- Cart, checkout and orders -----------------------------------------------
+
+export type PaymentMethodId = "paystack" | "flutterwave" | "bank_transfer";
+
+export type CheckoutConfig = {
+  enabled: boolean;
+  payment_methods: { id: PaymentMethodId; label: string; description: string }[];
+  pickup_enabled: boolean;
+  delivery_fee: number;
+  free_delivery_threshold: number;
+  installation_rate: number;
+  vat_rate: number;
+  delivery_states: string[];
+  installation_states: string[];
+  states: string[];
+};
+
+export type PricedLine = {
+  variant_id: number;
+  product_id: number | null;
+  product_slug: string | null;
+  product_name: string | null;
+  variant_name: string | null;
+  sku: string | null;
+  image_url: string | null;
+  unit: string | null;
+  unit_label: string | null;
+  minimum_quantity: number | null;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  availability: string | null;
+  issue: string | null;
+};
+
+export type PricedCart = {
+  lines: PricedLine[];
+  subtotal: number;
+  installation_fee: number;
+  delivery_fee: number;
+  vat_rate: number;
+  vat_amount: number;
+  total: number;
+  currency: string;
+  issues: Record<string, string>;
+  is_purchasable: boolean;
+};
+
+export type CheckoutSummary = { data: PricedCart; config: CheckoutConfig };
+
+export type OrderItem = {
+  id: number;
+  product_name: string;
+  variant_name: string | null;
+  sku: string | null;
+  product_slug: string | null;
+  image_url: string | null;
+  unit: string;
+  unit_label: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+};
+
+export type Order = {
+  reference: string;
+  status: "pending" | "confirmed" | "processing" | "out_for_delivery" | "completed" | "cancelled";
+  status_label: string;
+  payment_status: "unpaid" | "paid" | "failed" | "refunded";
+  payment_status_label: string;
+  payment_method: PaymentMethodId | "manual";
+  payment_method_label: string;
+  payment_options: { id: PaymentMethodId; label: string }[];
+  payment_failure: string | null;
+  bank_transfer_details: string | null;
+  fulfilment: "delivery" | "pickup";
+  fulfilment_label: string;
+  requires_installation: boolean;
+  preferred_installation_date: string | null;
+  contact: { full_name: string; email: string; phone: string };
+  address: { address_line: string | null; city: string | null; state: string | null };
+  notes: string | null;
+  items: OrderItem[];
+  totals: {
+    currency: string;
+    subtotal: number;
+    installation_fee: number;
+    delivery_fee: number;
+    vat_rate: number;
+    vat_amount: number;
+    total: number;
+  };
+  paid_at: string | null;
+  created_at: string | null;
+};

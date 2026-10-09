@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Calculator, Minus, Plus, Ruler, Sparkles, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/lib/cart";
+import { useCart, unitSymbol } from "@/lib/cart";
 import { naira, number } from "@/lib/format";
 import type { Product, Variant } from "@/lib/api/types";
 import { ProductGallery, type GalleryImage } from "./ProductGallery";
@@ -146,23 +146,32 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
           <Button
             size="lg"
             className="h-12 w-full rounded-none"
-            disabled={!variant?.availability.is_orderable}
+            disabled={!variant?.availability.is_orderable || !variant.pricing.effective_price}
             onClick={() => {
               if (!variant) return;
               cart.add({
+                variantId: variant.id,
                 slug: product.slug,
                 name: product.name,
-                img: product.image_url ?? "",
-                finish: variant.name,
+                variant: variant.name,
+                sku: variant.sku,
+                img: images[0]?.url ?? product.image_url ?? "",
+                unit: variant.pricing.unit,
+                unitLabel: variant.pricing.unit_label,
                 price: variant.pricing.effective_price ?? 0,
                 qty: quantity,
               });
-              toast.success(`${product.name} — ${variant.name} added`, {
-                description: `${quantity} m² added to your quote list.`,
+              toast.success(`${product.name} — ${variant.name} added to your cart`, {
+                description: `${quantity} ${unitSymbol(variant.pricing.unit)}.`,
+                action: { label: "View cart", onClick: () => cart.setOpen(true) },
               });
             }}
           >
-            {variant?.availability.is_orderable ? "Add to quote list" : "Currently unavailable"}
+            {!variant?.availability.is_orderable
+              ? "Currently unavailable"
+              : variant.pricing.effective_price
+                ? "Add to cart"
+                : "Price on request"}
           </Button>
 
           <div className="grid grid-cols-2 gap-3">

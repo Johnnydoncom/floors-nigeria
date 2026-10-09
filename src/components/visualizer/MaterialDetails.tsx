@@ -13,7 +13,7 @@ import type { TextureChoice } from "@/lib/visualizer/types";
 import { cn } from "@/lib/utils";
 import { AreaEstimator } from "./AreaEstimator";
 
-/** Area added to the quote list when the visitor has not measured, as on the product page. */
+/** Area added to the cart when the visitor has not measured, as on the product page. */
 const DEFAULT_QUANTITY_SQM = 20;
 
 /**
@@ -74,20 +74,27 @@ export function MaterialDetails({
   const cta = (name: string) =>
     track("cta_clicked", { cta: name, product: material.productSlug, context: "visualizer" });
 
+  const variantId = material.variantId ?? variant?.id ?? null;
+
   const addToCart = () => {
+    if (!variantId) return;
     const quantity = Math.max(1, Math.ceil(areaSqm ?? DEFAULT_QUANTITY_SQM));
 
     cart.add({
+      variantId,
       slug: material.productSlug,
       name: material.productName,
+      variant: material.variantName ?? variant?.name ?? "Standard",
+      sku: variant?.sku ?? null,
       img: material.imageUrl ?? material.swatchUrl ?? material.textureUrl,
-      finish: material.variantName ?? variant?.name ?? "Standard",
+      unit: variant?.pricing.unit ?? "sqm",
+      unitLabel: variant?.pricing.unit_label ?? "per m²",
       price: material.price ?? 0,
       qty: quantity,
     });
 
     cta("add_to_cart");
-    toast.success(`${material.productName} added to your quote list`, {
+    toast.success(`${material.productName} added to your cart`, {
       description: areaSqm
         ? `${quantity} m², from your room measurements.`
         : `${quantity} m² — adjust the quantity in your list, or measure your room first.`,
@@ -167,9 +174,9 @@ export function MaterialDetails({
       </div>
 
       <div className="mt-5 grid gap-2">
-        <Button className="h-11 w-full" disabled={!isOrderable} onClick={addToCart}>
+        <Button className="h-11 w-full" disabled={!isOrderable || !variantId} onClick={addToCart}>
           <ShoppingBag aria-hidden />
-          {isOrderable ? "Add to quote list" : "Currently unavailable"}
+          {isOrderable ? "Add to cart" : "Currently unavailable"}
         </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button

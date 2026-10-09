@@ -148,3 +148,46 @@ export function itemListSchema(items: { name: string; url: string }[]): Record<s
     })),
   };
 }
+
+/**
+ * A journal article, credited to the business as publisher.
+ */
+export function articleSchema(article: {
+  title: string;
+  description: string | null;
+  url: string;
+  image: string | null;
+  author: string;
+  publishedAt: string | null;
+  updatedAt: string | null;
+}): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.description ?? undefined,
+    url: absoluteUrl(article.url),
+    mainEntityOfPage: absoluteUrl(article.url),
+    image: article.image ? absoluteUrl(article.image) : undefined,
+    datePublished: article.publishedAt ?? undefined,
+    dateModified: article.updatedAt ?? article.publishedAt ?? undefined,
+    author: { "@type": "Organization", name: article.author },
+    publisher: { "@id": absoluteUrl("/#organization") },
+    inLanguage: "en-NG",
+  };
+}
+
+/**
+ * Question-and-answer content, eligible for FAQ rich results (§18).
+ */
+export function faqSchema(faqs: { question: string; answer: string }[]): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
+}

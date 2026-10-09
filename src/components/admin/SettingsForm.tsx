@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { adminRequest, useAdminMutation } from "@/lib/admin/client";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,16 @@ const GROUPS: Record<string, { title: string; description: string }> = {
   commerce: { title: "Quotes & VAT", description: "Applied when the sales team prices a quote." },
   calculator: { title: "Floor calculator", description: "Defaults for the material calculator." },
   service: { title: "Service areas", description: "Where Floor Nigeria delivers and installs." },
+  checkout: {
+    title: "Checkout",
+    description:
+      "Charges added to online orders and the ways customers can receive them. Delivery and installation follow the service areas below.",
+  },
+  payments: {
+    title: "Payment gateways",
+    description:
+      "Card, transfer and USSD payments through Paystack or Flutterwave. Keys come from each gateway's dashboard; use test keys until you are ready to take real payments.",
+  },
   visualizer: { title: "Room visualizer", description: "The photo visualizer on the website." },
 };
 
@@ -43,6 +53,15 @@ export function SettingsForm({
   function set(key: string, value: unknown) {
     setValues((current) => ({ ...current, [key]: value }));
     setDirty((current) => new Set(current).add(key));
+  }
+
+  /** Forget a pending change, e.g. a secret typed and then erased. */
+  function reset(key: string) {
+    setDirty((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
   }
 
   async function save(event: React.FormEvent) {
@@ -76,6 +95,7 @@ export function SettingsForm({
                     setting={setting}
                     value={values[setting.key]}
                     onChange={(value) => set(setting.key, value)}
+                    onReset={() => reset(setting.key)}
                     error={
                       errors[`settings.${setting.key}`]?.[0] ??
                       Object.entries(errors).find(([field]) =>
@@ -113,16 +133,31 @@ function SettingField({
   setting,
   value,
   onChange,
+  onReset,
   error,
   states,
 }: {
   setting: Setting;
   value: unknown;
   onChange: (value: unknown) => void;
+  onReset: () => void;
   error?: string;
   states: string[];
 }) {
   const id = `setting-${setting.key.replace(/\W/g, "-")}`;
+
+  if (setting.input === "secret") {
+    return (
+      <SecretField
+        id={id}
+        setting={setting}
+        value={value}
+        error={error}
+        onChange={onChange}
+        onReset={onReset}
+      />
+    );
+  }
 
   if (setting.input === "switch") {
     return (
@@ -256,6 +291,81 @@ function SettingField({
         aria-invalid={error ? true : undefined}
         className={inputClass}
       />
+    </FieldShell>
+  );
+}
+
+/**
+ * A gateway secret. The API never sends it back, so the field only says
+ * whether one is stored; typing replaces it and "Remove" clears it.
+ */
+function SecretField({
+  id,
+  setting,
+  value,
+  error,
+  onChange,
+  onReset,
+}: {
+  id: string;
+  setting: Setting;
+  value: unknown;
+  error?: string;
+  onChange: (value: unknown) => void;
+  onReset: () => void;
+}) {
+  const [cleared, setCleared] = useState(false);
+  const typed = typeof value === "string" ? value : "";
+
+  return (
+    <FieldShell
+      id={id}
+      label={setting.label}
+      help={setting.help ?? undefined}
+      error={error}
+      className="sm:col-span-2"
+    >
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <KeyRound
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            id={id}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={typed}
+            placeholder={
+              cleared
+                ? "Will be removed when you save"
+                : setting.is_set
+                  ? "•••••••••••• saved — type to replace"
+                  : "Not set"
+            }
+            onChange={(event) => {
+              setCleared(false);
+              if (event.target.value === "") onReset();
+              else onChange(event.target.value);
+            }}
+            aria-invalid={error ? true : undefined}
+            className={cn(inputClass, "pl-9 font-mono")}
+          />
+        </div>
+        {setting.is_set && !cleared && (
+          <button
+            type="button"
+            onClick={() => {
+              setCleared(true);
+              onChange("");
+            }}
+            className="h-10 rounded-md border border-input px-3 text-xs text-destructive hover:bg-destructive/10"
+          >
+            Remove
+          </button>
+        )}
+      </div>
     </FieldShell>
   );
 }

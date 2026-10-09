@@ -22,6 +22,10 @@ export type NavIcon =
   | "taxonomies"
   | "reviews"
   | "textures"
+  | "orders"
+  | "pages"
+  | "posts"
+  | "portfolio"
   | "reports"
   | "staff"
   | "settings"
@@ -59,6 +63,12 @@ export const ADMIN_NAV: NavGroup[] = [
         permissions: ["companies.view"],
       },
       { href: "/admin/tasks", label: "Tasks", icon: "tasks", permissions: ["tasks.view"] },
+    ],
+  },
+  {
+    label: "Commerce",
+    items: [
+      { href: "/admin/orders", label: "Orders", icon: "orders", permissions: ["orders.view"] },
     ],
   },
   {
@@ -129,6 +139,19 @@ export const ADMIN_NAV: NavGroup[] = [
         label: "Visualizer textures",
         icon: "textures",
         permissions: ["media.update"],
+      },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/admin/pages", label: "Pages", icon: "pages", permissions: ["content.view"] },
+      { href: "/admin/posts", label: "Journal", icon: "posts", permissions: ["content.view"] },
+      {
+        href: "/admin/portfolio",
+        label: "Portfolio",
+        icon: "portfolio",
+        permissions: ["content.view"],
       },
     ],
   },

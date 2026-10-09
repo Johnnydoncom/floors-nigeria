@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getCategories, getProducts, getTaxonomies } from "@/lib/api/catalog";
-import { PROJECTS } from "@/lib/content/projects";
+import { getPages, getPortfolio, getPosts } from "@/lib/api/content";
 import { absoluteUrl } from "@/lib/structured-data";
 
 const STATIC_ROUTES = [
@@ -48,10 +48,13 @@ async function allProducts() {
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // A catalogue outage should degrade the sitemap, never fail the build.
-  const [products, categories, rooms] = await Promise.all([
+  const [products, categories, rooms, projects, posts, pages] = await Promise.all([
     allProducts().catch(() => []),
     getCategories().catch(() => []),
     getTaxonomies("room").catch(() => []),
+    getPortfolio().catch(() => []),
+    getPosts({ per_page: 48 }).catch(() => null),
+    getPages().catch(() => []),
   ]);
 
   return [
@@ -75,10 +78,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     // Collections have a listing page but no detail route yet, so their
     // slugs are not listed here — they would be 404s.
-    ...PROJECTS.map((project) => ({
+    ...projects.map((project) => ({
       url: absoluteUrl(`/projects/${project.slug}`),
+      lastModified: project.updated_at ?? undefined,
       changeFrequency: "monthly" as const,
       priority: 0.6,
+    })),
+    ...(posts?.data ?? []).map((post) => ({
+      url: absoluteUrl(`/blog/${post.slug}`),
+      lastModified: post.updated_at ?? undefined,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+    ...(posts?.categories ?? []).map((category) => ({
+      url: absoluteUrl(`/blog/category/${category.slug}`),
+      changeFrequency: "weekly" as const,
+      priority: 0.5,
+    })),
+    ...pages.map((page) => ({
+      url: absoluteUrl(`/${page.slug}`),
+      lastModified: page.updated_at ?? undefined,
+      changeFrequency: "monthly" as const,
+      priority: 0.4,
     })),
     ...products.slice(0, MAX_PRODUCTS).map((product) => ({
       url: absoluteUrl(`/products/${product.slug}`),
