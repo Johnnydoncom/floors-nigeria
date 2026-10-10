@@ -207,8 +207,12 @@ export function indexCategories(categories: Category[]): Map<string, Category> {
   return index;
 }
 
+/**
+ * Category landing pages live under the catalogue: `/products/<category>`.
+ * Individual products sit beside them at `/product/<product>`.
+ */
 export function categoryHref(slug: string): string {
-  return `/categories/${slug}`;
+  return `/products/${slug}`;
 }
 
 /** The headline floor families that exist in the live catalogue. */

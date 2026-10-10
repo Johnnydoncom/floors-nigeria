@@ -134,10 +134,10 @@ export function MobileNav({
                         onClick={() =>
                           setDrilledInto({
                             title: category.name,
-                            allHref: `/categories/${category.slug}`,
+                            allHref: `/products/${category.slug}`,
                             links: (category.children ?? []).map((child) => ({
                               name: child.name,
-                              href: `/categories/${child.slug}`,
+                              href: `/products/${child.slug}`,
                             })),
                           })
                         }
@@ -153,7 +153,7 @@ export function MobileNav({
                   ) : (
                     <MobileRow
                       key={category.slug}
-                      href={`/categories/${category.slug}`}
+                      href={`/products/${category.slug}`}
                       onClose={onClose}
                     >
                       {category.name}

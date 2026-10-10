@@ -73,7 +73,7 @@ export function CartView() {
                 key={item.variantId}
                 className="flex flex-col gap-5 border-b border-border p-5 last:border-0 sm:flex-row"
               >
-                <Link href={`/products/${item.slug}`} className="shrink-0">
+                <Link href={`/product/${item.slug}`} className="shrink-0">
                   <CartLineImage
                     src={priced?.image_url ?? item.img}
                     alt={item.name}
@@ -85,7 +85,7 @@ export function CartView() {
                   <div className="flex justify-between gap-4">
                     <div className="min-w-0">
                       <Link
-                        href={`/products/${item.slug}`}
+                        href={`/product/${item.slug}`}
                         className="block truncate font-display text-xl hover:text-gold"
                       >
                         {item.name}

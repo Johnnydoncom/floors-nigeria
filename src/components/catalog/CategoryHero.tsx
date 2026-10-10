@@ -22,7 +22,7 @@ export function CategoryHero({
   trail,
   links = [],
   linksLabel = "Browse",
-  hrefPrefix = "/categories",
+  hrefPrefix = "/products",
 }: {
   eyebrow: string;
   title: string;

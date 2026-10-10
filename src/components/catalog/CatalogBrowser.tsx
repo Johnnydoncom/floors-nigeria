@@ -8,7 +8,7 @@ import { FilterRail } from "./FilterRail";
 import { ProductGrid, ProductGridSkeleton } from "./ProductGrid";
 
 export type CatalogBrowserProps = {
-  /** Path the pagination and filter links are built from, e.g. `/categories/spc-vinyl`. */
+  /** Path the pagination and filter links are built from, e.g. `/products/spc-vinyl`. */
   basePath: string;
   /**
    * Passed as a promise, not awaited by the caller: the filters are read

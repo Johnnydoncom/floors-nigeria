@@ -143,7 +143,7 @@ export default async function QuotePage({ params }: PageProps) {
                     <td className="py-4 pr-4">
                       {item.product_slug ? (
                         <Link
-                          href={`/products/${item.product_slug}`}
+                          href={`/product/${item.product_slug}`}
                           className="hover:text-gold print:no-underline"
                         >
                           {item.description}

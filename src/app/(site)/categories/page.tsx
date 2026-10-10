@@ -48,7 +48,7 @@ export default async function CategoriesPage() {
         {categories.map((category) => (
           <article key={category.slug} className="group border border-border bg-card">
             <Link
-              href={`/categories/${category.slug}`}
+              href={`/products/${category.slug}`}
               className="relative block aspect-[5/3] overflow-hidden bg-muted"
             >
               {category.image_url ? (
@@ -66,7 +66,7 @@ export default async function CategoriesPage() {
 
             <div className="p-5">
               <h2 className="font-display text-xl tracking-tight">
-                <Link href={`/categories/${category.slug}`} className="transition hover:text-gold">
+                <Link href={`/products/${category.slug}`} className="transition hover:text-gold">
                   {category.name}
                 </Link>
               </h2>
@@ -82,7 +82,7 @@ export default async function CategoriesPage() {
                   {category.children.slice(0, 4).map((child) => (
                     <li key={child.slug}>
                       <Link
-                        href={`/categories/${child.slug}`}
+                        href={`/products/${child.slug}`}
                         className="inline-flex h-8 items-center border border-border px-3 text-xs transition hover:border-gold hover:text-gold"
                       >
                         {child.name}

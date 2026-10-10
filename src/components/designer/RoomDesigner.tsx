@@ -208,7 +208,7 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
 
             <div className="mt-4 grid gap-2">
               <Button asChild className="h-11 w-full rounded-none">
-                <Link href={`/products/${material.productSlug}`}>View this product</Link>
+                <Link href={`/product/${material.productSlug}`}>View this product</Link>
               </Button>
               <Button asChild variant="outline" className="h-11 w-full rounded-none">
                 <Link href={`/visualizer?product=${material.productSlug}`}>

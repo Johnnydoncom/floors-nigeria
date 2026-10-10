@@ -37,7 +37,7 @@ export default async function SavedPage() {
                 key={product.id}
                 className="group relative min-w-0 border border-border transition hover:border-gold"
               >
-                <Link href={`/products/${product.slug}`} className="block">
+                <Link href={`/product/${product.slug}`} className="block">
                   <span className="relative block aspect-[4/3] w-full overflow-hidden bg-muted">
                     {product.thumb_url || product.image_url ? (
                       <Image

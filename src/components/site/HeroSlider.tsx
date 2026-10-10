@@ -26,7 +26,7 @@ const slides: Slide[] = [
     copy: "European white-oak planks and herringbone parquet, UV-oiled and acclimatised for the Nigerian climate.",
     img: "/images/hero-floor.jpg",
     alt: "Wide-plank European oak herringbone flooring in a Lagos penthouse",
-    cta: { label: "Browse wood flooring", href: "/categories/real-wood-flooring" },
+    cta: { label: "Browse wood flooring", href: "/products/real-wood-flooring" },
     secondary: { label: "Request samples", href: "/contact?enquiry=samples" },
     spec: [
       ["Wear layer", "4 mm oak"],
@@ -41,7 +41,7 @@ const slides: Slide[] = [
     copy: "Stone-polymer core planks rated for airports, hotels and hospitals — installed over any subfloor, in days not weeks.",
     img: "/images/collection-spc.jpg",
     alt: "Modern hallway finished in wood-look SPC flooring",
-    cta: { label: "Explore SPC flooring", href: "/categories/rigid-vinyl-floor-spc-flooring" },
+    cta: { label: "Explore SPC flooring", href: "/products/rigid-vinyl-floor-spc-flooring" },
     secondary: { label: "Get a trade quote", href: "/contact?enquiry=trade" },
     spec: [
       ["Core", "5.5 mm SPC"],
@@ -56,7 +56,7 @@ const slides: Slide[] = [
     copy: "Scratch-resistant laminate planks in warm oak and contemporary greys — quick to install and easy to live with.",
     img: "/images/hero-living.jpg",
     alt: "Living room finished in wide oak-look laminate flooring",
-    cta: { label: "Shop laminate", href: "/categories/laminate-flooring" },
+    cta: { label: "Shop laminate", href: "/products/laminate-flooring" },
     secondary: { label: "Talk to a specifier", href: "/contact" },
     spec: [
       ["Core", "HDF"],

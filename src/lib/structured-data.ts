@@ -23,7 +23,7 @@ export function productSchema(product: Product): Record<string, unknown> {
       availability: variant.availability.is_orderable
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
-      url: absoluteUrl(`/products/${product.slug}`),
+      url: absoluteUrl(`/product/${product.slug}`),
     }));
 
   return {

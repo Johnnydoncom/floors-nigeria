@@ -57,7 +57,7 @@ export function CartDrawer() {
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-3">
                     <Link
-                      href={`/products/${item.slug}`}
+                      href={`/product/${item.slug}`}
                       onClick={() => cart.setOpen(false)}
                       className="truncate font-medium hover:text-gold"
                     >

@@ -80,7 +80,7 @@ function consolidateCatalogueUrl(request: NextRequest): NextResponse {
   const category = soleCategoryRefinement(params);
 
   if (category) {
-    const destination = new URL(`/categories/${category}`, request.url);
+    const destination = new URL(`/products/${category}`, request.url);
 
     // Keep pagination and sorting across the move.
     for (const key of ["page", "sort"]) {

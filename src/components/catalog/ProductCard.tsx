@@ -31,7 +31,7 @@ export function ProductCard({
   const terms = product.swatch_preview.terms;
   const [selected, setSelected] = useState<AttributeTerm | null>(null);
 
-  const href = `/products/${product.slug}`;
+  const href = `/product/${product.slug}`;
   const image = selected?.preview_image_url ?? product.image_url;
   const price = selected?.preview_price ?? product.price_from;
   const compareAtPrice = selected

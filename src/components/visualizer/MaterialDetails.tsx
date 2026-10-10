@@ -222,7 +222,7 @@ export function MaterialDetails({
         </a>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Button asChild variant="ghost" className="h-10">
-            <Link href={`/products/${material.productSlug}`} onClick={() => cta("view_product")}>
+            <Link href={`/product/${material.productSlug}`} onClick={() => cta("view_product")}>
               View product
             </Link>
           </Button>

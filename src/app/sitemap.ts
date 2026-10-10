@@ -67,7 +67,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...categories
       .flatMap((category) => [category, ...(category.children ?? [])])
       .map((category) => ({
-        url: absoluteUrl(`/categories/${category.slug}`),
+        url: absoluteUrl(`/products/${category.slug}`),
         changeFrequency: "weekly" as const,
         priority: 0.8,
       })),
@@ -102,7 +102,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.4,
     })),
     ...products.slice(0, MAX_PRODUCTS).map((product) => ({
-      url: absoluteUrl(`/products/${product.slug}`),
+      url: absoluteUrl(`/product/${product.slug}`),
       changeFrequency: "weekly" as const,
       priority: 0.9,
     })),

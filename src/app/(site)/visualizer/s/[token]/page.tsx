@@ -86,7 +86,7 @@ export default async function SharedVisualizationPage({ params }: PageProps) {
 
               <div className="mt-4 grid gap-2">
                 <Button asChild className="h-11 w-full rounded-none">
-                  <Link href={`/products/${product.slug}`}>View this product</Link>
+                  <Link href={`/product/${product.slug}`}>View this product</Link>
                 </Button>
                 <Button asChild variant="outline" className="h-11 w-full rounded-none">
                   <Link href={`/calculator?product=${product.slug}`}>

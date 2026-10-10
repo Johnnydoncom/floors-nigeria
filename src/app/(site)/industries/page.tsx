@@ -37,14 +37,14 @@ const industries = [
   {
     name: "Healthcare",
     id: "healthcare",
-    href: "/categories/vinyl-flooring",
+    href: "/products/vinyl-flooring",
     desc: "Hygienic, sound-absorbing surfaces for clinical spaces.",
     img: "/images/collection-spc.jpg",
   },
   {
     name: "Education",
     id: "education",
-    href: "/categories/rigid-vinyl-floor-spc-flooring",
+    href: "/products/rigid-vinyl-floor-spc-flooring",
     desc: "Impact-rated flooring for schools and universities.",
     img: "/images/project-residence.jpg",
   },

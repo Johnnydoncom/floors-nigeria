@@ -65,7 +65,7 @@ export function SearchSuggestions({
       {results.products.map((product) => (
         <Link
           key={product.id}
-          href={`/products/${product.slug}`}
+          href={`/product/${product.slug}`}
           onClick={onSelect}
           className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-muted"
         >
@@ -100,7 +100,7 @@ export function SearchSuggestions({
             {results.categories.map((category) => (
               <Link
                 key={category.slug}
-                href={`/categories/${category.slug}`}
+                href={`/products/${category.slug}`}
                 onClick={onSelect}
                 className="border border-border px-3 py-1.5 text-xs transition hover:border-gold hover:text-gold"
               >
