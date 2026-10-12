@@ -20,7 +20,7 @@ const MATERIAL_LIMIT = 36;
  *
  * Where the photo visualizer answers "how would this look in my room?", this
  * answers "how much of it do I need, and what will it cost?" — from the same
- * catalogue, with the plank size and pack coverage the product actually ships.
+ * catalogue, with the plank size and pack coverage the product actually ships..
  */
 export default async function RoomDesignerPage() {
   const { data: products } = await getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" });
