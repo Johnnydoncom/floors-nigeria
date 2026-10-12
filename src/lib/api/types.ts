@@ -37,6 +37,8 @@ export type Media = {
   thumb_url: string;
   preview_url: string;
   large_url: string;
+  width?: number | null;
+  height?: number | null;
   sort_order: number;
 };
 

@@ -242,6 +242,15 @@
   }
 }
 
+/* Horizontal rails that scroll by touch, trackpad or their own arrow buttons. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /*
  * Long-form CMS content (pages, journal articles, case studies), rendered by
  * <Markdown>. Element styles scoped to one wrapper keep editors' copy

@@ -2,10 +2,13 @@ export default function Loading() {
   return (
     <div className="container-fluid grid gap-10 pb-16 pt-header lg:grid-cols-12" aria-hidden>
       <div className="lg:col-span-7">
-        <div className="aspect-[4/3] animate-pulse bg-muted" />
-        <div className="mt-4 grid grid-cols-4 gap-3">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="aspect-square animate-pulse bg-muted" />
+        <div className="aspect-[4/3] animate-pulse rounded-lg bg-muted" />
+        <div className="mt-3 flex gap-2.5 overflow-hidden p-1">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div
+              key={index}
+              className="h-16 w-16 shrink-0 animate-pulse rounded-md bg-muted sm:h-20 sm:w-20"
+            />
           ))}
         </div>
       </div>

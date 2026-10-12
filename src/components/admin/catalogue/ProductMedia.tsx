@@ -17,6 +17,16 @@ const COLLECTIONS: { value: string; label: string; help: string }[] = [
   { value: "lifestyle", label: "Room / lifestyle", help: "The floor in a real room." },
   { value: "edge_profile", label: "Edge & profile", help: "Click system, bevel, thickness." },
   { value: "installation", label: "Installation", help: "Fitting and subfloor." },
+  {
+    value: "spin",
+    label: "360° spin frames",
+    help: "Turntable shots in rotation order (24–72 frames). Product only.",
+  },
+  {
+    value: "panorama",
+    label: "360° room panorama",
+    help: "Equirectangular 2:1 photo of the floor installed. Product only.",
+  },
   { value: "swatch", label: "Swatch", help: "A variation's chip in the option picker." },
 ];
 
@@ -47,7 +57,12 @@ export function MediaLibrary({
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
-    for (const file of Array.from(files)) {
+    const list = Array.from(files);
+    // Spin frames play in upload order; file pickers don't promise one.
+    if (collection === "spin") {
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    }
+    for (const file of list) {
       const form = new FormData();
       form.append("file", file);
       form.append("collection", collection);
@@ -89,7 +104,9 @@ export function MediaLibrary({
             help={
               collection === "swatch"
                 ? "Swatches belong to a variation."
-                : "The product, or one variation's own photo."
+                : collection === "spin" || collection === "panorama"
+                  ? "360° views belong to the product itself."
+                  : "The product, or one variation's own photo."
             }
           >
             <select

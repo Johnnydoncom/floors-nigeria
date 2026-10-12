@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useCart, unitSymbol } from "@/lib/cart";
 import { naira, number } from "@/lib/format";
-import type { Product, Variant } from "@/lib/api/types";
-import { ProductGallery, type GalleryImage } from "./ProductGallery";
+import type { Product } from "@/lib/api/types";
+import { ProductGallery } from "./ProductGallery";
+import { leadImage, productGallery } from "./gallery/items";
 import { FavoriteButton } from "./FavoriteButton";
 import { OptionPicker } from "./OptionPicker";
 import { useVariantSelection } from "./useVariantSelection";
@@ -29,7 +30,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
   const cart = useCart();
 
   const variant = selectedVariant;
-  const images = useMemo(() => galleryImages(product, variant), [product, variant]);
+  const media = useMemo(() => productGallery(product, variant), [product, variant]);
   const price = variant?.pricing.effective_price ?? product.price_from;
   const coverage = variant?.packaging.coverage_per_pack_sqm ?? null;
   const packs = coverage
@@ -38,11 +39,17 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
 
   return (
     <div className="grid gap-10 lg:grid-cols-12">
-      <div className="lg:col-span-7">
-        <ProductGallery images={images} badge={variant?.pricing.is_on_sale ? "On offer" : null} />
+      <div className="min-w-0 lg:col-span-7">
+        {/* Keyed by variation: a new selection starts on its own lead photo. */}
+        <ProductGallery
+          key={variant?.id ?? "product"}
+          items={media}
+          title={product.name}
+          badge={variant?.pricing.is_on_sale ? "On offer" : null}
+        />
       </div>
 
-      <div className="lg:col-span-5">
+      <div className="min-w-0 lg:col-span-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
           {product.brand?.name ?? product.category?.name}
           {variant && <span className="ml-2 text-foreground/60">SKU {variant.sku}</span>}
@@ -155,7 +162,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
                 name: product.name,
                 variant: variant.name,
                 sku: variant.sku,
-                img: images[0]?.url ?? product.image_url ?? "",
+                img: leadImage(media)?.url ?? product.image_url ?? "",
                 unit: variant.pricing.unit,
                 unitLabel: variant.pricing.unit_label,
                 price: variant.pricing.effective_price ?? 0,
@@ -229,35 +236,5 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
         </ul>
       </div>
     </div>
-  );
-}
-
-/**
- * Variation imagery first, then the product's own gallery roles.
- */
-function galleryImages(product: Product, variant?: Variant): GalleryImage[] {
-  const fromVariant = (variant?.media ?? []).map((media) => ({
-    url: media.preview_url,
-    thumbUrl: media.thumb_url,
-    alt: media.alt ?? `${product.name} — ${variant?.name ?? ""}`,
-  }));
-
-  const fromProduct = Object.values(product.media ?? {})
-    .flatMap((entries) => entries ?? [])
-    .map((media) => ({
-      url: media.preview_url,
-      thumbUrl: media.thumb_url,
-      alt: media.alt ?? product.name,
-    }));
-
-  const images = [...fromVariant, ...fromProduct];
-
-  if (images.length === 0 && product.image_url) {
-    images.push({ url: product.image_url, thumbUrl: product.image_url, alt: product.name });
-  }
-
-  // De-duplicate: the hero often repeats across roles.
-  return images.filter(
-    (image, index) => images.findIndex((entry) => entry.url === image.url) === index,
   );
 }
