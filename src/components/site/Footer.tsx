@@ -4,6 +4,7 @@ import { SampleRequestForm } from "./SampleRequestForm";
 import { Logo } from "./Logo";
 import { getNavigation } from "@/lib/api/navigation";
 import { getPages } from "@/lib/api/content";
+import { HEAD_OFFICE, NETWORK_STATS, formatPhone } from "@/lib/branches";
 import { SHOWROOM_EMAIL, SHOWROOM_PHONE } from "@/lib/site-contact";
 
 /**
@@ -42,6 +43,7 @@ const cols = [
     title: "Company",
     links: [
       ["About us", "/about"],
+      ["Branches & showrooms", "/branches"],
       ["Projects", "/projects"],
       ["Trade accounts", "/contact?enquiry=trade"],
       ["Contact", "/contact"],
@@ -126,12 +128,21 @@ export async function Footer() {
             <address className="space-y-2.5 text-sm not-italic text-primary-foreground/70">
               <p className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-light" aria-hidden />
-                <span>Showroom: Admiralty Way, Lekki Phase 1, Lagos</span>
+                <span>
+                  Head office: {HEAD_OFFICE.address.join(", ")}
+                  <Link
+                    href="/branches"
+                    className="mt-1 block text-gold-light transition hover:text-gold"
+                  >
+                    + {NETWORK_STATS.locations - 1} more locations in {NETWORK_STATS.countries}{" "}
+                    countries
+                  </Link>
+                </span>
               </p>
               <p className="flex items-center gap-2.5">
                 <Phone className="h-4 w-4 shrink-0 text-gold-light" aria-hidden />
                 <a href={`tel:${SHOWROOM_PHONE}`} className="transition hover:text-gold-light">
-                  {SHOWROOM_PHONE}
+                  {formatPhone(SHOWROOM_PHONE)}
                 </a>
               </p>
               <p className="flex items-center gap-2.5">

@@ -1,4 +1,5 @@
 import type { Product } from "@/lib/api/types";
+import { HEAD_OFFICE, branchTitle, directionsUrl, type Branch } from "@/lib/branches";
 import { SHOWROOM_PHONE } from "@/lib/site-contact";
 
 /**
@@ -91,13 +92,7 @@ export function organizationSchema(): Record<string, unknown> {
     telephone: SHOWROOM_PHONE,
     priceRange: "₦₦",
     areaServed: { "@type": "Country", name: "Nigeria" },
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "Admiralty Way, Lekki Phase 1",
-      addressLocality: "Lagos",
-      addressRegion: "Lagos",
-      addressCountry: "NG",
-    },
+    address: postalAddress(HEAD_OFFICE),
     contactPoint: {
       "@type": "ContactPoint",
       telephone: SHOWROOM_PHONE,
@@ -189,5 +184,35 @@ export function faqSchema(faqs: { question: string; answer: string }[]): Record<
       name: faq.question,
       acceptedAnswer: { "@type": "Answer", text: faq.answer },
     })),
+  };
+}
+
+function postalAddress(branch: Branch): Record<string, unknown> {
+  return {
+    "@type": "PostalAddress",
+    streetAddress: [branch.address[0], branch.area].join(", "),
+    addressLocality: branch.city,
+    addressRegion: branch.state,
+    addressCountry: branch.country,
+  };
+}
+
+/**
+ * One branch as its own local business, tied back to the organisation, so
+ * "flooring shop in Enugu" can surface the Enugu branch rather than Lagos.
+ */
+export function branchSchema(branch: Branch): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HomeAndConstructionBusiness",
+    "@id": absoluteUrl(`/branches/${branch.slug}#branch`),
+    name: branchTitle(branch),
+    url: absoluteUrl(`/branches/${branch.slug}`),
+    image: absoluteUrl("/images/og-default.jpg"),
+    telephone: branch.phones[0],
+    email: branch.emails[0],
+    address: postalAddress(branch),
+    hasMap: directionsUrl(branch),
+    parentOrganization: { "@id": absoluteUrl("/#organization") },
   };
 }

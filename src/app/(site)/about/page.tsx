@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import type { Metadata } from "next";
+import { NETWORK_STATS } from "@/lib/branches";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -55,19 +56,20 @@ export default function About() {
         >
           <p>
             Founded in Lagos in 2013, Floors NG began as a five-person specification studio
-            importing engineered oak for a single Ikoyi villa. Twelve years later we operate three
-            showrooms, employ four installation crews, and specify surfaces for over 1.4 million
-            square metres of finished floor.
+            importing engineered oak for a single Ikoyi villa. Twelve years later we operate{" "}
+            {NETWORK_STATS.branches} branches across Nigeria, Ghana, Togo and Benin, employ four
+            installation crews, and specify surfaces for over 1.4 million square metres of finished
+            floor.
           </p>
           <p>
             What hasn&apos;t changed is the obsession. Every plank we deliver is inspected in-house.
             Every crew is certified. Every specification is signed off by a named partner.
           </p>
           <Link
-            href="/contact"
+            href="/branches"
             className="inline-flex items-center gap-2 text-foreground font-medium"
           >
-            Visit our Lagos flagship <ArrowRight className="h-4 w-4" />
+            Find a branch near you <ArrowRight className="h-4 w-4" />
           </Link>
         </Reveal>
       </section>
@@ -78,7 +80,7 @@ export default function About() {
             ["1.4M", "m² installed since 2013"],
             ["36", "Global sourcing partners"],
             ["24", "Certified installers on staff"],
-            ["3", "Showrooms across Nigeria"],
+            [String(NETWORK_STATS.branches), "Branches in four countries"],
           ].map(([n, l]) => (
             <Reveal key={l}>
               <div className="font-mono text-5xl md:text-6xl tracking-tight">{n}</div>

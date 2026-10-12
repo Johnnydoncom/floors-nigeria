@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MapPin, MessageCircle, Phone, Ruler, Truck } from "lucide-react";
 import { getNavigation } from "@/lib/api/navigation";
 import { whatsAppLink } from "@/lib/format";
+import { NETWORK_STATS, formatPhone } from "@/lib/branches";
 import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { HeaderBar } from "./HeaderBar";
 import { UtilityBar } from "./UtilityBar";
@@ -34,10 +35,13 @@ export async function SiteHeader() {
       <UtilityBar>
         <div className="container-fluid flex h-9 items-center justify-between font-display text-[11px] font-medium tracking-[0.04em]">
           <div className="flex items-center gap-6 text-primary-foreground/70">
-            <span className="inline-flex items-center gap-1.5">
+            <Link
+              href="/branches"
+              className="inline-flex items-center gap-1.5 transition hover:text-gold-light"
+            >
               <MapPin className="h-3 w-3 text-gold-light" aria-hidden />
-              Lekki · Ikeja · Abuja
-            </span>
+              {NETWORK_STATS.branches} branches · {NETWORK_STATS.countries} countries
+            </Link>
             <span className="hidden items-center gap-1.5 lg:inline-flex">
               <Ruler className="h-3 w-3 text-gold-light" aria-hidden />
               Free site survey in Lagos
@@ -54,7 +58,7 @@ export async function SiteHeader() {
               className="inline-flex items-center gap-1.5 transition hover:text-gold-light"
             >
               <Phone className="h-3 w-3 text-gold-light" aria-hidden />
-              {SHOWROOM_PHONE}
+              {formatPhone(SHOWROOM_PHONE)}
             </a>
             <a
               href={whatsAppLink(

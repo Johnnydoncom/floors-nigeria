@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronLeft, MessageCircle, Phone, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, MapPin, MessageCircle, Phone, X } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import type { NavigationData } from "@/lib/api/navigation";
 import { whatsAppLink } from "@/lib/format";
+import { NETWORK_STATS, formatPhone } from "@/lib/branches";
 import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { cn } from "@/lib/utils";
 import { TOOL_LINKS } from "./HeaderBar";
@@ -197,7 +198,7 @@ export function MobileNav({
                 className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
               >
                 <Phone className="h-4 w-4 text-gold" aria-hidden />
-                {SHOWROOM_PHONE}
+                {formatPhone(SHOWROOM_PHONE)}
               </a>
               <a
                 href={whatsAppLink(
@@ -211,8 +212,17 @@ export function MobileNav({
                 <MessageCircle className="h-4 w-4 text-gold" aria-hidden />
                 Chat on WhatsApp
               </a>
+              <Link
+                href="/branches"
+                onClick={onClose}
+                className="flex h-12 items-center gap-2 border border-border px-4 text-sm"
+              >
+                <MapPin className="h-4 w-4 text-gold" aria-hidden />
+                Find a branch near you
+              </Link>
               <p className="pt-2 text-xs text-muted-foreground">
-                Showrooms in Lekki, Ikeja and Abuja · Free site survey across Lagos
+                {NETWORK_STATS.branches} branches across Nigeria, Ghana, Togo &amp; Benin · Free
+                site survey across Lagos
               </p>
             </div>
           </>

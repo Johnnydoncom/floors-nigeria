@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getCategories, getProducts, getTaxonomies } from "@/lib/api/catalog";
 import { getPages, getPortfolio, getPosts } from "@/lib/api/content";
+import { PUBLISHED_BRANCHES } from "@/lib/branches";
 import { absoluteUrl } from "@/lib/structured-data";
 
 const STATIC_ROUTES = [
@@ -15,6 +16,7 @@ const STATIC_ROUTES = [
   "/industries",
   "/blog",
   "/about",
+  "/branches",
   "/contact",
 ];
 
@@ -71,6 +73,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "weekly" as const,
         priority: 0.8,
       })),
+    ...PUBLISHED_BRANCHES.map((branch) => ({
+      url: absoluteUrl(`/branches/${branch.slug}`),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     ...rooms.map((room) => ({
       url: absoluteUrl(`/rooms/${room.slug}`),
       changeFrequency: "monthly" as const,

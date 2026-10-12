@@ -6,11 +6,14 @@
  * the drawer and every product card.
  */
 
-export const SHOWROOM_PHONE = process.env.NEXT_PUBLIC_SHOWROOM_PHONE ?? "+2348000000000";
+import { HEAD_OFFICE } from "@/lib/branches";
+
+/** The head office line unless an environment overrides it. */
+export const SHOWROOM_PHONE = process.env.NEXT_PUBLIC_SHOWROOM_PHONE ?? HEAD_OFFICE.phones[0];
 
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? SHOWROOM_PHONE;
 
-export const SHOWROOM_EMAIL = process.env.NEXT_PUBLIC_SHOWROOM_EMAIL ?? "hello@floornigeria.com";
+export const SHOWROOM_EMAIL = process.env.NEXT_PUBLIC_SHOWROOM_EMAIL ?? HEAD_OFFICE.emails[0];
 
 /**
  * Prefill a WhatsApp order enquiry with everything a consultant needs to reply

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { Suspense } from "react";
 import { ContactForm, ContactFormFromQuery } from "@/components/site/ContactForm";
 import { JsonLd } from "@/components/site/JsonLd";
+import { BRANCHES, HEAD_OFFICE, NETWORK_STATS, REGIONS, formatPhone } from "@/lib/branches";
 import { whatsAppLink } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
 import { SHOWROOM_EMAIL, WHATSAPP_NUMBER } from "@/lib/site-contact";
@@ -11,20 +13,18 @@ import { absoluteUrl, breadcrumbSchema, organizationSchema } from "@/lib/structu
 export const metadata: Metadata = pageMetadata({
   title: "Contact & Showrooms",
   description:
-    "Book a free flooring consultation with Floor Nigeria. Visit our showrooms in Lagos, Abuja and Port Harcourt, call, or message us on WhatsApp for a costed proposal.",
+    "Book a free flooring consultation with Floor Nigeria. Visit our head office in Ikeja or one of our branches across Nigeria, Ghana, Togo and Benin, call, or message us on WhatsApp for a costed proposal.",
   path: "/contact",
   keywords: ["flooring showroom Lagos", "flooring consultation", "flooring quote Nigeria"],
 });
 
-const locations = [
-  {
-    city: "Lagos · Flagship",
-    addr: "12 Adeola Odeku Street, Victoria Island",
-    tel: "+234 700 356 6767",
-  },
-  { city: "Abuja", addr: "Plot 421, Aminu Kano Crescent, Wuse II", tel: "+234 700 356 6720" },
-  { city: "Port Harcourt", addr: "24 Aba Road, GRA Phase 2", tel: "+234 700 356 6730" },
-];
+/** Walk-in branches per region, for the quick list beside the form. */
+const regions = REGIONS.map((region) => ({
+  ...region,
+  branches: BRANCHES.filter(
+    (branch) => branch.region === region.id && branch.kind === "showroom" && !branch.pending,
+  ),
+})).filter((region) => region.branches.length > 0);
 
 export default function ContactPage() {
   return (
@@ -88,26 +88,58 @@ export default function ContactPage() {
             </span>
           </a>
 
-          {locations.map((l) => (
-            <div
-              key={l.city}
-              className="rounded-xl border border-border p-6 transition hover:border-gold/40"
-            >
-              <h2 className="eyebrow">{l.city}</h2>
-              <address className="mt-3 space-y-2 text-sm not-italic">
-                <p className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span>{l.addr}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <a href={`tel:${l.tel.replace(/\s/g, "")}`} className="font-mono hover:text-gold">
-                    {l.tel}
-                  </a>
-                </p>
-              </address>
+          <div className="rounded-xl border border-border p-6 transition hover:border-gold/40">
+            <h2 className="eyebrow">Head office · {HEAD_OFFICE.area}</h2>
+            <address className="mt-3 space-y-2 text-sm not-italic">
+              <p className="flex items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span>{HEAD_OFFICE.address.join(", ")}</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="flex flex-wrap gap-x-3 gap-y-1">
+                  {HEAD_OFFICE.phones.map((phone) => (
+                    <a key={phone} href={`tel:${phone}`} className="font-mono hover:text-gold">
+                      {formatPhone(phone)}
+                    </a>
+                  ))}
+                </span>
+              </p>
+            </address>
+          </div>
+
+          <div className="rounded-xl border border-border p-6">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 className="eyebrow">Branches</h2>
+              <span className="text-xs text-muted-foreground">
+                {NETWORK_STATS.locations} locations · {NETWORK_STATS.countries} countries
+              </span>
             </div>
-          ))}
+            <dl className="mt-4 space-y-3 text-sm">
+              {regions.map((region) => (
+                <div key={region.id} className="grid grid-cols-[6.5rem_1fr] gap-3">
+                  <dt className="text-muted-foreground">{region.name}</dt>
+                  <dd className="flex flex-wrap gap-x-3 gap-y-1">
+                    {region.branches.map((branch) => (
+                      <Link
+                        key={branch.slug}
+                        href={`/branches/${branch.slug}`}
+                        className="underline decoration-border underline-offset-4 transition hover:text-gold hover:decoration-gold"
+                      >
+                        {branch.name}
+                      </Link>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <Link
+              href="/branches"
+              className="mt-5 inline-flex items-center gap-1.5 font-display text-[13px] font-semibold transition hover:text-gold"
+            >
+              Find your nearest branch <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
 
           <div className="rounded-xl bg-charcoal-dark p-6 text-primary-foreground">
             <p className="flex items-center gap-2 text-sm">
