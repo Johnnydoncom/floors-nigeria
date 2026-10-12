@@ -10,11 +10,11 @@ import { MaterialPicker } from "@/components/visualizer/MaterialPicker";
 import { naira, number, whatsAppLink } from "@/lib/format";
 import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { DEFAULT_PLAN, floorArea, perimeter, type RoomPlan } from "@/lib/room/plan";
-import { estimateMaterial, plankSize } from "@/lib/room/material";
+import { estimateMaterial } from "@/lib/room/material";
 import { arSpecFor } from "@/lib/room/ar-material";
 import { absoluteUrl } from "@/lib/structured-data";
-import type { TextureChoice } from "@/lib/visualizer/types";
-import { PlanEditor } from "./PlanEditor";
+import type { LayoutPattern, TextureChoice } from "@/lib/visualizer/types";
+import { PlanEditor, RoomDimensions } from "./PlanEditor";
 import type { CameraMode } from "./RoomScene";
 
 /**
@@ -49,8 +49,9 @@ const DEFAULT_WASTE = 10;
  */
 export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
   const [plan, setPlan] = useState<RoomPlan>(DEFAULT_PLAN);
-  const [material, setMaterial] = useState<TextureChoice | null>(materials[0] ?? null);
-  const [view, setView] = useState<View>("plan");
+  const [material, setMaterial] = useState<TextureChoice | null>(() => openingMaterial(materials));
+  // The 3D room is what the page promises, so it is what opens.
+  const [view, setView] = useState<View>("room");
   const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
   const [rotation, setRotation] = useState(0);
 
@@ -61,32 +62,53 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
     wastePercentage: material?.wastePercentage ?? DEFAULT_WASTE,
     variant,
   });
-  const plank = plankSize(variant);
 
-  // The same floor in AR: straight lay at the product's real plank size,
-  // turned the way the 3D room has it.
+  // One description of the floor for the 3D room and AR alike, laid the way
+  // the visitor has turned it. Planks are cut at their real size only from a
+  // dedicated seamless texture: cut from a product photograph they repeat its
+  // props — a lens cap, a pallet edge — across the whole room, so a photograph
+  // is shown as photographed, as the photo visualizer does.
   const arSpec = useMemo(
-    () => (material ? arSpecFor(material, { rotationDegrees: rotation }) : null),
+    () =>
+      material
+        ? arSpecFor(material, {
+            rotationDegrees: rotation,
+            layout: layoutFor(material),
+          })
+        : null,
     [material, rotation],
   );
+
+  const isMeasured = Boolean(variant?.dimensions.length_mm && variant?.dimensions.width_mm);
+  const pieceName = arSpec?.kind === "tile" ? "tile" : "board";
+  const size = arSpec
+    ? `${number(arSpec.lengthM * 1000, 0)} × ${number(arSpec.widthM * 1000, 0)}mm`
+    : "";
 
   return (
     <div className="container-fluid grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div>
+        <section className="mb-6">
+          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            1 · Your room
+          </h2>
+          <RoomDimensions plan={plan} onChange={setPlan} />
+        </section>
+
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <ViewTab
-            active={view === "plan"}
-            onClick={() => setView("plan")}
-            icon={<Grid2x2 className="h-4 w-4" aria-hidden />}
-          >
-            Plan
-          </ViewTab>
           <ViewTab
             active={view === "room"}
             onClick={() => setView("room")}
             icon={<Box className="h-4 w-4" aria-hidden />}
           >
             3D room
+          </ViewTab>
+          <ViewTab
+            active={view === "plan"}
+            onClick={() => setView("plan")}
+            icon={<Grid2x2 className="h-4 w-4" aria-hidden />}
+          >
+            Plan
           </ViewTab>
 
           {view === "room" && (
@@ -110,17 +132,18 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
         </div>
 
         {view === "plan" ? (
-          <PlanEditor plan={plan} onChange={setPlan} areaSqm={areaSqm} />
+          <PlanEditor plan={plan} areaSqm={areaSqm} />
         ) : (
-          <div className="aspect-[4/3] overflow-hidden border border-border bg-surface">
-            <RoomScene
-              plan={plan}
-              textureUrl={material?.textureUrl ?? null}
-              variant={variant}
-              rotationDegrees={rotation}
-              cameraMode={cameraMode}
-            />
-          </div>
+          <>
+            <div className="aspect-[4/3] max-h-[70vh] w-full overflow-hidden border border-border bg-surface">
+              <RoomScene plan={plan} spec={arSpec} cameraMode={cameraMode} />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {cameraMode === "overview"
+                ? "Drag to turn the room, scroll or pinch to zoom."
+                : "Drag to look around the room."}
+            </p>
+          </>
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -150,16 +173,14 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
           />
         </div>
 
-        {plank.isMeasured ? (
+        {arSpec && (
           <p className="mt-4 text-xs text-muted-foreground">
-            Planks are drawn at their real size — {number(plank.lengthM * 1000, 0)} ×{" "}
-            {number(plank.widthM * 1000, 0)}mm — so the board count you see is the board count you
-            get.
-          </p>
-        ) : (
-          <p className="mt-4 text-xs text-muted-foreground">
-            This product has no plank dimensions recorded, so a standard 1220 × 183mm board is
-            assumed. Colour and finish are indicative.
+            {arSpec.layout === "natural"
+              ? "Shown from the product photograph, so the pattern and colour are a guide. "
+              : `Each ${pieceName} is drawn at its real size, ${size}. `}
+            {isMeasured
+              ? "Area, packs and cost use the product's own pack coverage."
+              : `No size is recorded for this product, so a standard ${size} ${pieceName} is assumed.`}
           </p>
         )}
       </div>
@@ -167,16 +188,17 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
       <aside className="space-y-8">
         <section>
           <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Choose a floor
+            2 · Choose a floor
           </h2>
-          <div className="mt-3">
+          {/* Scrolls on its own so the totals below stay within reach. */}
+          <div className="mt-3 max-h-[26rem] overflow-y-auto p-1">
             <MaterialPicker choices={materials} selected={material} onSelect={setMaterial} />
           </div>
         </section>
 
         <section className="border-t border-border pt-6">
           <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            This room
+            3 · What you need
           </h2>
 
           <dl className="mt-3 space-y-2 text-sm">
@@ -237,6 +259,27 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
       </aside>
     </div>
   );
+}
+
+/** The visualizer's rule: a pattern from a dedicated texture, else the photograph. */
+function layoutFor(material: TextureChoice): LayoutPattern {
+  if (!material.isSeamless) return "natural";
+  if (material.kind === "tile") return "grid";
+  return material.kind === "plank" ? "staggered" : "natural";
+}
+
+/**
+ * The floor the room opens with: a plank with its size on record if there is
+ * one — boards at true size are what this tool shows best — then any plank,
+ * then whatever comes first.
+ */
+function openingMaterial(materials: TextureChoice[]): TextureChoice | null {
+  const planks = materials.filter((choice) => choice.kind === "plank");
+  const measured = planks.find(
+    (choice) => choice.variant?.dimensions.length_mm && choice.variant?.dimensions.width_mm,
+  );
+
+  return measured ?? planks[0] ?? materials[0] ?? null;
 }
 
 function ViewTab({

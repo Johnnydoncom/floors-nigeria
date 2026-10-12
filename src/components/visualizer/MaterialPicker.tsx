@@ -35,9 +35,12 @@ export function MaterialPicker({
       className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3"
     >
       {choices.map((choice) => {
-        const key = `${choice.productSlug}-${choice.variantId ?? "base"}`;
+        // Colour terms carry no variation id, so their name tells them apart.
+        const key = `${choice.productSlug}-${choice.variantId ?? choice.variantName ?? "base"}`;
         const isSelected =
-          selected?.productSlug === choice.productSlug && selected?.variantId === choice.variantId;
+          selected?.productSlug === choice.productSlug &&
+          selected?.variantId === choice.variantId &&
+          selected?.variantName === choice.variantName;
 
         return (
           <button

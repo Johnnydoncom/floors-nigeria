@@ -12,8 +12,8 @@ export const metadata: Metadata = pageMetadata({
   path: "/room-designer",
 });
 
-/** Materials offered in the designer, enough to compare without overwhelming. */
-const MATERIAL_LIMIT = 24;
+/** Products fetched for the designer, enough to compare without overwhelming. */
+const MATERIAL_LIMIT = 36;
 
 /**
  * The room designer (§11).
@@ -24,7 +24,9 @@ const MATERIAL_LIMIT = 24;
  */
 export default async function RoomDesignerPage() {
   const { data: products } = await getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" });
-  const materials = products.flatMap(toTextureChoices);
+  // Rugs and mats are placed on a floor, not laid wall to wall, so they have no
+  // place in a room being measured for flooring.
+  const materials = products.flatMap(toTextureChoices).filter((choice) => choice.kind !== "rug");
 
   return (
     <>

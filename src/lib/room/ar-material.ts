@@ -20,7 +20,7 @@ export const PATCH_SIZE_M = 2.4;
 /** Texture resolution: a 2.4m patch at this is ~1200px, crisp at arm's length. */
 const PX_PER_M = 512;
 
-const ROUGHNESS: Record<Finish, number> = { matte: 0.85, satin: 0.55, gloss: 0.22 };
+export const ROUGHNESS: Record<Finish, number> = { matte: 0.85, satin: 0.55, gloss: 0.22 };
 
 export type ArMaterialSpec = {
   textureUrl: string;
