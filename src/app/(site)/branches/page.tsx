@@ -7,13 +7,13 @@ import {
   BRANCHES,
   HEAD_OFFICE,
   NETWORK_STATS,
-  PUBLISHED_BRANCHES,
   directionsUrl,
   formatPhone,
   mapEmbedUrl,
 } from "@/lib/branches";
 import { whatsAppLink } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 import { WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { branchSchema, breadcrumbSchema, itemListSchema } from "@/lib/structured-data";
 
@@ -53,12 +53,12 @@ export default function BranchesPage() {
             { name: "Branches", url: "/branches" },
           ]),
           itemListSchema(
-            PUBLISHED_BRANCHES.map((branch) => ({
+            BRANCHES.map((branch) => ({
               name: branch.name,
               url: `/branches/${branch.slug}`,
             })),
           ),
-          ...PUBLISHED_BRANCHES.map(branchSchema),
+          ...BRANCHES.map(branchSchema),
         ]}
       />
 
@@ -107,10 +107,16 @@ export default function BranchesPage() {
         <div className="city-marquee flex w-max">
           {[0, 1].map((run) => (
             <div key={run} className="flex shrink-0 items-center">
-              {PLACES.map((place) => (
+              {PLACES.map((place, index) => (
                 <span
                   key={`${run}-${place}`}
-                  className="flex items-center font-display text-4xl font-semibold tracking-tight whitespace-nowrap text-transparent [-webkit-text-stroke:1px_color-mix(in_oklab,var(--foreground)_20%,transparent)] md:text-6xl"
+                  className={cn(
+                    "flex items-center font-display text-4xl font-semibold tracking-tight whitespace-nowrap md:text-6xl",
+                    // Solid and outlined names alternate, like a printed specimen.
+                    index % 2 === 0
+                      ? "text-foreground"
+                      : "text-transparent [-webkit-text-stroke:1.5px_color-mix(in_oklab,var(--foreground)_60%,transparent)]",
+                  )}
                 >
                   {place}
                   <span className="mx-6 h-2 w-2 rounded-full bg-gold md:mx-10" />

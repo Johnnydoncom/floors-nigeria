@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Mail, MapPin, Phone, Signpost } from "lucide-react";
-import {
-  COUNTRIES,
-  HEAD_OFFICE,
-  KIND_LABELS,
-  directionsUrl,
-  formatPhone,
-  type Branch,
-} from "@/lib/branches";
+import { COUNTRIES, KIND_LABELS, directionsUrl, formatPhone, type Branch } from "@/lib/branches";
 import { cn } from "@/lib/utils";
 
 /**
@@ -82,96 +75,78 @@ export function BranchCard({
         {branch.area === branch.city ? branch.state : `${branch.area} · ${branch.city}`}
       </p>
 
-      {branch.pending ? (
-        <div className="mt-5 flex-1 rounded-lg bg-surface p-4 text-sm text-muted-foreground">
-          <p>
-            Contact details for our {branch.name} branch are being updated. Call the head office and
-            we&apos;ll direct you to it.
+      <address className="mt-5 flex-1 space-y-3 text-sm not-italic">
+        <p className="flex items-start gap-3">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+          <span>
+            {branch.address.map((addressLine) => (
+              <span key={addressLine} className="block">
+                {addressLine}
+              </span>
+            ))}
+          </span>
+        </p>
+        {branch.landmark && (
+          <p className="flex items-start gap-3 text-muted-foreground">
+            <Signpost className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+            <span>{branch.landmark}</span>
           </p>
-          <a
-            href={`tel:${HEAD_OFFICE.phones[0]}`}
-            className="mt-3 inline-flex items-center gap-2 font-mono font-medium text-foreground hover:text-gold"
-          >
-            <Phone className="h-4 w-4 text-gold" aria-hidden />
-            {formatPhone(HEAD_OFFICE.phones[0])}
-          </a>
-        </div>
-      ) : (
-        <address className="mt-5 flex-1 space-y-3 text-sm not-italic">
+        )}
+        {branch.phones.length > 0 && (
           <p className="flex items-start gap-3">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
-            <span>
-              {branch.address.map((addressLine) => (
-                <span key={addressLine} className="block">
-                  {addressLine}
-                </span>
+            <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+            <span className="flex flex-wrap gap-x-3 gap-y-1">
+              {branch.phones.map((phone) => (
+                <a
+                  key={phone}
+                  href={`tel:${phone}`}
+                  className="font-mono font-medium transition hover:text-gold"
+                >
+                  {formatPhone(phone)}
+                </a>
               ))}
             </span>
           </p>
-          {branch.landmark && (
-            <p className="flex items-start gap-3 text-muted-foreground">
-              <Signpost className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
-              <span>{branch.landmark}</span>
-            </p>
-          )}
-          {branch.phones.length > 0 && (
-            <p className="flex items-start gap-3">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
-              <span className="flex flex-wrap gap-x-3 gap-y-1">
-                {branch.phones.map((phone) => (
-                  <a
-                    key={phone}
-                    href={`tel:${phone}`}
-                    className="font-mono font-medium transition hover:text-gold"
-                  >
-                    {formatPhone(phone)}
-                  </a>
-                ))}
-              </span>
-            </p>
-          )}
-          {branch.emails.length > 0 && (
-            <p className="flex items-start gap-3">
-              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
-              <span className="min-w-0 space-y-1">
-                {branch.emails.map((email) => (
-                  <a
-                    key={email}
-                    href={`mailto:${email}`}
-                    className="block break-all text-muted-foreground transition hover:text-gold"
-                  >
-                    {email}
-                  </a>
-                ))}
-              </span>
-            </p>
-          )}
-        </address>
-      )}
+        )}
+        {branch.emails.length > 0 && (
+          <p className="flex items-start gap-3">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
+            <span className="min-w-0 space-y-1">
+              {branch.emails.map((email) => (
+                <a
+                  key={email}
+                  href={`mailto:${email}`}
+                  className="block break-all text-muted-foreground transition hover:text-gold"
+                >
+                  {email}
+                </a>
+              ))}
+            </span>
+          </p>
+        )}
+      </address>
 
-      {!branch.pending && (
-        <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4 font-display text-[13px] font-semibold">
-          <a
-            href={directionsUrl(branch)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 transition hover:text-gold"
-          >
-            Directions <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </a>
-          <Link
-            href={`/branches/${branch.slug}`}
-            className="inline-flex items-center gap-1.5 text-muted-foreground transition hover:text-foreground"
-          >
-            Branch details
-            <ArrowRight
-              className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-              aria-hidden
-            />
-            <span className="sr-only">for {branch.name}</span>
-          </Link>
-        </div>
-      )}
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4 font-display text-[13px] font-semibold">
+        <a
+          href={directionsUrl(branch)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 transition hover:text-gold"
+        >
+          Directions <ArrowUpRight className="h-4 w-4" aria-hidden />
+        </a>
+        <Link
+          href={`/branches/${branch.slug}`}
+          className="inline-flex items-center gap-1.5 text-muted-foreground transition hover:text-foreground"
+        >
+          Branch details
+          <ArrowRight
+            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+            aria-hidden
+          />
+          <span className="sr-only">for {branch.name}</span>
+        </Link>
+      </div>
     </article>
   );
 }

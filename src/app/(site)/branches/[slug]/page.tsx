@@ -11,7 +11,6 @@ import {
   HEAD_OFFICE,
   KIND_LABELS,
   NETWORK_STATS,
-  PUBLISHED_BRANCHES,
   REGIONS,
   branchTitle,
   directionsUrl,
@@ -33,12 +32,7 @@ const COUNTS = BRANCHES.reduce<Partial<Record<HubId, number>>>((counts, branch) 
 }, {});
 
 export function generateStaticParams() {
-  return PUBLISHED_BRANCHES.map((branch) => ({ slug: branch.slug }));
-}
-
-function published(slug: string): Branch | undefined {
-  const branch = getBranch(slug);
-  return branch && !branch.pending ? branch : undefined;
+  return BRANCHES.map((branch) => ({ slug: branch.slug }));
 }
 
 function place(branch: Branch): string {
@@ -46,7 +40,7 @@ function place(branch: Branch): string {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const branch = published((await params).slug);
+  const branch = getBranch((await params).slug);
 
   if (!branch) return { title: "Branch not found", robots: { index: false } };
 
@@ -65,7 +59,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function BranchPage({ params }: PageProps) {
-  const branch = published((await params).slug);
+  const branch = getBranch((await params).slug);
 
   if (!branch) notFound();
 

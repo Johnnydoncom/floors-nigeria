@@ -24,7 +24,6 @@ export type HubId =
   | "ibadan"
   | "abuja"
   | "enugu"
-  | "onitsha"
   | "owerri"
   | "aba"
   | "port-harcourt"
@@ -46,7 +45,7 @@ export type Branch = {
   city: string;
   state: string;
   country: CountryCode;
-  /** Street address, one line per entry. Empty while details are pending. */
+  /** Street address, one line per entry. */
   address: string[];
   /** How to find it: bus stops, plazas, landmarks across the road. */
   landmark?: string;
@@ -54,8 +53,6 @@ export type Branch = {
   emails: string[];
   /** Approximate [lat, lng] for the network map. */
   geo: [number, number];
-  /** Listed by the business but without published contact details yet. */
-  pending?: boolean;
 };
 
 export const COUNTRIES: Record<CountryCode, string> = {
@@ -253,22 +250,6 @@ export const BRANCHES: Branch[] = [
     geo: [6.47, 7.53],
   },
   {
-    slug: "onitsha",
-    name: "Onitsha",
-    kind: "showroom",
-    region: "south-east",
-    hub: "onitsha",
-    area: "Onitsha",
-    city: "Onitsha",
-    state: "Anambra",
-    country: "NG",
-    address: [],
-    phones: [],
-    emails: [],
-    geo: [6.14, 6.79],
-    pending: true,
-  },
-  {
     slug: "owerri",
     name: "Owerri",
     kind: "showroom",
@@ -415,7 +396,7 @@ export const REGIONS: Region[] = [
   },
   { id: "abuja", name: "Abuja", summary: "Federal Capital Territory" },
   { id: "south-west", name: "South West", summary: "Oyo State" },
-  { id: "south-east", name: "South East", summary: "Enugu, Anambra, Imo and Abia" },
+  { id: "south-east", name: "South East", summary: "Enugu, Imo and Abia" },
   { id: "south-south", name: "South South", summary: "Rivers, Delta and Akwa Ibom" },
   { id: "west-africa", name: "West Africa", summary: "Ghana, Togo and Benin Republic" },
 ];
@@ -451,14 +432,6 @@ export const HUBS: Hub[] = [
     geo: [6.46, 7.53],
     labelSide: "right",
     mobileLabelSide: "left",
-  },
-  {
-    id: "onitsha",
-    label: "Onitsha",
-    region: "south-east",
-    geo: [6.14, 6.79],
-    labelSide: "left",
-    minor: true,
   },
   {
     id: "owerri",
@@ -502,9 +475,6 @@ export const HEAD_OFFICE = BRANCHES.find((branch) => branch.kind === "head-offic
 export function getBranch(slug: string): Branch | undefined {
   return BRANCHES.find((branch) => branch.slug === slug);
 }
-
-/** Branches that have a page of their own — pending ones have nothing to show yet. */
-export const PUBLISHED_BRANCHES = BRANCHES.filter((branch) => !branch.pending);
 
 export const NETWORK_STATS = (() => {
   const nigerian = BRANCHES.filter((branch) => branch.country === "NG");

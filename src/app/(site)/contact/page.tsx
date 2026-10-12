@@ -21,9 +21,7 @@ export const metadata: Metadata = pageMetadata({
 /** Walk-in branches per region, for the quick list beside the form. */
 const regions = REGIONS.map((region) => ({
   ...region,
-  branches: BRANCHES.filter(
-    (branch) => branch.region === region.id && branch.kind === "showroom" && !branch.pending,
-  ),
+  branches: BRANCHES.filter((branch) => branch.region === region.id && branch.kind === "showroom"),
 })).filter((region) => region.branches.length > 0);
 
 export default function ContactPage() {
