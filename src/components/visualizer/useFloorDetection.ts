@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DetectionProgress } from "@/lib/visualizer/detect-floor";
+import type { DetectionProgress, DetectionQuality } from "@/lib/visualizer/detect-floor";
 import type { Quad } from "@/lib/visualizer/types";
 
 export type DetectionState =
   | { status: "running"; progress: DetectionProgress }
-  | { status: "done" }
+  /** `refining` while the precise model sharpens a floor already on screen. */
+  | { status: "done"; refining: boolean }
   | { status: "unavailable" };
 
 /** Shortest gap between progress updates, in milliseconds. */
@@ -20,6 +21,11 @@ const STARTING: DetectionState = { status: "running", progress: { stage: "downlo
  * The model loads only when this runs, and the room is already on screen with
  * a default floor area by then — detection refines what the visitor can see
  * rather than holding up the first render.
+ *
+ * Two passes. The fast model puts a floor on screen within seconds; where the
+ * visit can afford it, the precise model then runs in the background and its
+ * sharper floor — stairs, rugs and furniture edges told apart properly —
+ * replaces the first when it lands.
  */
 export function useFloorDetection({
   photoSrc,
@@ -27,7 +33,7 @@ export function useFloorDetection({
 }: {
   photoSrc: string;
   /** Must be stable, or detection will restart on every render. */
-  onDetected: (quad: Quad, mask: CanvasImageSource) => void;
+  onDetected: (quad: Quad, mask: CanvasImageSource, pass: DetectionQuality) => void;
 }) {
   const [state, setState] = useState<DetectionState>(STARTING);
 
@@ -59,7 +65,8 @@ export function useFloorDetection({
       const isCurrent = () => run === runRef.current && isWanted();
 
       try {
-        const { detectFloor } = await import("@/lib/visualizer/floor-detector");
+        const { canAffordPreciseDetection, detectFloor } =
+          await import("@/lib/visualizer/floor-detector");
 
         // Downloads report progress many times a second, and each report
         // re-renders the studio. Pass on a change of stage at once, and a new
@@ -92,13 +99,24 @@ export function useFloorDetection({
           return;
         }
 
-        const canvas = document.createElement("canvas");
-        canvas.width = detection.mask.width;
-        canvas.height = detection.mask.height;
-        canvas.getContext("2d")?.putImageData(detection.mask, 0, 0);
+        const refine = canAffordPreciseDetection();
 
-        onDetected(detection.quad, canvas);
-        setState({ status: "done" });
+        onDetected(detection.quad, maskCanvas(detection.mask), "fast");
+        setState({ status: "done", refining: refine });
+
+        if (!refine) return;
+
+        try {
+          const precise = await detectFloor(photoSrc, undefined, "precise");
+
+          if (isCurrent() && precise) {
+            onDetected(precise.quad, maskCanvas(precise.mask), "precise");
+          }
+        } catch {
+          // The fast floor is already on screen and stays there.
+        }
+
+        if (isCurrent()) setState({ status: "done", refining: false });
       } catch {
         if (isCurrent()) setState({ status: "unavailable" });
       }
@@ -138,4 +156,12 @@ export function useFloorDetection({
   }, [detect]);
 
   return { state, retry };
+}
+
+function maskCanvas(mask: ImageData): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = mask.width;
+  canvas.height = mask.height;
+  canvas.getContext("2d")?.putImageData(mask, 0, 0);
+  return canvas;
 }

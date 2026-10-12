@@ -17,14 +17,16 @@ import {
   cleanFloorMask,
   isFloorLabel,
   isOccluderLabel,
+  isRugLabel,
   isStructureLabel,
+  sceneFromLogits,
 } from "../src/lib/visualizer/floor-mask.ts";
 import {
   perspectiveWeight,
   unitSquareToQuad,
   unproject,
 } from "../src/lib/visualizer/homography.ts";
-import { floorGeometryFromMask } from "../src/lib/visualizer/detect-floor.ts";
+import { floorGeometryFromMask, modelInputSize } from "../src/lib/visualizer/detect-floor.ts";
 
 const WIDTH = 240;
 const HEIGHT = 180;
@@ -63,8 +65,14 @@ function at(mask, x, y) {
 }
 
 test("labels are matched through either naming convention", () => {
-  for (const label of ["floor", "Floor", "floor;flooring", "rug;carpet;carpeting"]) {
+  for (const label of ["floor", "Floor", "floor;flooring"]) {
     assert.ok(isFloorLabel(label), label);
+  }
+
+  // A rug may be the floor or lie on it, so it is neither until the photo says.
+  for (const label of ["rug", "rug;carpet;carpeting", "mat"]) {
+    assert.ok(isRugLabel(label), label);
+    assert.ok(!isFloorLabel(label) && !isOccluderLabel(label), label);
   }
 
   for (const label of ["wall", "stairs;steps", "windowpane;window", "painting;picture"]) {
@@ -286,4 +294,140 @@ test("a gap inside a piece of furniture is not floor", () => {
 
   assert.ok(scene);
   assert.equal(at(cleanFloorMask(scene), 0.5, 0.65), 0, "material laid inside the sofa");
+});
+
+test("an area rug lying on the floor keeps its own surface", () => {
+  // The model rarely recognises all of a rug, so covering what it does
+  // recognise leaves the rest standing as a remnant in the middle of the room.
+  const rug = [0.35, 0.6, 0.65, 0.85];
+  const scene = classifyScene([
+    segment("floor", [[0, 0.4, 1, 1]], [rug]),
+    segment("wall", [[0, 0, 1, 0.4]]),
+    segment("rug;carpet;carpeting", [rug]),
+  ]);
+
+  assert.ok(scene);
+
+  const clean = cleanFloorMask(scene);
+
+  assert.equal(at(clean, 0.5, 0.72), 0, "material laid over the rug");
+  assert.equal(at(clean, 0.2, 0.8), 1);
+});
+
+test("a fitted carpet is the floor", () => {
+  const scene = classifyScene([
+    segment("rug;carpet;carpeting", [[0, 0.4, 1, 1]], [[0.8, 0.9, 1, 1]]),
+    segment("floor", [[0.8, 0.9, 1, 1]]),
+    segment("wall", [[0, 0, 1, 0.4]]),
+  ]);
+
+  assert.ok(scene);
+  assert.equal(at(cleanFloorMask(scene), 0.5, 0.7), 1, "the carpet was left uncovered");
+});
+
+/**
+ * Class scores for a grid of cells, class-major as the model returns them,
+ * from each cell's probabilities.
+ */
+function logits(columns, rows, probabilities) {
+  const classes = probabilities(0, 0).length;
+  const data = new Float32Array(classes * columns * rows);
+
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const shares = probabilities(column, row);
+
+      shares.forEach((share, index) => {
+        data[index * columns * rows + row * columns + column] = Math.log(share);
+      });
+    }
+  }
+
+  return { data, classes, width: columns, height: rows };
+}
+
+test("furniture the model splits between two names still outweighs the floor", () => {
+  // Floor is the likeliest single class here, which is how the front of a sofa
+  // ended up under new flooring. Together, the furniture is likelier.
+  const scene = sceneFromLogits(
+    logits(4, 4, (column, row) => (row < 2 ? [0.95, 0.03, 0.02] : [0.45, 0.3, 0.25])),
+    ["floor", "sofa", "armchair"],
+    16,
+    16,
+  );
+
+  assert.ok(scene);
+  assert.equal(scene.floor[2 * 16 + 8], 1, "open floor lost");
+  assert.equal(scene.floor[14 * 16 + 8], 0, "material laid on the sofa");
+  assert.equal(scene.occluder[14 * 16 + 8], 1);
+});
+
+test("the boundary falls between the model's cells, not on them", () => {
+  // Floor on the left two cells, wall on the right two; at four photo pixels
+  // per cell the edge lands midway, where the scores cross.
+  const scene = sceneFromLogits(
+    logits(4, 1, (column) => (column < 2 ? [0.9, 0.1] : [0.1, 0.9])),
+    ["floor", "wall"],
+    16,
+    1,
+  );
+
+  assert.ok(scene);
+  assert.deepEqual([...scene.floor], [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(scene.structure[12], 1);
+});
+
+test("scores decide a rug the same way a label map does", () => {
+  const rugCells = (column, row) => column >= 2 && column < 4 && row >= 2 && row < 4;
+
+  const areaRug = sceneFromLogits(
+    logits(6, 6, (column, row) => (rugCells(column, row) ? [0.2, 0.7, 0.1] : [0.9, 0.05, 0.05])),
+    ["floor", "rug", "wall"],
+    6,
+    6,
+  );
+
+  assert.ok(areaRug);
+  assert.equal(areaRug.floor[3 * 6 + 3], 0, "material laid over an area rug");
+  assert.equal(areaRug.occluder[3 * 6 + 3], 1);
+
+  const carpet = sceneFromLogits(
+    logits(6, 6, () => [0.1, 0.8, 0.1]),
+    ["floor", "rug", "wall"],
+    6,
+    6,
+  );
+
+  assert.ok(carpet);
+  assert.equal(carpet.floor[3 * 6 + 3], 1, "a fitted carpet left uncovered");
+});
+
+test("no floor anywhere is no floor", () => {
+  assert.equal(
+    sceneFromLogits(
+      logits(2, 2, () => [0.1, 0.9]),
+      ["floor", "wall"],
+      4,
+      4,
+    ),
+    null,
+  );
+});
+
+test("the model sees the photograph in its own proportions", () => {
+  // The stock pipeline squashed every photo to 512 square, narrowing a
+  // landscape room by a third before the model saw it.
+  for (const [width, height] of [
+    [1920, 1200],
+    [1600, 1100],
+    [3024, 4032],
+    [800, 800],
+  ]) {
+    const size = modelInputSize(width, height);
+
+    assert.equal(Math.max(size.width, size.height), 768, `${width}×${height}`);
+    assert.equal(size.width % 32, 0);
+    assert.equal(size.height % 32, 0);
+    assert.ok(Math.abs(size.width / size.height - width / height) < 0.06, `${width}×${height}`);
+  }
 });

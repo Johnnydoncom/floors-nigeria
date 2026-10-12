@@ -129,11 +129,53 @@ rectangle there.
 
 ## Automatic floor detection
 
-SegFormer-B0 trained on ADE20K, run in the browser through Transformers.js.
-ADE20K has a dedicated floor class, and the quantised B0 weights are under 3MB
-— small enough to fetch on mobile data, which rules out the larger indoor-scene
-models. It is dynamically imported, so visitors who never reach the visualizer
-never pay for it, and it stays out of the initial bundle entirely.
+SegFormer trained on ADE20K, run in the browser through Transformers.js.
+ADE20K has a dedicated floor class, and classes for the stairs, rugs and
+furniture the floor has to be told apart from. It is dynamically imported, so
+visitors who never reach the visualizer never pay for it, and it stays out of
+the initial bundle entirely.
+
+### Two passes, two models
+
+- **Fast — B0, about 4MB.** Small enough to fetch on mobile data; the floor is
+  on screen within seconds. Good at floors, weak at what stands on them: on the
+  sample living room it called the bottom treads of a floating staircase floor
+  at 0.95, and a jute rug a footstool.
+- **Precise — B2, about 28MB, three times the work.** It gets both right
+  (treads: stairway 0.6–0.75; rug: 0.97). It runs second, in the worker, only
+  when the visit can afford it — not on Save-Data, a sub-4G connection, under
+  4GB of device memory or 4 cores (`canAffordPreciseDetection`) — and never
+  inline, where its seconds of work would freeze the page. Its floor replaces
+  the fast one when it lands; corners the visitor has dragged stay put, and
+  brush and polygon edits are replayed over the new mask. A chip says
+  "Sharpening the floor's edges" meanwhile.
+
+Measured in headless Chrome on a 4-core laptop, excluding the download:
+analysis takes about 3s with B0 and 12s with B2.
+
+### Scores, not labels
+
+The stock image-segmentation pipeline was the source of the worst leaks — floor
+up the front of a sofa, round the foot of an armchair, over a side table. Two
+things it does, both fixed by calling the model directly (`detect-floor.ts`)
+and deciding from its raw class scores (`sceneFromLogits` in `floor-mask.ts`):
+
+- **It squashed every photo to 512 square.** A landscape room reached the model
+  narrowed by a third, and its decisions were stretched back across the room.
+  The model now sees the photo in its own proportions, long side 768, both
+  sides multiples of 32. 1024 and 1280 were measured: two to three times the
+  time for edges barely better.
+- **It decided per class, then scaled the decision up.** Now scores are summed
+  into the piles below _before_ deciding — forty per cent sofa and twenty per
+  cent armchair is sixty per cent furniture, not a loss to forty-five per cent
+  floor — and a pixel is floor only on a majority of the probability, not a
+  plurality. The pile scores are scaled up to the photo _before_ being decided,
+  so a boundary falls between the model's cells rather than along them.
+
+A depth model (Depth Anything V2 small, ~27MB) was tried for the staircase,
+fitting the floor as a plane in disparity and rejecting what stands proud of
+it. It caught the upper treads but not the bottom one, which sits too close to
+the floor — B2 does better for the same download.
 
 ### Three piles, not one
 
@@ -151,9 +193,18 @@ photograph of a real room, and both were reported from one:
 Neither is fixable from the floor class alone, and both are answerable from the
 rest of the label map. So every class is sorted (`floor-mask.ts`) into the
 **floor** itself; **structure**, which cannot lie in a floor plane — wall,
-ceiling, stairs, door, window, picture, railing, column; and **occluders**, the
+ceiling, stairs, door, window, picture, railing, column; **occluders**, the
 things that stand on a floor and legitimately hide it — furniture, appliances,
-people, plants.
+people, plants; and **rugs**, which join one of the others.
+
+A rug is a pile of its own because ADE20K has one class for a fitted carpet and
+an area rug, and they want opposite treatment. A fitted carpet is the covering
+being replaced; an area rug is something the visitor keeps. Covering rugs was
+the old rule, and it left remnants: the model rarely recognises a whole rug, so
+the new floor took a bite out of it and the rest stood on top. Now whichever
+the photo shows more of is the floor — more rug than hard floor is a carpeted
+room and the rug joins the floor; otherwise rugs are occluders and keep their
+own surface.
 
 The third pile is the **default**, and that is the important part. The piles
 then disagree usefully: where floor overlaps structure, floor is wrong; where
@@ -182,10 +233,8 @@ Over the same floor a rug comes out 0.82 as deep as it is wide and a footstool
 that retired this is kept, because the idea is convincing enough to be tried
 again.
 
-What is left is that a rug is only covered when the model says it is a rug. It
-usually does. When it does not, the rug keeps its own surface, which is what
-happens on RoomVo too, and is at worst a floor that stops at the rug rather than
-a floor laid across the furniture.
+What is left is that the model has to say what a thing is. Area rugs keep
+their own surface whatever it calls them, which is what happens on RoomVo too.
 
 The floor is also stood back a couple of pixels from anything structural, and
 from nothing else. The asymmetry is the point: a hairline of the old floor along
@@ -195,10 +244,11 @@ edge of the object.
 
 From the model's per-pixel labels:
 
-1. Floor classes are merged into one binary mask. Labels are matched token by
-   token, because the same checkpoint is published with both short names
-   (`rug`) and ADE20K's full synonym lists (`rug;carpet;carpeting`); missing a
-   class here loses a whole area of floor.
+1. Class scores are summed into the piles and decided at the photo's size (see
+   "Scores, not labels"). Labels are matched token by token, because the same
+   checkpoint is published with both short names (`rug`) and ADE20K's full
+   synonym lists (`rug;carpet;carpeting`); missing a class here loses a whole
+   area of floor.
 2. The floor is split into connected patches, and a patch other than the
    largest is kept only if it could be more of the same floor. A floor is often
    not one connected shape — a console table against a wall, a kitchen island,
@@ -249,9 +299,9 @@ JavaScript, then the mask passes. Now:
   only reads the photo into two small buffers (`floor-detector.ts`) and hands
   them over. Measured on a production build: after the first render the main
   thread is idle throughout download and analysis.
-- **The model sees a 640px copy.** SegFormer resizes to 512 square internally,
-  so a larger input added no detail — only upsampling cost. The refinement step
-  still snaps the boundary against a 1280px copy of the photo.
+- **The model sees a 768px copy in the photo's own proportions,** and only
+  three pile scores — not 150 class maps — are scaled up, to the 1280px copy
+  the refinement step snaps the boundary against.
 - **It starts when the browser is idle**, after the room and material have
   painted, and its progress is throttled to a few updates a second — every
   update re-renders the studio.
@@ -265,7 +315,8 @@ JavaScript, then the mask passes. Now:
   any `use`-prefixed call as a hook; inside a worker its runtime does not exist
   and detection failed with `_s(...) is not a function` in development.
 
-The model weights (about 4MB) still come from Hugging Face. SegFormer's
+The model weights (about 4MB, and 28MB for the precise pass) still come from
+Hugging Face. SegFormer's
 weights are published under NVIDIA's SegFormer licence; check it permits this
 use before relying on it commercially, and before hosting the weights here.
 
@@ -639,6 +690,8 @@ annoying than none, so keep the manual path one tap away, and keep detection
 off the critical path of the first render. Rooms with strong shadows or
 reflective tiles segment least well.
 
-If detection quality needs to improve, the next lever is a larger SegFormer
-variant (B2–B5) behind a capability check, rather than post-processing the B0
-mask harder.
+B2 behind a capability check is now the precise pass. If detection quality
+needs to improve again, the next lever is a still larger SegFormer (B4/B5) on
+the same terms, rather than post-processing the mask harder. The floor under a
+table, between chair bases, is the case both models still leave on its old
+covering.

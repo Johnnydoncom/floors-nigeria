@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { analyseRoom, type DetectionInput } from "./detect-floor";
+import { analyseRoom, type DetectionInput, type DetectionQuality } from "./detect-floor";
 
 /**
  * Floor detection, off the main thread.
@@ -10,7 +10,7 @@ import { analyseRoom, type DetectionInput } from "./detect-floor";
  * visitor keeps working.
  */
 
-type Request = { id: number; input: DetectionInput };
+type Request = { id: number; input: DetectionInput; quality: DetectionQuality };
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -18,12 +18,14 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 let queue = Promise.resolve();
 
 scope.onmessage = (event: MessageEvent<Request>) => {
-  const { id, input } = event.data;
+  const { id, input, quality } = event.data;
 
   queue = queue.then(async () => {
     try {
-      const result = await analyseRoom(input, (progress) =>
-        scope.postMessage({ id, type: "progress", progress }),
+      const result = await analyseRoom(
+        input,
+        (progress) => scope.postMessage({ id, type: "progress", progress }),
+        quality,
       );
 
       scope.postMessage(

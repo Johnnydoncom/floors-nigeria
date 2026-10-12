@@ -541,7 +541,12 @@ export function RoomStage({
           onDismiss={() => setOverlayDismissedFor(photoSrc)}
         />
       )}
-      {!showOverlay && loading?.detecting && <DetectionChip detecting={loading.detecting} />}
+      {!showOverlay && loading?.detecting && (
+        <DetectionChip label={detectionLabel(loading.detecting)} />
+      )}
+      {detection?.status === "done" && detection.refining && (
+        <DetectionChip label="Sharpening the floor's edges" />
+      )}
       {status.state === "error" && (
         <div className="absolute inset-0 grid place-items-center bg-background/90 p-6 text-center">
           <p className="max-w-xs text-sm text-muted-foreground">
@@ -1058,12 +1063,11 @@ function LoadingStep({ done, children }: { done: boolean; children: React.ReactN
   );
 }
 
-/** Detection still running after the overlay was dismissed. */
-function DetectionChip({
-  detecting,
-}: {
-  detecting: Extract<DetectionState, { status: "running" }>;
-}) {
+/**
+ * Detection still at work without blocking the room: running after the overlay
+ * was dismissed, or refining a floor that is already on screen.
+ */
+function DetectionChip({ label }: { label: string }) {
   return (
     <div
       role="status"
@@ -1071,7 +1075,7 @@ function DetectionChip({
       className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 rounded-full bg-charcoal-dark/85 px-3 py-1.5 text-xs text-primary-foreground"
     >
       <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
-      {detectionLabel(detecting)}
+      {label}
     </div>
   );
 }

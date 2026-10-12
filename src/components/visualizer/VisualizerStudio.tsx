@@ -29,6 +29,7 @@ import type { ProductCard, Variant } from "@/lib/api/types";
 import { arSpecFor } from "@/lib/room/ar-material";
 import { choiceForVariant, toTextureChoices } from "@/lib/room/materials";
 import { absoluteUrl } from "@/lib/structured-data";
+import type { DetectionQuality } from "@/lib/visualizer/detect-floor";
 import { prepareRoomPhoto } from "@/lib/visualizer/images";
 import { library, materialKey, useLibrary } from "@/lib/visualizer/library";
 import {
@@ -137,11 +138,26 @@ export function VisualizerStudio({
 
   // --- Floor detection -------------------------------------------------------
 
-  const onDetected = useCallback((detectedQuad: Quad, mask: CanvasImageSource) => {
-    if (!keepQuadRef.current) setQuad(detectedQuad);
-    keepQuadRef.current = false;
-    setDetectedMask(mask as HTMLCanvasElement);
-  }, []);
+  /** The corners the fast pass placed, to tell whether anyone has moved them since. */
+  const detectedQuadRef = useRef<Quad | null>(null);
+
+  const onDetected = useCallback(
+    (detectedQuad: Quad, mask: CanvasImageSource, pass: DetectionQuality) => {
+      if (pass === "fast") {
+        detectedQuadRef.current = keepQuadRef.current ? null : detectedQuad;
+        if (!keepQuadRef.current) setQuad(detectedQuad);
+        keepQuadRef.current = false;
+      } else {
+        // The sharper pass moves the corners only if nobody else has: a corner
+        // the visitor dragged stays where they put it. Their brush and polygon
+        // edits are replayed over the new mask either way.
+        setQuad((current) => (current === detectedQuadRef.current ? detectedQuad : current));
+      }
+
+      setDetectedMask(mask as HTMLCanvasElement);
+    },
+    [],
+  );
 
   const detection = useFloorDetection({ photoSrc: room.src, onDetected });
 
@@ -185,6 +201,7 @@ export function VisualizerStudio({
   const changeRoom = (next: RoomSource) => {
     setRoom(next);
     setQuad(DEFAULT_QUAD);
+    detectedQuadRef.current = null;
     setDetectedMask(null);
     setMaskEdits([]);
     setPolygonDraft([]);

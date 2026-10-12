@@ -1,8 +1,9 @@
 import {
-  MODEL_INPUT_SIDE,
+  modelInputSize,
   REFINE_WIDTH,
   type DetectionInput,
   type DetectionProgress,
+  type DetectionQuality,
   type FloorDetection,
 } from "./detect-floor";
 import { loadImage } from "./images";
@@ -84,64 +85,105 @@ function getWorker(): Worker | null {
 /**
  * Find the floor in a room photograph: its mask and perspective quad, or null
  * when the model finds nothing convincing.
+ *
+ * The precise model only ever runs in the worker; where there is none it
+ * reports nothing rather than freeze the page (`canAffordPreciseDetection`).
  */
 export async function detectFloor(
   imageSrc: string,
   onProgress?: (progress: DetectionProgress) => void,
+  quality: DetectionQuality = "fast",
 ): Promise<FloorDetection | null> {
-  const input = await prepareInput(imageSrc);
   const target = getWorker();
+
+  if (!target && quality === "precise") return null;
+
+  const input = await prepareInput(imageSrc);
 
   if (target) {
     try {
       return await new Promise<FloorDetection | null>((resolve, reject) => {
         const id = ++nextId;
         pending.set(id, { resolve, reject, onProgress });
-        target.postMessage({ id, input }, [
+        target.postMessage({ id, input, quality }, [
           input.modelInput.data.buffer as ArrayBuffer,
           input.photo.data.buffer as ArrayBuffer,
         ]);
       });
     } catch (error) {
-      if (!workerFailed) throw error;
+      if (!workerFailed || quality === "precise") throw error;
       // The worker could not run at all: fall through and work inline, with
       // fresh buffers since the first ones were transferred away.
-      return analyseInline(await prepareInput(imageSrc), onProgress);
+      return analyseInline(await prepareInput(imageSrc), onProgress, quality);
     }
   }
 
-  return analyseInline(input, onProgress);
+  return analyseInline(input, onProgress, quality);
 }
 
 async function analyseInline(
   input: DetectionInput,
-  onProgress?: (progress: DetectionProgress) => void,
+  onProgress: ((progress: DetectionProgress) => void) | undefined,
+  quality: DetectionQuality,
 ): Promise<FloorDetection | null> {
   const { analyseRoom } = await import("./detect-floor");
-  return analyseRoom(input, onProgress);
+  return analyseRoom(input, onProgress, quality);
+}
+
+type NetworkInformation = { saveData?: boolean; effectiveType?: string };
+
+/**
+ * Whether this visit can afford the precise model on top of the fast one: a
+ * 28MB download, and three times the work on the device.
+ *
+ * Asked of the browser rather than guessed. A visitor who has asked for less
+ * data, is on a slow connection, or is on a device with little memory or few
+ * cores keeps the fast result — which is still a good floor, and can be
+ * corrected by hand. Browsers that do not say (Safari reports none of these)
+ * are given the benefit of the doubt; the download is cached after the first
+ * visit.
+ *
+ * Never run inline: without a worker the precise model's seconds of work would
+ * freeze the page, which is worse than a rougher edge.
+ */
+export function canAffordPreciseDetection(): boolean {
+  if (typeof navigator === "undefined" || workerFailed || typeof Worker === "undefined") {
+    return false;
+  }
+
+  const device = navigator as Navigator & {
+    connection?: NetworkInformation;
+    deviceMemory?: number;
+  };
+  const connection = device.connection;
+
+  if (connection?.saveData) return false;
+  if (connection?.effectiveType && connection.effectiveType !== "4g") return false;
+  if (device.deviceMemory !== undefined && device.deviceMemory < 4) return false;
+  if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) return false;
+
+  return true;
 }
 
 async function prepareInput(imageSrc: string): Promise<DetectionInput> {
   const image = await loadImage(imageSrc);
 
+  const scale = Math.min(1, REFINE_WIDTH / image.naturalWidth);
+
   return {
-    modelInput: readPixels(image, MODEL_INPUT_SIDE, true),
-    photo: readPixels(image, REFINE_WIDTH, false),
+    modelInput: readPixels(image, modelInputSize(image.naturalWidth, image.naturalHeight)),
+    photo: readPixels(image, {
+      width: Math.max(1, Math.round(image.naturalWidth * scale)),
+      height: Math.max(1, Math.round(image.naturalHeight * scale)),
+    }),
   };
 }
 
-/**
- * The photograph's pixels, scaled down to fit `limit` — along its longer side,
- * or its width. Never scaled up.
- */
-function readPixels(image: HTMLImageElement, limit: number, longestSide: boolean): ImageData {
-  const reference = longestSide
-    ? Math.max(image.naturalWidth, image.naturalHeight)
-    : image.naturalWidth;
-  const scale = Math.min(1, limit / reference);
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-
+/** The photograph's pixels at the given size. */
+function readPixels(
+  image: HTMLImageElement,
+  { width, height }: { width: number; height: number },
+): ImageData {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

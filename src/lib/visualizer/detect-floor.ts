@@ -6,13 +6,7 @@ import {
   type MaterialDomain,
 } from "./coverage";
 import { unitSquareToQuad } from "./homography";
-import {
-  classifyScene,
-  cleanFloorMask,
-  resampleBinary,
-  type LabelledScene,
-  type Segment,
-} from "./floor-mask";
+import { cleanFloorMask, sceneFromLogits, type LabelledScene, type Logits } from "./floor-mask";
 import { refineMask, type Grid, type Rgb } from "./refine-mask";
 import type { Point, Quad } from "./types";
 
@@ -24,14 +18,34 @@ import type { Point, Quad } from "./types";
  * runs entirely in the browser, so the photograph still never leaves the
  * device.
  *
- * SegFormer-B0 trained on ADE20K is the choice here: ADE20K has a dedicated
- * floor class, and the quantised B0 weights are about 4MB — small enough to
- * fetch on Nigerian mobile data, which rules out the larger indoor-scene
- * models. It is loaded on demand, so visitors who never press the button never
- * pay for it.
+ * SegFormer trained on ADE20K is the choice here: ADE20K has a dedicated floor
+ * class, and a class for the stairs, rugs and furniture that the floor has to
+ * be told apart from. It is loaded on demand, so visitors who never open the
+ * visualizer never pay for it.
+ *
+ * Two sizes of it, run one after the other (`DetectionQuality`).
  */
 
-const MODEL_ID = "Xenova/segformer-b0-finetuned-ade-512-512";
+/**
+ * Which model to run.
+ *
+ * `fast` is B0: about 4MB, small enough to fetch on Nigerian mobile data, and
+ * the floor appears within seconds. It is good at floors and weak at what
+ * stands on them — it reads the bottom treads of a staircase as floor, and a
+ * jute rug as a footstool.
+ *
+ * `precise` is B2: about 28MB and three times the work, and it gets those
+ * right — on the sample living room it calls the treads stairs at 0.6–0.75 where
+ * B0 called them floor at 0.95. It runs second, in the background, and only
+ * where the connection and device can afford it (`canAffordPreciseDetection`),
+ * replacing the fast result when it lands.
+ */
+export type DetectionQuality = "fast" | "precise";
+
+const MODEL_IDS: Record<DetectionQuality, string> = {
+  fast: "Xenova/segformer-b0-finetuned-ade-512-512",
+  precise: "Xenova/segformer-b2-finetuned-ade-512-512",
+};
 
 /** Below this share of the photo, the detection is too small to be a room floor. */
 const MIN_FLOOR_COVERAGE = 0.04;
@@ -70,13 +84,40 @@ export const REFINE_WIDTH = 1280;
 /**
  * Longest side of the image handed to the model.
  *
- * SegFormer resizes everything to 512 square internally, so a bigger input adds
- * no detail — but the pipeline upsamples all 150 class maps back to whatever
- * size it was given, in JavaScript. At a phone photo's size that was seconds of
- * work and tens of megabytes; the refinement step restores a crisp boundary
- * against the full photograph anyway.
+ * The model is given the photograph in its own proportions. The stock pipeline
+ * squashed every photo to 512 square first, so a landscape room reached the
+ * model narrowed by a third — and its decisions, a quarter of that resolution,
+ * were then stretched back across the room. That is where material on the
+ * front of a sofa and the foot of an armchair came from. At 768 the model's
+ * cells are about seven photo pixels wide on a 1280px working copy, which puts
+ * the edge of a chair within reach of the refinement step.
+ *
+ * Larger inputs were measured too. 1024 and 1280 cost two to three times as
+ * long for edges that were barely better.
  */
-export const MODEL_INPUT_SIDE = 640;
+const MODEL_INPUT_SIDE = 768;
+
+/** The model's patch embedding works in steps of this many pixels. */
+const MODEL_STRIDE = 32;
+
+/**
+ * ImageNet colour statistics the checkpoint was trained with (its
+ * `preprocessor_config.json`), applied by hand now that the pipeline is not.
+ */
+const PIXEL_MEAN = [0.485, 0.456, 0.406];
+const PIXEL_STD = [0.229, 0.224, 0.225];
+
+/**
+ * The size to hand the model a photograph at: proportions kept, the longest
+ * side at `MODEL_INPUT_SIDE`, both sides whole multiples of the model's stride.
+ */
+export function modelInputSize(width: number, height: number): { width: number; height: number } {
+  const scale = MODEL_INPUT_SIDE / Math.max(width, height);
+  const fit = (side: number) =>
+    Math.max(MODEL_STRIDE, Math.round((side * scale) / MODEL_STRIDE) * MODEL_STRIDE);
+
+  return { width: fit(width), height: fit(height) };
+}
 
 /** Share of the band averaged at each end when measuring the floor's extent. */
 const EDGE_BAND = 0.12;
@@ -136,10 +177,13 @@ export type DetectionInput = {
   photo: Rgb;
 };
 
-type Segmenter = (image: unknown) => Promise<Segment[]>;
+/** The loaded model: its class names, and a way to score a photograph. */
+type Segmenter = {
+  labels: string[];
+  score: (input: Rgb) => Promise<Logits>;
+};
 
-let segmenterPromise: Promise<{ segmenter: Segmenter; toImage: (input: Rgb) => unknown }> | null =
-  null;
+const segmenters = new Map<DetectionQuality, Promise<Segmenter>>();
 
 /**
  * Where the ONNX runtime is served from. `scripts/vendor-ort.mjs` copies it out
@@ -150,53 +194,96 @@ let segmenterPromise: Promise<{ segmenter: Segmenter; toImage: (input: Rgb) => u
 const SELF_HOSTED_RUNTIME = "/vendor/ort";
 
 /**
- * Load the model once per session and share it across detections.
+ * Load each model once per session and share it across detections.
  */
-async function getSegmenter(onProgress?: (progress: DetectionProgress) => void) {
-  segmenterPromise ??= (async () => {
-    const { pipeline, env, RawImage } = await import("@huggingface/transformers");
-
-    await pointAtSelfHostedRuntime(env.backends.onnx as OnnxEnv);
-
-    // Several files download: a few kilobytes of configuration, then the
-    // weights. Progress is measured on the weights alone — counting a config
-    // file that finishes first showed 100% and then fell back to 10%.
-    const weights = new Map<string, { loaded: number; total: number }>();
-
-    const segmenter = await pipeline("image-segmentation", MODEL_ID, {
-      dtype: "q8",
-      device: "wasm",
-      progress_callback: (event: {
-        status?: string;
-        file?: string;
-        loaded?: number;
-        total?: number;
-      }) => {
-        if (event.status === "progress" && event.file && event.total) {
-          if (!event.file.endsWith(".onnx")) return;
-          weights.set(event.file, { loaded: event.loaded ?? 0, total: event.total });
-          const loaded = [...weights.values()].reduce((sum, file) => sum + file.loaded, 0);
-          const total = [...weights.values()].reduce((sum, file) => sum + file.total, 0);
-          onProgress?.({ stage: "downloading", percent: Math.round((loaded / total) * 100) });
-        } else if (event.status === "ready") {
-          onProgress?.({ stage: "preparing" });
-        }
-      },
-    });
-
-    return {
-      segmenter: segmenter as unknown as Segmenter,
-      toImage: (input: Rgb) => new RawImage(input.data, input.width, input.height, 4),
-    };
-  })();
+async function getSegmenter(
+  quality: DetectionQuality,
+  onProgress?: (progress: DetectionProgress) => void,
+) {
+  const loading = segmenters.get(quality) ?? loadSegmenter(MODEL_IDS[quality], onProgress);
+  segmenters.set(quality, loading);
 
   try {
-    return await segmenterPromise;
+    return await loading;
   } catch (error) {
     // A failed download must not poison every later attempt.
-    segmenterPromise = null;
+    segmenters.delete(quality);
     throw error;
   }
+}
+
+async function loadSegmenter(
+  modelId: string,
+  onProgress?: (progress: DetectionProgress) => void,
+): Promise<Segmenter> {
+  const { AutoModel, Tensor, env } = await import("@huggingface/transformers");
+
+  await pointAtSelfHostedRuntime(env.backends.onnx as OnnxEnv);
+
+  // Several files download: a few kilobytes of configuration, then the
+  // weights. Progress is measured on the weights alone — counting a config
+  // file that finishes first showed 100% and then fell back to 10%.
+  const weights = new Map<string, { loaded: number; total: number }>();
+
+  const model = await AutoModel.from_pretrained(modelId, {
+    dtype: "q8",
+    device: "wasm",
+    progress_callback: (event: {
+      status?: string;
+      file?: string;
+      loaded?: number;
+      total?: number;
+    }) => {
+      if (!event.file?.endsWith(".onnx")) return;
+
+      if (event.status === "progress" && event.total) {
+        weights.set(event.file, { loaded: event.loaded ?? 0, total: event.total });
+        const loaded = [...weights.values()].reduce((sum, file) => sum + file.loaded, 0);
+        const total = [...weights.values()].reduce((sum, file) => sum + file.total, 0);
+        onProgress?.({ stage: "downloading", percent: Math.round((loaded / total) * 100) });
+      } else if (event.status === "done") {
+        onProgress?.({ stage: "preparing" });
+      }
+    },
+  });
+
+  const names = (model.config as { id2label?: Record<string, string> }).id2label ?? {};
+
+  return {
+    labels: Object.entries(names).reduce<string[]>((labels, [index, name]) => {
+      labels[Number(index)] = name;
+      return labels;
+    }, []),
+    score: async (input: Rgb) => {
+      const pixels = new Tensor("float32", normalisePixels(input), [
+        1,
+        3,
+        input.height,
+        input.width,
+      ]);
+      const { logits } = (await model({ pixel_values: pixels })) as {
+        logits: { data: Float32Array; dims: number[] };
+      };
+      const [, classes, height, width] = logits.dims;
+
+      return { data: logits.data, classes, width, height };
+    },
+  };
+}
+
+/** RGBA pixels to the model's input: planar RGB, normalised per channel. */
+function normalisePixels(input: Rgb): Float32Array {
+  const size = input.width * input.height;
+  const planes = new Float32Array(size * 3);
+
+  for (let index = 0; index < size; index++) {
+    for (let channel = 0; channel < 3; channel++) {
+      planes[channel * size + index] =
+        (input.data[index * 4 + channel] / 255 - PIXEL_MEAN[channel]) / PIXEL_STD[channel];
+    }
+  }
+
+  return planes;
 }
 
 type OnnxEnv = {
@@ -245,19 +332,21 @@ async function pointAtSelfHostedRuntime(onnx: OnnxEnv): Promise<void> {
 export async function analyseRoom(
   input: DetectionInput,
   onProgress?: (progress: DetectionProgress) => void,
+  quality: DetectionQuality = "fast",
 ): Promise<FloorDetection | null> {
-  const { segmenter, toImage } = await getSegmenter(onProgress);
+  const { labels, score } = await getSegmenter(quality, onProgress);
 
   onProgress?.({ stage: "analysing" });
 
-  const scene = classifyScene(await segmenter(toImage(input.modelInput)));
+  const { photo } = input;
+  const scene = sceneFromLogits(await score(input.modelInput), labels, photo.width, photo.height);
 
   if (scene === null) return null;
 
   // Snap the model's soft, low-resolution boundary onto the edges the
   // photograph actually has, then reconcile it with the rest of the label map,
   // before anything is measured from it.
-  const sharpened = sharpenAgainstPhoto(scene, input.photo);
+  const sharpened = sharpenAgainstPhoto(scene, photo);
   const geometry = floorGeometryFromMask(cleanFloorMask(sharpened));
 
   if (geometry === null) return null;
@@ -292,26 +381,14 @@ export function floorGeometryFromMask(mask: Grid): { quad: Quad; mask: Grid } | 
 }
 
 /**
- * Refine the floor boundary against the photograph, at the refinement
- * resolution the whole scene is resampled to.
+ * Refine the floor boundary against the photograph. The scene is already at the
+ * photograph's size, so the two line up pixel for pixel.
  */
 function sharpenAgainstPhoto(scene: LabelledScene, photo: Rgb): LabelledScene {
-  const { width, height } = photo;
+  const { width, height, structure } = scene;
+  const floor = refineMask({ data: scene.floor, width, height }, photo, structure);
 
-  // Every mask and the photograph must line up pixel for pixel before the
-  // boundary can be re-decided against the photograph's own edges.
-  const at = (mask: Uint8Array) => resampleBinary(mask, scene, width, height);
-  const structure = at(scene.structure);
-
-  const floor = refineMask({ data: at(scene.floor), width, height }, photo, structure);
-
-  return {
-    width,
-    height,
-    floor: floor.data,
-    structure,
-    occluder: at(scene.occluder),
-  };
+  return { ...scene, floor: floor.data };
 }
 
 /**
