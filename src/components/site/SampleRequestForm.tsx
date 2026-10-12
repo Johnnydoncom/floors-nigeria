@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "../ui/input";
 
 /**
  * Sample request capture in the footer. It starts the request with an email
@@ -28,7 +29,7 @@ export function SampleRequestForm({ className }: { className?: string }) {
       <label htmlFor="sample-email" className="sr-only">
         Work email address
       </label>
-      <input
+      <Input
         id="sample-email"
         type="email"
         required
