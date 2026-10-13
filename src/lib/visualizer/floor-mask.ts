@@ -161,6 +161,8 @@ export type LabelledScene = {
    * move the floor into these pixels.
    */
   possibleFloor?: Uint8Array;
+  /** The model's floor probability per pixel, 0–255. Present alongside `possibleFloor`. */
+  floorScore?: Uint8Array;
 };
 
 /** Split a label into its synonyms, as either export spells them. */
@@ -342,6 +344,7 @@ export function sceneFromLogits(
   const structure = new Uint8Array(size);
   const occluder = new Uint8Array(size);
   const possibleFloor = new Uint8Array(size);
+  const floorShares = new Uint8Array(size);
 
   const across = interpolation(columns, width);
   const down = interpolation(rows, height);
@@ -363,6 +366,7 @@ export function sceneFromLogits(
       const index = y * width + x;
       const floorShare = sample(floorScore, x, y);
 
+      floorShares[index] = Math.round(Math.min(1, Math.max(0, floorShare)) * 255);
       if (floorShare >= FLOOR_POSSIBLE) possibleFloor[index] = 1;
 
       if (floorShare > FLOOR_CONFIDENCE) {
@@ -376,7 +380,9 @@ export function sceneFromLogits(
     }
   }
 
-  return found ? { width, height, floor, structure, occluder, possibleFloor } : null;
+  return found
+    ? { width, height, floor, structure, occluder, possibleFloor, floorScore: floorShares }
+    : null;
 }
 
 const FLOOR = 0;

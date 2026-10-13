@@ -376,6 +376,27 @@ would feather the boundary straight back out.
 Detection never blocks: the room and material render immediately against a
 default floor area, and the detected result replaces it when ready.
 
+### Around and under furniture: colour decides
+
+Under a table the model's ~7px cells are coarser than everything there: chrome
+legs are ~5px wide and the floor between them comes in pockets. Its scores are
+no guide (shaded floor under a table: "swivel chair" 0.85–0.97; chrome legs:
+floor 0.8–1.0). `settle-furniture.ts` re-decides a band (4% of width) around
+each floor/furniture junction by colour:
+
+- Floor colours are learned over the whole photo, but only where the model is
+  ≥90% sure; furniture colours piece by piece (each connected group), only
+  where the model gives floor ≤2%. Learning from the model's own mistakes made
+  the mistakes look right — shaded floor taught as "chair" stayed chair.
+- Colours are binned as brightness-normalised ratios, so shaded wood stays warm
+  and grey stays neutral; brightness is binned coarsely.
+- A pixel changes hands only if one side is 4× likelier. Very dark pixels are
+  left to the model, and changes forming tiny patches are undone — both
+  pocked shadows with holes otherwise.
+
+Still beyond it: wood furniture over a wood floor (a tabletop's shade matches
+the floor's), which the model's answer decides. Tap-to-fix covers the rest.
+
 ## Visualizer textures (the admin tool)
 
 A product's visualizer texture is its own image — a square, straightened,
