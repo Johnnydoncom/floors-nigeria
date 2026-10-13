@@ -19,6 +19,7 @@ import {
   SplitSquareHorizontal,
   Undo2,
   Upload,
+  Wand2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ import { arSpecFor } from "@/lib/room/ar-material";
 import { choiceForVariant, toTextureChoices } from "@/lib/room/materials";
 import { absoluteUrl } from "@/lib/structured-data";
 import type { DetectionQuality } from "@/lib/visualizer/detect-floor";
+import type { SmartSelectProgress } from "@/lib/visualizer/smart-select";
 import { prepareRoomPhoto } from "@/lib/visualizer/images";
 import { library, materialKey, useLibrary } from "@/lib/visualizer/library";
 import {
@@ -117,6 +119,7 @@ export function VisualizerStudio({
   const [tool, setTool] = useState<StageTool>("view");
   const [brush, setBrush] = useState<{ mode: MaskMode; size: number }>({ mode: "add", size: 0.05 });
   const [polygonDraft, setPolygonDraft] = useState<Point[]>([]);
+  const [smart, setSmart] = useState<SmartState>({ status: "idle" });
   const [panel, setPanel] = useState<Panel>(linkedProduct || linkedDesign ? "room" : "floors");
   const [compareSlot, setCompareSlot] = useState<"a" | "b">("b");
 
@@ -200,6 +203,7 @@ export function VisualizerStudio({
 
   const changeRoom = (next: RoomSource) => {
     setRoom(next);
+    setSmart({ status: "idle" });
     setQuad(DEFAULT_QUAD);
     detectedQuadRef.current = null;
     setDetectedMask(null);
@@ -352,6 +356,61 @@ export function VisualizerStudio({
     setTool((current) => (current === next ? "view" : next));
     setPolygonDraft([]);
     if (next !== "view") setMode("wipe");
+    // Download the model and read the photo now, so the first tap is quick.
+    if (next === "smart" && tool !== "smart") void readyForSmartSelect();
+  };
+
+  /** The room smart select is working on, so a late result for another is dropped. */
+  const smartRoomRef = useRef(room.src);
+  useEffect(() => {
+    smartRoomRef.current = room.src;
+  }, [room.src]);
+
+  const onSmartProgress = (src: string) => (progress: SmartSelectProgress) => {
+    if (smartRoomRef.current !== src) return;
+    setSmart((current) =>
+      current.status === "selecting" ? current : { status: "preparing", progress },
+    );
+  };
+
+  const readyForSmartSelect = async () => {
+    const src = room.src;
+    if (smart.status === "ready" || smart.status === "preparing") return;
+
+    try {
+      const { isSmartSelectAvailable, prepareSmartSelect } =
+        await import("@/lib/visualizer/smart-selector");
+      if (!isSmartSelectAvailable()) {
+        setSmart({ status: "unavailable" });
+        return;
+      }
+      setSmart({ status: "preparing" });
+      await prepareSmartSelect(src, onSmartProgress(src));
+      if (smartRoomRef.current === src) {
+        setSmart((current) => (current.status === "selecting" ? current : { status: "ready" }));
+      }
+    } catch {
+      if (smartRoomRef.current === src) setSmart({ status: "unavailable" });
+    }
+  };
+
+  const onSmartTap = async (point: Point) => {
+    const src = room.src;
+    if (smart.status === "selecting") return;
+
+    setSmart({ status: "selecting", at: point });
+
+    try {
+      const { smartSelect } = await import("@/lib/visualizer/smart-selector");
+      const area = await smartSelect(src, point, onSmartProgress(src));
+      if (smartRoomRef.current !== src) return;
+
+      if (area) addMaskEdit({ type: "area", mode: brush.mode, ...area });
+      else toast("Nothing to select there — try a spot nearer the middle of the area.");
+      setSmart({ status: "ready" });
+    } catch {
+      if (smartRoomRef.current === src) setSmart({ status: "unavailable" });
+    }
   };
 
   const addMaskEdit = (edit: MaskEdit) => {
@@ -527,6 +586,8 @@ export function VisualizerStudio({
           onPolygonDraftChange={setPolygonDraft}
           onQuadChange={setQuad}
           onMaskEdit={addMaskEdit}
+          onSmartTap={onSmartTap}
+          smartBusyAt={smart.status === "selecting" ? smart.at : null}
           onReady={onStageReady}
           onPhotoLoaded={setPhotoSize}
           onRendered={onRendered}
@@ -587,6 +648,7 @@ export function VisualizerStudio({
           onBrush={setBrush}
           editCount={maskEdits.length}
           polygonPoints={polygonDraft.length}
+          smart={smart}
           onUndo={() => setMaskEdits((current) => current.slice(0, -1))}
           onResetEdits={() => setMaskEdits([])}
           onResetCorners={() => {
@@ -772,6 +834,7 @@ function FloorAreaTools({
   onBrush,
   editCount,
   polygonPoints,
+  smart,
   onUndo,
   onResetEdits,
   onResetCorners,
@@ -785,6 +848,7 @@ function FloorAreaTools({
   onBrush: (brush: { mode: MaskMode; size: number }) => void;
   editCount: number;
   polygonPoints: number;
+  smart: SmartState;
   onUndo: () => void;
   onResetEdits: () => void;
   onResetCorners: () => void;
@@ -792,7 +856,7 @@ function FloorAreaTools({
   onUndoPoint: () => void;
   onCancelPolygon: () => void;
 }) {
-  const isPainting = tool === "brush" || tool === "polygon";
+  const isPainting = tool === "brush" || tool === "polygon" || tool === "smart";
 
   return (
     <div className="rounded-lg border border-border p-3">
@@ -806,6 +870,13 @@ function FloorAreaTools({
           icon={<Move className="h-4 w-4" aria-hidden />}
         >
           Perspective
+        </ToolButton>
+        <ToolButton
+          active={tool === "smart"}
+          onClick={() => onTool("smart")}
+          icon={<Wand2 className="h-4 w-4" aria-hidden />}
+        >
+          Smart select
         </ToolButton>
         <ToolButton
           active={tool === "brush"}
@@ -857,7 +928,11 @@ function FloorAreaTools({
             </Chip>
           </div>
 
-          {tool === "brush" ? (
+          {tool === "smart" ? (
+            <p className="min-w-[12rem] flex-1 text-xs text-muted-foreground" aria-live="polite">
+              {smartHint(smart)}
+            </p>
+          ) : tool === "brush" ? (
             <div className="min-w-[10rem] flex-1">
               <Slider
                 id="brush-size"
@@ -922,6 +997,27 @@ function FloorAreaTools({
       )}
     </div>
   );
+}
+
+type SmartState =
+  | { status: "idle" | "ready" | "unavailable" }
+  | { status: "preparing"; progress?: SmartSelectProgress }
+  | { status: "selecting"; at: Point };
+
+/** What smart select is doing, in a line under the tools. */
+function smartHint(smart: SmartState): string {
+  switch (smart.status) {
+    case "preparing":
+      return smart.progress?.stage === "downloading"
+        ? `Getting smart select ready · ${smart.progress.percent ?? 0}% — a one-time download`
+        : "Reading your photo…";
+    case "selecting":
+      return "Selecting…";
+    case "unavailable":
+      return "Smart select is not available on this device — Paint or Draw area do the same by hand.";
+    default:
+      return "Tap a patch the floor missed, or something it covered — smart select finds its edges.";
+  }
 }
 
 function RoomPanel({

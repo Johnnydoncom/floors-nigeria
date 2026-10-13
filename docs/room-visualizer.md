@@ -397,6 +397,30 @@ each floor/furniture junction by colour:
 Still beyond it: wood furniture over a wood floor (a tabletop's shade matches
 the floor's), which the model's answer decides. Tap-to-fix covers the rest.
 
+### Smart select: tap to fix
+
+Floor area → **Smart select**, with the same Add floor / Remove modes as the
+brush. The visitor taps a patch the floor missed, or something it covered, and
+Segment Anything (SlimSAM, ~14MB, `Xenova/slimsam-77-uniform`) selects that
+surface to its edges.
+
+- `smart-select.ts` runs in `smart-select.worker.ts`; `smart-selector.ts` is the
+  main-thread client. No inline fallback: without a worker the brush and
+  polygon tools remain.
+- The photo is read once (encoder, the slow half) when the tool is chosen,
+  and the decoder is warmed with a dummy point then. Each tap is the decoder
+  alone, with the point tensor built by hand (the processor would re-process the
+  whole photo) and only the chosen mask upscaled (the library upscales all
+  three).
+- SAM's 256² mask edges are snapped to the photo with the same colour vote as
+  detection (`refineMask`).
+- Results are `area` mask edits: run-length bitmaps (`area-runs.ts`), replayed
+  like every other edit, so Undo, saving and sharing work unchanged. Saved
+  areas are validated before drawing.
+
+Measured in headless Chrome on a 4-core laptop: reading a photo ~60s including
+the first download, then a few seconds per tap. Real browsers cache the model.
+
 ## Visualizer textures (the admin tool)
 
 A product's visualizer texture is its own image — a square, straightened,

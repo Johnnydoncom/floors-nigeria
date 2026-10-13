@@ -32,7 +32,7 @@ const OVERLAY_MAX_WIDTH = 1024;
 const TAP_SLOP = 6;
 
 export type CompareMode = "wipe" | "split" | "products";
-export type StageTool = "view" | "corners" | "brush" | "polygon";
+export type StageTool = "view" | "corners" | "brush" | "polygon" | "smart";
 
 /** A material as the stage needs it: where its texture is and how to lay it. */
 export type StageMaterial = {
@@ -84,6 +84,8 @@ export function RoomStage({
   onPhotoLoaded,
   onRendered,
   detection,
+  onSmartTap,
+  smartBusyAt,
   className,
 }: {
   photoSrc: string;
@@ -101,6 +103,10 @@ export function RoomStage({
   onPolygonDraftChange: (points: Point[]) => void;
   onQuadChange: (quad: Quad) => void;
   onMaskEdit: (edit: MaskEdit) => void;
+  /** A tap with the smart select tool, as a share of the photo. */
+  onSmartTap?: (point: Point) => void;
+  /** Where smart select is working, for a marker while it does. */
+  smartBusyAt?: Point | null;
   onReady?: (handle: RoomStageHandle) => void;
   onPhotoLoaded?: (size: { width: number; height: number }) => void;
   /** Automatic floor detection, for the loading overlay. */
@@ -257,7 +263,7 @@ export function RoomStage({
 
   // --- Mask overlay ----------------------------------------------------------
 
-  const isPainting = tool === "brush" || tool === "polygon";
+  const isPainting = tool === "brush" || tool === "polygon" || tool === "smart";
 
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
@@ -420,7 +426,7 @@ export function RoomStage({
       const point = toPhoto(event.clientX, event.clientY);
       if (point) setStroke([point]);
       gesture.current = { kind: "stroke", start, view };
-    } else if (tool === "polygon") {
+    } else if (tool === "polygon" || tool === "smart") {
       gesture.current = { kind: "tap", start, view };
     } else if (view.scale > 1) {
       gesture.current = { kind: "pan", start, view };
@@ -487,7 +493,14 @@ export function RoomStage({
       current?.kind === "tap" &&
       Math.hypot(event.clientX - current.start.x, event.clientY - current.start.y) < TAP_SLOP
     ) {
-      addPolygonPoint(event.clientX, event.clientY);
+      if (tool === "smart") {
+        const point = toPhoto(event.clientX, event.clientY);
+        if (point && point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1) {
+          onSmartTap?.(point);
+        }
+      } else {
+        addPolygonPoint(event.clientX, event.clientY);
+      }
     }
 
     setStroke(null);
@@ -679,6 +692,18 @@ export function RoomStage({
                 aspectRatio: "1",
                 transform: "translate(-50%, -50%)",
                 boxShadow: "0 0 0 1px rgba(0,0,0,0.4)",
+              }}
+            />
+          )}
+
+          {tool === "smart" && smartBusyAt && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute h-8 w-8 animate-ping rounded-full border-2 border-gold motion-reduce:animate-none"
+              style={{
+                left: `${smartBusyAt.x * 100}%`,
+                top: `${smartBusyAt.y * 100}%`,
+                transform: "translate(-50%, -50%)",
               }}
             />
           )}

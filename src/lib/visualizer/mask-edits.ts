@@ -1,3 +1,4 @@
+import { decodeRuns, isAreaRuns, type AreaRuns } from "./area-runs";
 import type { Point, Quad } from "./types";
 
 /**
@@ -5,8 +6,8 @@ import type { Point, Quad } from "./types";
  *
  * Detection is good and never perfect: a rug it called furniture, a shadow it
  * called wall, a second room through a doorway. The visitor paints floor in or
- * out with a brush, or draws round an area, and the result replaces the
- * detected mask.
+ * out with a brush, draws round an area, or taps one and lets smart select find
+ * its edges, and the result replaces the detected mask.
  *
  * Edits are kept as a list of operations in normalised coordinates rather than
  * as pixels. Undo is dropping the last one, the list survives a re-render at
@@ -24,7 +25,9 @@ export type MaskEdit =
       size: number;
       points: Point[];
     }
-  | { type: "polygon"; mode: MaskMode; points: Point[] };
+  | { type: "polygon"; mode: MaskMode; points: Point[] }
+  /** An area smart select found, as a bitmap stretched over the whole photo. */
+  | ({ type: "area"; mode: MaskMode } & AreaRuns);
 
 /**
  * The floor area with every edit applied, at the photo's resolution.
@@ -78,7 +81,12 @@ export function applyEdit(
   context.fillStyle = "#000";
   context.strokeStyle = "#000";
 
-  if (edit.type === "polygon") {
+  if (edit.type === "area") {
+    // Smoothing on: the bitmap is coarser than the photo, and a hard scale
+    // would put a staircase along every edge it found.
+    context.imageSmoothingEnabled = true;
+    context.drawImage(areaCanvas(edit), 0, 0, width, height);
+  } else if (edit.type === "polygon") {
     if (edit.points.length >= 3) {
       tracePolygon(context, edit.points, width, height);
       context.fill();
@@ -105,6 +113,28 @@ export function applyEdit(
   }
 
   context.restore();
+}
+
+/** Each area's bitmap, drawn once and reused on every re-compose. */
+const areaCanvases = new WeakMap<AreaRuns, HTMLCanvasElement>();
+
+function areaCanvas(area: AreaRuns): HTMLCanvasElement {
+  const cached = areaCanvases.get(area);
+  if (cached) return cached;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = area.width;
+  canvas.height = area.height;
+
+  const mask = decodeRuns(area);
+  const image = new ImageData(area.width, area.height);
+  for (let index = 0; index < mask.length; index++) {
+    if (mask[index] === 1) image.data[index * 4 + 3] = 255;
+  }
+  canvas.getContext("2d")?.putImageData(image, 0, 0);
+
+  areaCanvases.set(area, canvas);
+  return canvas;
 }
 
 function tracePolygon(
@@ -162,6 +192,13 @@ export function parseMaskEdits(value: unknown): MaskEdit[] {
 
     const candidate = entry as Record<string, unknown>;
     const mode = candidate.mode === "erase" ? "erase" : "add";
+
+    if (candidate.type === "area") {
+      if (!isAreaRuns(candidate)) return [];
+      const { width, height, runs } = candidate;
+      return [{ type: "area", mode, width, height, runs }];
+    }
+
     const points = Array.isArray(candidate.points)
       ? (candidate.points as unknown[]).flatMap((point) => {
           const { x, y } = (point ?? {}) as { x?: unknown; y?: unknown };
