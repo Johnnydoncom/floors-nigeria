@@ -62,6 +62,18 @@ const MIN_FLOOR_COVERAGE = 0.04;
 const KEEP_REGION = { ofLargest: 0.08, ofFrame: 0.005 };
 
 /**
+ * The smallest patch kept when it lies within the floor's own extent, as a share
+ * of the photograph.
+ *
+ * The floor seen between the legs of a table and the bases of office chairs
+ * comes as a scatter of small pockets, each far below `KEEP_REGION` — the model
+ * is 99% sure of them, and the size rule threw every one away, leaving the old
+ * floor showing under the table. A pocket inside the floor's span, no further
+ * away than the floor itself, is more of it. Only true speckle goes.
+ */
+const EMBEDDED_PATCH_SHARE = 0.0003;
+
+/**
  * How far above the floor's own furthest row a second patch may begin, as a
  * share of the photograph, and still be believed.
  *
@@ -556,10 +568,13 @@ function keptFloor(mask: Grid): { mask: Grid; primary: Region; area: number } | 
     width * height * KEEP_REGION.ofFrame,
   );
   const highest = biggest.top - height * SAME_PLANE_TOLERANCE;
+  const speckle = width * height * EMBEDDED_PATCH_SHARE;
 
   const keep = patches.map(
     (patch, label) =>
-      label === primaryLabel || (patch.area >= enough && onTheSamePlane(patch, biggest, highest)),
+      label === primaryLabel ||
+      (onTheSamePlane(patch, biggest, highest) &&
+        (patch.area >= enough || (patch.area >= speckle && withinFloor(patch, biggest)))),
   );
 
   const kept = new Uint8Array(data.length);
@@ -597,6 +612,14 @@ function keptFloor(mask: Grid): { mask: Grid; primary: Region; area: number } | 
     primary: { left, right, top, bottom, area: biggest.area },
     area,
   };
+}
+
+/**
+ * Does this patch lie inside the floor's own extent — across, and no further
+ * away than it — as a pocket of floor seen between furniture legs does?
+ */
+function withinFloor(patch: Patch, primary: Patch): boolean {
+  return patch.top >= primary.top && patch.left >= primary.left && patch.right <= primary.right;
 }
 
 /**

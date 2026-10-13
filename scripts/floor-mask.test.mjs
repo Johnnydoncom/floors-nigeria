@@ -431,3 +431,34 @@ test("the model sees the photograph in its own proportions", () => {
     assert.ok(Math.abs(size.width / size.height - width / height) < 0.06, `${width}×${height}`);
   }
 });
+
+test("pockets of floor seen between furniture legs are kept", () => {
+  // Each is far below the size a separate patch of floor must reach, and the
+  // model is sure of every one; dropping them left the old floor under a table.
+  const mask = floorMask([
+    [0, 0.45, 1, 0.5],
+    [0, 0.5, 0.3, 1],
+    [0.7, 0.5, 1, 1],
+    [0, 0.9, 1, 1],
+    [0.4, 0.6, 0.43, 0.64], // between the legs of a table
+    [0.55, 0.7, 0.58, 0.74],
+  ]);
+
+  const geometry = floorGeometryFromMask(mask);
+
+  assert.ok(geometry);
+  assert.equal(at(geometry.mask, 0.415, 0.62), 1, "pocket under the table dropped");
+  assert.equal(at(geometry.mask, 0.565, 0.72), 1, "pocket under the table dropped");
+});
+
+test("a pocket of floor-coloured wall above the floor is still not floor", () => {
+  const mask = floorMask([
+    [0, 0.5, 1, 1],
+    [0.4, 0.2, 0.43, 0.24], // well above the floor's far edge
+  ]);
+
+  const geometry = floorGeometryFromMask(mask);
+
+  assert.ok(geometry);
+  assert.equal(at(geometry.mask, 0.415, 0.22), 0);
+});

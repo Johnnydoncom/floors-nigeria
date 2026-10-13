@@ -155,6 +155,12 @@ export type LabelledScene = {
   structure: Uint8Array;
   /** Everything else in the room: what stands on the floor and hides it. */
   occluder: Uint8Array;
+  /**
+   * Where the model gives floor at least a small chance (`FLOOR_POSSIBLE`).
+   * Present when the scene came from class scores; edge snapping may only
+   * move the floor into these pixels.
+   */
+  possibleFloor?: Uint8Array;
 };
 
 /** Split a label into its synonyms, as either export spells them. */
@@ -255,6 +261,19 @@ export type Logits = {
 const FLOOR_CONFIDENCE = 0.5;
 
 /**
+ * Below this share of the probability the model is sure a pixel is not floor,
+ * and nothing downstream may make it floor.
+ *
+ * Measured on the sample rooms: at the foot of a column where the floor was
+ * left short, the model gave the wall 0.24–0.76 — unsure, and wrong. At the
+ * foot of a wood-panelled wall, where snapping to the photograph's strongest
+ * edge ran the floor up to a band of sunlight on the panel, it gave the wall
+ * 0.94–0.99 — sure, and right. Wood meeting wood has no edge to tell them
+ * apart; the model's certainty does.
+ */
+const FLOOR_POSSIBLE = 0.1;
+
+/**
  * Sort the model's class scores into floor, structure and occluder masks at
  * `width` × `height`, or null when it found no floor.
  *
@@ -322,6 +341,7 @@ export function sceneFromLogits(
   const floor = new Uint8Array(size);
   const structure = new Uint8Array(size);
   const occluder = new Uint8Array(size);
+  const possibleFloor = new Uint8Array(size);
 
   const across = interpolation(columns, width);
   const down = interpolation(rows, height);
@@ -343,6 +363,8 @@ export function sceneFromLogits(
       const index = y * width + x;
       const floorShare = sample(floorScore, x, y);
 
+      if (floorShare >= FLOOR_POSSIBLE) possibleFloor[index] = 1;
+
       if (floorShare > FLOOR_CONFIDENCE) {
         floor[index] = 1;
         found = true;
@@ -354,7 +376,7 @@ export function sceneFromLogits(
     }
   }
 
-  return found ? { width, height, floor, structure, occluder } : null;
+  return found ? { width, height, floor, structure, occluder, possibleFloor } : null;
 }
 
 const FLOOR = 0;

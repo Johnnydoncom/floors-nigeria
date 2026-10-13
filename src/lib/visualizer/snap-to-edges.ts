@@ -52,14 +52,21 @@ export type Junctions = {
   floor: Uint8Array;
   structure: Uint8Array;
   occluder: Uint8Array;
+  /**
+   * Where the model allows floor at all. Outside it a pixel can lose floor but
+   * never gain it, however the photograph's edges fall: wood panelling meets a
+   * wood floor with no edge between them, and the strongest edge nearby can be
+   * a band of sunlight up the panel.
+   */
+  possibleFloor?: Uint8Array;
 };
 
 /**
  * The floor, structure and occluder masks with their shared boundaries moved
  * onto the photograph's edges. All must be at the photograph's size.
  */
-export function snapToEdges(scene: Junctions, photo: Rgb): Junctions {
-  const { width, height, floor, structure, occluder } = scene;
+export function snapToEdges<T extends Junctions>(scene: T, photo: Rgb): T {
+  const { width, height, floor, structure, occluder, possibleFloor } = scene;
   const size = width * height;
   const wallBand = Math.max(4, Math.round(width * WALL_BAND_SHARE));
   const furnitureBand = Math.max(2, Math.round(width * FURNITURE_BAND_SHARE));
@@ -87,6 +94,11 @@ export function snapToEdges(scene: Junctions, photo: Rgb): Junctions {
 
     if (!isFloor && !isOther) {
       labels[index] = BARRIER;
+    } else if (near[index] === 1 && !isFloor && possibleFloor?.[index] === 0) {
+      // Sure not to be floor: it keeps its label, and does not spread either.
+      // Seeding the other flood right at the junction would let it run across
+      // flat floor, with no edge to stop it, and pull the floor back.
+      labels[index] = BARRIER;
     } else if (near[index] === 1 && !(occluder[index] === 1 && core[index] === 1)) {
       labels[index] = UNKNOWN;
       unknown++;
@@ -99,9 +111,8 @@ export function snapToEdges(scene: Junctions, photo: Rgb): Junctions {
 
   flood(labels, edgeStrength(photo, dilate(near, width, height, 1)), width);
 
-  const snapped: Junctions = {
-    width,
-    height,
+  const snapped: T = {
+    ...scene,
     floor: Uint8Array.from(floor),
     structure: Uint8Array.from(structure),
     occluder: Uint8Array.from(occluder),

@@ -101,3 +101,14 @@ test("nothing to snap is left exactly as it was", () => {
   const input = scene(HEIGHT);
   assert.equal(snapToEdges(input, photograph()), input);
 });
+
+test("the floor is never moved where the model was sure it is not floor", () => {
+  // Wood panelling meets a wood floor with no edge between them; the strongest
+  // edge nearby was a band of sunlight up the panel, and the floor followed it.
+  const input = scene(SKIRTING + 6);
+  input.possibleFloor = Uint8Array.from(input.floor);
+
+  const snapped = snapToEdges(input, photograph());
+
+  assert.equal(floorStarts(snapped.floor, 200), SKIRTING + 6, "floor run onto a confident wall");
+});
