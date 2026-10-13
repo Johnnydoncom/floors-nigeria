@@ -128,8 +128,12 @@ export const STRUCTURE_LABELS = new Set([
  * hard to see, while material running up the wall is the first thing anyone
  * notices. No pull-back happens along a sofa or a chair leg, where the floor
  * genuinely continues to the edge of the object.
+ *
+ * One pixel, now that the junction is snapped onto the photograph's own edge
+ * (`snap-to-edges.ts`): the edge pixel itself is a blend of floor and skirting.
+ * Two left a visible line of the old floor along every wall.
  */
-const STRUCTURE_CLEARANCE = 2;
+const STRUCTURE_CLEARANCE = 1;
 
 /** Holes smaller than this share of the frame are speckle and always fill. */
 const SPECKLE_SHARE = 0.0006;

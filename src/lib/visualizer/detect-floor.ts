@@ -8,6 +8,7 @@ import {
 import { unitSquareToQuad } from "./homography";
 import { cleanFloorMask, sceneFromLogits, type LabelledScene, type Logits } from "./floor-mask";
 import { refineMask, type Grid, type Rgb } from "./refine-mask";
+import { snapToEdges } from "./snap-to-edges";
 import type { Point, Quad } from "./types";
 
 /**
@@ -383,12 +384,17 @@ export function floorGeometryFromMask(mask: Grid): { quad: Quad; mask: Grid } | 
 /**
  * Refine the floor boundary against the photograph. The scene is already at the
  * photograph's size, so the two line up pixel for pixel.
+ *
+ * Two steps, for two kinds of error. The colour vote settles the boundary's
+ * pixel-level wander everywhere; the watershed then moves the junction with
+ * walls and solid furniture — where the model's error is many pixels, not a
+ * few — onto the hard edge the photograph shows there.
  */
 function sharpenAgainstPhoto(scene: LabelledScene, photo: Rgb): LabelledScene {
   const { width, height, structure } = scene;
   const floor = refineMask({ data: scene.floor, width, height }, photo, structure);
 
-  return { ...scene, floor: floor.data };
+  return snapToEdges({ ...scene, floor: floor.data }, photo);
 }
 
 /**

@@ -349,6 +349,27 @@ differ from a neighbour — which is what keeps this at a few hundred
 milliseconds instead of a few seconds. Pinholes below a speckle threshold are
 filled; the far larger holes furniture makes are left alone.
 
+### Snapping to the skirting line
+
+The colour vote fixes a pixel or two of wander. At walls the model's error is
+far larger — a 5–40px strip of old floor along every skirting board and a
+wedge missing at the foot of a column — and the vote cannot close it, because
+it may not turn anything the model called wall into floor.
+
+`snap-to-edges.ts` re-decides a band either side of each floor/wall junction
+(2% of the photo's width) and each junction with solid furniture (1%) by a
+marker-controlled watershed over the photo's edge strength. Pixels deep inside
+the floor and deep inside the wall are markers; the band is flooded from both,
+weakest edges first, and the floods meet on the strongest edge between them —
+the skirting line, not a plank seam. Thin parts of furniture (chair legs) are
+left as the model drew them, since a band would leave them no inside and the
+floor would flood over them; the furniture band is narrower than the wall band
+because a dark leg in its own shadow has barely an edge against the floor.
+
+With the junction on the real edge, the floor's pull-back from walls is 1px;
+at 2px it left a visible line of old floor along every wall. Edge strength is
+computed only inside the bands, which keeps the step to about half a second.
+
 The mask is then composited with `imageSmoothingEnabled = false`, or scaling
 would feather the boundary straight back out.
 
