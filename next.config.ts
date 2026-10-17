@@ -43,10 +43,17 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    unoptimized: true,
     // Only these local paths may be optimized; everything else is rejected.
     localPatterns: [
       { pathname: `${MEDIA_PROXY_PREFIX}/**`, search: "" },
       { pathname: "/images/**", search: "" },
+    ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
     ],
     formats: ["image/avif", "image/webp"],
   },
