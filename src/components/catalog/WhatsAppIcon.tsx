@@ -1,0 +1,60 @@
+import React, { useId } from "react";
+
+/**
+ * WhatsApp glyph as a solid, currentColor-driven SVG.
+ *
+ * The path fills with `currentColor`, so the icon's colour comes from the
+ * `text-*` utility on whatever element it sits in (or the `color` prop /
+ * any other prop passed through) — which keeps it flexible for Tailwind:
+ *
+ *   <WhatsAppIcon className="h-4 w-4 text-[#1DAA53] group-hover:text-[#25D366]" />
+ */
+export function WhatsAppIcon({
+    className,
+    size,
+    title,
+    ...rest
+}: React.SVGProps<SVGSVGElement> & {
+    /** Convenience shortcut for width/height; overridden by explicit props. */
+    size?: number | string;
+    /** Accessible label. Omit when the icon is decorative (aria-hidden). */
+    title?: string;
+}) {
+    // Unique per instance so several icons on one page never share a clipPath id.
+    // Sanitised because React's generated ids contain characters that are unsafe
+    // unescaped inside a CSS `url(#…)` reference.
+    const clipId = `whatsapp-clip-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width={size ?? 24}
+            height={size ?? 24}
+            className={className}
+            role={title ? "img" : undefined}
+            aria-hidden={title ? undefined : true}
+            focusable="false"
+            {...rest}
+        >
+            {title ? <title>{title}</title> : null}
+            <g fill="none">
+                <g clipPath={`url(#${clipId})`}>
+                    <path
+                        fill="currentColor"
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M17.415 14.382c-.298-.149-1.759-.867-2.031-.967s-.47-.148-.669.15c-.198.297-.767.966-.94 1.164c-.174.199-.347.223-.644.075c-.297-.15-1.255-.463-2.39-1.475c-.883-.788-1.48-1.761-1.653-2.059c-.173-.297-.019-.458.13-.606c.134-.133.297-.347.446-.52s.198-.298.297-.497c.1-.198.05-.371-.025-.52c-.074-.149-.668-1.612-.916-2.207c-.241-.579-.486-.5-.668-.51c-.174-.008-.372-.01-.57-.01s-.52.074-.792.372c-.273.297-1.04 1.016-1.04 2.479c0 1.462 1.064 2.875 1.213 3.074s2.095 3.2 5.076 4.487c.71.306 1.263.489 1.694.625c.712.227 1.36.195 1.872.118c.57-.085 1.758-.719 2.006-1.413s.247-1.289.173-1.413s-.272-.198-.57-.347m-5.422 7.403h-.004a9.87 9.87 0 0 1-5.032-1.378l-.36-.214l-3.742.982l.999-3.648l-.235-.374a9.86 9.86 0 0 1-1.511-5.26c.002-5.45 4.436-9.884 9.889-9.884a9.8 9.8 0 0 1 6.988 2.899a9.82 9.82 0 0 1 2.892 6.992c-.002 5.45-4.436 9.885-9.884 9.885m8.412-18.297A11.82 11.82 0 0 0 11.992 0C5.438 0 .102 5.335.1 11.892a11.86 11.86 0 0 0 1.587 5.945L0 24l6.304-1.654a11.9 11.9 0 0 0 5.684 1.448h.005c6.554 0 11.89-5.335 11.892-11.893a11.82 11.82 0 0 0-3.48-8.413"
+                    />
+                </g>
+                <defs>
+                    <clipPath id={clipId}>
+                        <rect width="24" height="24" fill="#fff" />
+                    </clipPath>
+                </defs>
+            </g>
+        </svg>
+    );
+}
+
+export default WhatsAppIcon;

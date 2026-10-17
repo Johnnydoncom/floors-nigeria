@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRight, MessageCircle, Star } from "lucide-react";
+import { ArrowUpRight, Star } from "lucide-react";
 import { naira, whatsAppLink } from "@/lib/format";
 import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { absoluteUrl } from "@/lib/structured-data";
 import type { AttributeTerm, ProductCard as ProductCardData } from "@/lib/api/types";
 import { Swatch } from "./Swatch";
+import WhatsAppIcon from "./WhatsAppIcon";
 import { cn } from "@/lib/utils";
 
 /**
@@ -158,7 +159,7 @@ export function ProductCard({
               title="Order on WhatsApp"
               className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-[#1DAA53] transition hover:border-[#25D366] hover:bg-[#25D366]/10"
             >
-              <MessageCircle className="h-4 w-4" aria-hidden />
+              <WhatsAppIcon className="h-4 w-4" aria-hidden />
             </a>
           </div>
         </div>
