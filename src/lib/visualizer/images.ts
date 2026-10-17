@@ -2,31 +2,21 @@
  * Getting images into the visualizer at a sensible size (§10, §28).
  */
 
+import { mediaProxyPath } from "@/lib/api/media";
+
 /** Longest side a room photograph is worked at. A 12MP phone photo is 4032px. */
 export const MAX_ROOM_SIDE = 2560;
 
 /** Under this, an upload is used as it is. */
 const KEEP_AS_IS_BYTES = 3 * 1024 * 1024;
 
-/** Paths the Next.js image optimizer is configured to serve (next.config.ts). */
-const OPTIMIZABLE = /^\/(media|images)\//;
-
 /**
- * A texture through the image optimizer: resized, and served as AVIF or WebP
- * where the browser takes them. Product photography arrives as multi-megabyte
- * JPEGs; the visualizer needs a fraction of that, and a phone on mobile data
- * notices the difference. Same-origin, so the canvas stays exportable.
- */
-export function optimizedImageUrl(src: string, width = 1920): string {
-  if (!OPTIMIZABLE.test(src) || src.includes("?")) return src;
-
-  return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`;
-}
-
-/**
- * Load an image for canvas use, requesting CORS so the result can still be
- * exported. Same-origin media (everything served through `/media`) is
- * unaffected either way.
+ * Load an image for canvas use.
+ *
+ * Media is fetched through this app's own origin (`mediaProxyPath`) so the
+ * canvas stays exportable: a cross-origin image would taint it, and Laravel's
+ * public disk sends no CORS headers. Room photographs and other blob/data URLs
+ * pass through untouched.
  */
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -35,21 +25,18 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     image.decoding = "async";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`Could not load image: ${src}`));
-    image.src = src;
+    image.src = mediaProxyPath(src);
   });
 }
 
-/** The optimized copy, or the original if the optimizer will not serve it. */
-export async function loadTexture(src: string): Promise<HTMLImageElement> {
-  const optimized = optimizedImageUrl(src);
-
-  if (optimized === src) return loadImage(src);
-
-  try {
-    return await loadImage(optimized);
-  } catch {
-    return loadImage(src);
-  }
+/**
+ * A product texture, loaded for the canvas.
+ *
+ * Image optimization is off (`next.config.ts`), so there is no resized
+ * rendition to prefer — the source is used as it is.
+ */
+export function loadTexture(src: string): Promise<HTMLImageElement> {
+  return loadImage(src);
 }
 
 /**

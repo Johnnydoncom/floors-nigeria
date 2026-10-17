@@ -2,7 +2,6 @@ import { revalidateTag } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { CacheTags, rawApiFetch } from "@/lib/api/client";
 import { getClientIp, getToken } from "@/lib/api/auth";
-import { rewriteMediaUrls } from "@/lib/api/media";
 
 /**
  * The admin workspace's way to Laravel's `/v1/admin/*` from the browser.
@@ -124,7 +123,7 @@ async function forward(request: NextRequest, { params }: Params) {
     .json()
     .catch(() => ({ message: "Unexpected response from the CRM." }));
 
-  return NextResponse.json(rewriteMediaUrls(payload), {
+  return NextResponse.json(payload, {
     status: upstream.status,
     headers: { "Cache-Control": "private, no-store" },
   });

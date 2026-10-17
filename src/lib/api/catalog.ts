@@ -125,7 +125,10 @@ export async function getCategories(): Promise<Category[]> {
   cacheLife("days");
   cacheTag(CacheTags.categories);
 
-  return withFallback(async () => asList(await api.get<Envelope<Category[]>>("/v1/categories")), []);
+  return withFallback(
+    async () => asList(await api.get<Envelope<Category[]>>("/v1/categories")),
+    [],
+  );
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {

@@ -11,22 +11,23 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
 
   /**
-   * Product imagery is served from this app's own origin and proxied to
-   * wherever the media actually lives — Laravel in development, a CDN or
-   * object store in production.
+   * Product imagery is served straight from the media host (Laravel, a CDN or
+   * an object store) — the URLs Laravel returns are used as they are.
    *
-   * That keeps `next/image` working on a private-network API without
-   * `dangerouslyAllowLocalIP`, which would opt the whole app out of Next.js's
-   * SSRF protection just to unblock localhost (§24, §27).
+   * This rewrite exists for the one consumer that cannot do that: the room
+   * visualizer reads a texture into a canvas and exports it, which needs the
+   * image to be same-origin (a cross-origin image taints the canvas, and the
+   * public disk sends no CORS headers). It maps `/media/*` back to the media
+   * host so that path is served from this origin.
    */
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: `${MEDIA_PROXY_PREFIX}/:path*`,
-  //       destination: `${mediaOrigin()}${MEDIA_SOURCE_PATH}/:path*`,
-  //     },
-  //   ];
-  // },
+  async rewrites() {
+    return [
+      {
+        source: `${MEDIA_PROXY_PREFIX}/:path*`,
+        destination: `${mediaOrigin()}${MEDIA_SOURCE_PATH}/:path*`,
+      },
+    ];
+  },
 
   /**
    * The self-hosted ONNX runtime lives under a folder named for its version
@@ -43,12 +44,14 @@ const nextConfig: NextConfig = {
   // },
 
   images: {
+    /**
+     * Optimization is off: media is served from the Laravel/CDN origin, which
+     * already delivers correctly sized files, and the storefront avoids paying
+     * for a second resize. With this on, `next/image` serves `src` untouched.
+     */
     unoptimized: true,
     // Only these local paths may be optimized; everything else is rejected.
-    localPatterns: [
-      { pathname: `${MEDIA_PROXY_PREFIX}/**`, search: "" },
-      { pathname: "/images/**", search: "" },
-    ],
+    localPatterns: [{ pathname: "/images/**", search: "" }],
     remotePatterns: [
       {
         protocol: "https",

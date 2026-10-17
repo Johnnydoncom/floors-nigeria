@@ -50,9 +50,12 @@ npm run dev                         # http://localhost:3000
 | `LARAVEL_API_URL`      | API base URL. Server-side only — never exposed to the browser. |
 | `NEXT_PUBLIC_SITE_URL` | Canonical URLs, sitemap and schema.org output.                 |
 | `REVALIDATE_SECRET`    | Shared secret Laravel sends to purge cache tags on publish.    |
+| `MEDIA_BASE_URL`       | Where product media lives (a CDN in production). Defaults to the `LARAVEL_API_URL` origin. |
 
-Product images are served through a same-origin `/media/*` proxy, so no CDN
-host or CORS configuration is needed in development.
+Product images are served straight from `MEDIA_BASE_URL` (the API/CDN origin),
+so no proxy sits in front of them. The room visualizer is the exception: it
+loads a texture through the same-origin `/media/*` proxy so the canvas it
+exports stays untainted (the disk sends no CORS headers).
 
 ### Useful commands
 

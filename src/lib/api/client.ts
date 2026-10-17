@@ -1,5 +1,4 @@
 import "server-only";
-import { rewriteMediaUrls } from "./media";
 
 /**
  * Laravel API client — server-side only.
@@ -111,9 +110,9 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     return null as T;
   }
 
-  // Media URLs are rewritten to this app's own origin here, so every caller
-  // gets a path `next/image` is allowed to optimize.
-  return rewriteMediaUrls((await response.json()) as T);
+  // Media URLs stay absolute. They point at the API/CDN origin and are served
+  // from there directly — see `lib/api/media.ts`.
+  return (await response.json()) as T;
 }
 
 /**
