@@ -157,7 +157,7 @@ export function ProductCard({
               rel="noopener noreferrer"
               aria-label={`Order ${product.name} on WhatsApp`}
               title="Order on WhatsApp"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-[#1DAA53] transition hover:border-[#25D366] hover:bg-[#25D366]/10"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-[#1DAA53] transition hover:border-[#25D366] hover:bg-[#25D366] hover:text-white"
             >
               <WhatsAppIcon className="h-4 w-4" aria-hidden />
             </a>
