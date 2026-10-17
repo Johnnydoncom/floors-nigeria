@@ -44,6 +44,15 @@ async function withFallback<T>(
   }
 }
 
+/**
+ * A list endpoint that answers 200 with something other than the expected
+ * envelope — a paginated body, `null`, an error shape — must still read as an
+ * empty list, not crash the page rendering it at build time.
+ */
+function asList<T>(envelope: Envelope<T[]> | null): T[] {
+  return Array.isArray(envelope?.data) ? envelope.data : [];
+}
+
 const EMPTY_PAGE: Paginated<ProductCard> = {
   data: [],
   links: { first: null, last: null, prev: null, next: null },
@@ -116,7 +125,7 @@ export async function getCategories(): Promise<Category[]> {
   cacheLife("days");
   cacheTag(CacheTags.categories);
 
-  return withFallback(async () => (await api.get<Envelope<Category[]>>("/v1/categories")).data, []);
+  return withFallback(async () => asList(await api.get<Envelope<Category[]>>("/v1/categories")), []);
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -138,11 +147,11 @@ export async function getCollections(featuredOnly = false): Promise<Collection[]
 
   return withFallback(
     async () =>
-      (
+      asList(
         await api.get<Envelope<Collection[]>>("/v1/collections", {
           query: featuredOnly ? { featured: true } : undefined,
-        })
-      ).data,
+        }),
+      ),
     [],
   );
 }
@@ -154,11 +163,11 @@ export async function getTaxonomies(type?: TaxonomyType): Promise<Taxonomy[]> {
 
   return withFallback(
     async () =>
-      (
+      asList(
         await api.get<Envelope<Taxonomy[]>>("/v1/taxonomies", {
           query: type ? { type } : undefined,
-        })
-      ).data,
+        }),
+      ),
     [],
   );
 }

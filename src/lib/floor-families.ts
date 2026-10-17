@@ -198,6 +198,9 @@ export type FloorLink = {
 export function indexCategories(categories: Category[]): Map<string, Category> {
   const index = new Map<string, Category>();
   const visit = (list: Category[]) => {
+    // The caller's data crosses a network boundary, so treat a non-array as an
+    // empty tree rather than letting `for...of` take the page down.
+    if (!Array.isArray(list)) return;
     for (const category of list) {
       index.set(category.slug, category);
       visit(category.children ?? []);
@@ -256,7 +259,7 @@ export function resolveMenuGroups(categories: Category[]): MenuGroup[] {
     }),
   }));
 
-  const unplaced = categories
+  const unplaced = (Array.isArray(categories) ? categories : [])
     .filter((category) => !placed.has(category.slug))
     .map((category) => ({ name: category.name, href: categoryHref(category.slug) }));
 
