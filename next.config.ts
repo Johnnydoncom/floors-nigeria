@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
-    formats: ["image/avif", "image/webp"],
+    // formats: ["image/avif", "image/webp"],
   },
 
   reactStrictMode: true,
