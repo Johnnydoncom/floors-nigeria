@@ -67,6 +67,31 @@ export function toTextureChoices(product: ProductCard): TextureChoice[] {
 }
 
 /**
+ * Sold alongside floors, but not laid on one: wall panels, trims and fixings.
+ * Offering them in a tool that covers the floor only ever disappoints.
+ */
+const NOT_A_FLOOR =
+  /\b(panels?|cladding|wainscot\w*|skirtings?|trims?|adhesives?|glues?|underlays?|profiles?|accessor(y|ies))\b/i;
+
+/** Whether a category, by name, holds floors at all. */
+export function isFloorCategory(name: string): boolean {
+  return !NOT_A_FLOOR.test(name);
+}
+
+/** The catalogue as materials, leaving out what cannot be laid on a floor. */
+export function floorChoices(products: ProductCard[]): TextureChoice[] {
+  return products
+    .filter(
+      (product) =>
+        isFloorCategory(product.name) &&
+        [product.category, ...(product.categories ?? [])].every(
+          (category) => !category || isFloorCategory(category.name),
+        ),
+    )
+    .flatMap(toTextureChoices);
+}
+
+/**
  * A product's materials with one variation picked out — for a link that names
  * a SKU, such as "See it in your room" on a product page.
  *

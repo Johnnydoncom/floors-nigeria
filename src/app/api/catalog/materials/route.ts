@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getProduct, getProducts, type ProductFilters } from "@/lib/api/catalog";
-import { choicesForProduct, toTextureChoices } from "@/lib/room/materials";
+import { choicesForProduct, floorChoices } from "@/lib/room/materials";
 
 /**
  * The catalogue as visualizer materials, for browsing inside the studio.
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const page = await getProducts(filtersFrom(params));
 
     return NextResponse.json({
-      data: page.data.flatMap(toTextureChoices),
+      data: floorChoices(page.data),
       meta: {
         current_page: page.meta.current_page,
         last_page: page.meta.last_page,

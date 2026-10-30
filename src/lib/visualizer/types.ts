@@ -62,10 +62,15 @@ export type Placement = {
   finish: Finish;
 };
 
+/** A sample room's floor, found once ahead of time (`bake-sample-floors.mjs`). */
+export type FloorPreset = { mask: string; quad: Quad };
+
 export type RoomSource = {
   /** Object URL for an upload, or a path for a sample room or saved design. */
   src: string;
   label: string;
+  /** Known ahead of time, so no model is needed to find this room's floor. */
+  floor?: FloorPreset;
   /** Present when the visitor uploaded the photo, for saving it alongside. */
   file?: File;
   /** Where the room came from, for analytics and for what saving should send. */
@@ -130,6 +135,9 @@ export type SurfaceLayer = {
    */
   mask?: CanvasImageSource | null;
 };
+
+/** The range "floor width" can be set to, in metres. */
+export const FLOOR_WIDTH_RANGE = { min: 1.5, max: 30 };
 
 export const DEFAULT_PLACEMENT: Placement = {
   widthM: 4,

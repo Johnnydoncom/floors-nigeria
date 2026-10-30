@@ -139,9 +139,10 @@ type NetworkInformation = { saveData?: boolean; effectiveType?: string };
  * Asked of the browser rather than guessed. A visitor who has asked for less
  * data, is on a slow connection, or is on a device with little memory or few
  * cores keeps the fast result — which is still a good floor, and can be
- * corrected by hand. Browsers that do not say (Safari reports none of these)
- * are given the benefit of the doubt; the download is cached after the first
- * visit.
+ * corrected by hand. So does anyone on a touch screen: a phone reports "4g" on
+ * metered data, and 28MB is not a cost to impose unasked. Browsers that do not
+ * say (Safari reports none of these) are given the benefit of the doubt; the
+ * download is cached after the first visit.
  *
  * Never run inline: without a worker the precise model's seconds of work would
  * freeze the page, which is worse than a rougher edge.
@@ -150,6 +151,8 @@ export function canAffordPreciseDetection(): boolean {
   if (typeof navigator === "undefined" || workerFailed || typeof Worker === "undefined") {
     return false;
   }
+
+  if (window.matchMedia("(pointer: coarse)").matches) return false;
 
   const device = navigator as Navigator & {
     connection?: NetworkInformation;

@@ -436,6 +436,16 @@ function interpolation(source: number, target: number) {
   return { from, to, weight };
 }
 
+/** How far from structure the outline is rounded off, as a share of the width. */
+const STRUCTURE_EDGE_BAND = 0.012;
+const STRUCTURE_EDGE_BLUR = 0.007;
+
+/** How far above the floor's edge a wall may start, as a share of the height. */
+const WALL_LINE_REACH = 0.012;
+
+/** Columns either side a wall line is straightened over, as a share of the width. */
+const WALL_LINE_WINDOW = 0.018;
+
 /**
  * The floor as it should be rendered: trimmed off the walls and stairs, with
  * the model's mislabels in the middle of the room filled back in.
@@ -467,7 +477,138 @@ export function cleanFloorMask(scene: LabelledScene): Grid {
 
   // 4. Settle the outline. The model's boundary wanders in and out by a pixel
   //    or two, which reads as a torn edge once material is laid inside it.
-  return smoothOutline({ data: floor, width, height });
+  return smoothStructureEdges(
+    straightenWallLine(smoothOutline({ data: floor, width, height }), structure, occluder),
+    structure,
+    occluder,
+  );
+}
+
+/**
+ * Round off what is left of a torn edge against walls, columns and doors.
+ *
+ * Where a join runs steeply up the frame the far-edge median has nothing to
+ * work on, and sun, reflections and skirting tear it just the same. Those joins
+ * are straight in the room, so a wide blur of the mask, thresholded back, can
+ * only help them. It is applied beside structure alone, and never onto anything
+ * standing on the floor: a chair leg is thinner than the blur, and would vanish.
+ */
+function smoothStructureEdges(mask: Grid, structure: Uint8Array, occluder: Uint8Array): Grid {
+  const { data, width, height } = mask;
+  const near = dilate(structure, width, height, Math.round(width * STRUCTURE_EDGE_BAND));
+  const blurred = boxBlur(data, width, height, Math.round(width * STRUCTURE_EDGE_BLUR));
+  const output = Uint8Array.from(data);
+
+  for (let index = 0; index < data.length; index++) {
+    if (near[index] === 1) output[index] = blurred[index] >= 0.5 && occluder[index] === 0 ? 1 : 0;
+  }
+
+  return { data: output, width, height };
+}
+
+/** A binary grid blurred by two passes of a box, as shares of 1. */
+function boxBlur(values: Uint8Array, width: number, height: number, radius: number): Float32Array {
+  let current: Float32Array = Float32Array.from(values);
+
+  for (let pass = 0; pass < 2; pass++) {
+    current = blurLines(current, width, height, radius, 1, width);
+    current = blurLines(current, height, width, radius, width, 1);
+  }
+
+  return current;
+}
+
+/** One axis of a box blur: `lines` runs of `length`, `step` apart along a run. */
+function blurLines(
+  input: Float32Array,
+  length: number,
+  lines: number,
+  radius: number,
+  step: number,
+  stride: number,
+): Float32Array {
+  const output = new Float32Array(input.length);
+
+  for (let line = 0; line < lines; line++) {
+    const start = line * stride;
+    let sum = 0;
+    let span = 0;
+
+    for (let position = 0; position <= Math.min(radius, length - 1); position++) {
+      sum += input[start + position * step];
+      span++;
+    }
+
+    for (let position = 0; position < length; position++) {
+      output[start + position * step] = sum / span;
+
+      if (position + radius + 1 < length) {
+        sum += input[start + (position + radius + 1) * step];
+        span++;
+      }
+
+      if (position - radius >= 0) {
+        sum -= input[start + (position - radius) * step];
+        span--;
+      }
+    }
+  }
+
+  return output;
+}
+
+/**
+ * Take the saw-teeth out of the line where the floor meets a wall.
+ *
+ * The join is a straight line in the room, and in the photograph, but the edge
+ * it was snapped to is not: a skirting board's shadow, a pool of sun or a plank
+ * joint pulls it up or down every few pixels, and a straight line drawn in
+ * teeth is the first thing that gives a render away. So each column of the
+ * floor's far edge takes the median of its neighbours along the wall. Only
+ * columns ending at a wall move: furniture has real corners, and a chair leg is
+ * narrower than the window.
+ */
+function straightenWallLine(mask: Grid, structure: Uint8Array, occluder: Uint8Array): Grid {
+  const { data, width, height } = mask;
+  const far = new Int32Array(width).fill(-1);
+  const reach = Math.max(2, Math.round(height * WALL_LINE_REACH));
+  const radius = Math.max(2, Math.round(width * WALL_LINE_WINDOW));
+
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      if (data[y * width + x] === 0) continue;
+
+      for (let above = Math.max(0, y - reach); above < y; above++) {
+        if (structure[above * width + x] === 1) far[x] = y;
+      }
+
+      break;
+    }
+  }
+
+  const output = Uint8Array.from(data);
+
+  for (let x = 0; x < width; x++) {
+    if (far[x] === -1) continue;
+
+    const nearby: number[] = [];
+
+    for (let other = Math.max(0, x - radius); other <= Math.min(width - 1, x + radius); other++) {
+      if (far[other] !== -1) nearby.push(far[other]);
+    }
+
+    nearby.sort((a, b) => a - b);
+
+    const line = nearby[nearby.length >> 1];
+
+    for (let y = line; y < far[x]; y++) {
+      if (occluder[y * width + x] === 0) output[y * width + x] = 1;
+    }
+
+    for (let y = far[x]; y < line; y++) output[y * width + x] = 0;
+  }
+
+  return { data: output, width, height };
 }
 
 /**

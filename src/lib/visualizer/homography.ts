@@ -125,18 +125,7 @@ export function project(homography: Homography, u: number, v: number): Point {
  * determinant can be ignored.
  */
 export function unproject(homography: Homography): (x: number, y: number) => Point | null {
-  const { a, b, c, d, e, f, g, h } = homography;
-
-  // Adjugate of ⎡a b c; d e f; g h 1⎤.
-  const A = e - f * h;
-  const B = c * h - b;
-  const C = b * f - c * e;
-  const D = f * g - d;
-  const E = a - c * g;
-  const F = c * d - a * f;
-  const G = d * h - e * g;
-  const H = b * g - a * h;
-  const I = a * e - b * d;
+  const [A, B, C, D, E, F, G, H, I] = inverseMatrix(homography);
 
   return (x, y) => {
     const w = G * x + H * y + I;
@@ -148,6 +137,24 @@ export function unproject(homography: Homography): (x: number, y: number) => Poi
       y: (D * x + E * y + F) / w,
     };
   };
+}
+
+/**
+ * The inverse as a row-major matrix, photo pixels to homogeneous material
+ * coordinates: the adjugate of ⎡a b c; d e f; g h 1⎤.
+ */
+export function inverseMatrix({ a, b, c, d, e, f, g, h }: Homography): number[] {
+  return [
+    e - f * h,
+    c * h - b,
+    b * f - c * e,
+    f * g - d,
+    a - c * g,
+    c * d - a * f,
+    d * h - e * g,
+    b * g - a * h,
+    a * e - b * d,
+  ];
 }
 
 /**
@@ -173,6 +180,56 @@ export const ASSUMED_FOCAL_SHARE = 0.7;
 /** Beyond these, the quad is not a rectangle on the floor and 1 is safer. */
 const MIN_PLANE_ASPECT = 0.25;
 const MAX_PLANE_ASPECT = 4;
+
+/** Where a phone is held to photograph a room, in metres above the floor. */
+const ASSUMED_CAMERA_HEIGHT_M = 1.4;
+
+/**
+ * The real width of the quad's rectangle, in metres, given how high the camera
+ * was held.
+ *
+ * A photograph has no scale of its own, but a room does: people photograph it
+ * from about chest height, and the floor's perspective says how far below the
+ * camera it lies, in units of the quad. With the camera's intrinsics removed the
+ * homography's columns are λ·A·r₁, λ·B·r₂ and λ·t, so the floor's normal is
+ * r₁ × r₂, the camera's height over it is |n·t|, and A follows from the two.
+ *
+ * Without this every room is taken to be the same width, and a hotel lobby gets
+ * planks as long as a car. Null when the quad has no usable perspective.
+ */
+export function floorWidthFromCamera(
+  homography: Homography,
+  width: number,
+  height: number,
+  focalShare = ASSUMED_FOCAL_SHARE,
+): number | null {
+  const focal = Math.max(width, height) * focalShare;
+  const cx = width / 2;
+  const cy = height / 2;
+  const { a, b, c, d, e, f, g, h } = homography;
+
+  const camera = (x: number, y: number, w: number) => [
+    (x - cx * w) / focal,
+    (y - cy * w) / focal,
+    w,
+  ];
+  const across = camera(a, d, g);
+  const along = camera(b, e, h);
+  const origin = camera(c, f, 1);
+
+  const normal = [
+    across[1] * along[2] - across[2] * along[1],
+    across[2] * along[0] - across[0] * along[2],
+    across[0] * along[1] - across[1] * along[0],
+  ];
+  const normalLength = Math.hypot(normal[0], normal[1], normal[2]);
+  const drop = Math.abs(
+    (normal[0] * origin[0] + normal[1] * origin[1] + normal[2] * origin[2]) / normalLength,
+  );
+  const metres = (ASSUMED_CAMERA_HEIGHT_M * Math.hypot(across[0], across[1], across[2])) / drop;
+
+  return Number.isFinite(metres) && metres > 0 ? metres : null;
+}
 
 /**
  * How deep the quad's rectangle is on the real floor, relative to its width.

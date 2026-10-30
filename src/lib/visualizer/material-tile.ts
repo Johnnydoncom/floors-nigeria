@@ -1,4 +1,6 @@
+import { findMaterialPatch, PATCH_PROBE_SIDE, type Patch } from "./material-patch";
 import { patternPeriod, wrapOffsets, type PatternPeriod, type PlankRect } from "./patterns";
+import { evenLighting, makeSeamless, type Pixels } from "./texture-prep";
 import type { LayoutPattern, MaterialKind } from "./types";
 
 /**
@@ -50,14 +52,16 @@ export type TileRequest = {
 };
 
 /**
- * Share of a product photograph kept when it is not a dedicated texture.
- *
- * Catalogue photography is staged: a plank propped on a pallet, a sprig of
- * greenery for scale. Taking a square from the middle gets closer to the
- * material itself, which is where photographers put it. Damage limitation —
- * a seamless texture uploaded against the product always looks better.
+ * Share of a product photograph kept when no patch of material can be found in
+ * it: a square from the middle, which is where photographers put the material.
  */
 const PHOTO_CROP = 0.62;
+
+/** Share of a photographed patch cross-faded so its edges meet. */
+const SEAM_BAND = 0.16;
+
+/** Evening the light keeps what survives shrinking the patch to this size. */
+const LIGHT_PROBE_PX = 12;
 
 /** Physical size the natural layout assumes one repeat of the texture covers. */
 const NATURAL_REPEAT_M: Record<MaterialKind, number> = {
@@ -204,33 +208,118 @@ function preparedSource(
 
   if (cached) return cached;
 
-  const side = Math.min(width, height);
-  const cropW = isSeamless ? width : Math.round(side * PHOTO_CROP);
-  const cropH = isSeamless ? height : Math.round(side * PHOTO_CROP);
-
-  const crop = document.createElement("canvas");
-  crop.width = cropW;
-  crop.height = cropH;
-  crop
-    .getContext("2d")
-    ?.drawImage(
-      texture,
-      Math.round((width - cropW) / 2),
-      Math.round((height - cropH) / 2),
-      cropW,
-      cropH,
-      0,
-      0,
-      cropW,
-      cropH,
-    );
-
+  const crop = isSeamless ? cropTo(texture, 0, 0, width, height) : materialFromPhoto(texture);
   const result = alignGrain && grainRunsDown(crop) ? rotateQuarter(crop) : crop;
 
   byTexture.set(cacheKey, result);
   sourceCache.set(texture as object, byTexture);
 
   return result;
+}
+
+function cropTo(
+  texture: CanvasImageSource,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  const crop = document.createElement("canvas");
+  crop.width = Math.max(1, Math.round(width));
+  crop.height = Math.max(1, Math.round(height));
+  crop
+    .getContext("2d")
+    ?.drawImage(
+      texture,
+      Math.round(x),
+      Math.round(y),
+      crop.width,
+      crop.height,
+      0,
+      0,
+      crop.width,
+      crop.height,
+    );
+
+  return crop;
+}
+
+/**
+ * A product photograph, made fit to repeat: the largest clean rectangle of the
+ * material in it, lit evenly and cross-faded at its edges, so neither the
+ * backdrop, a prop nor a seam is repeated across the room.
+ *
+ * Damage limitation, as with any photograph, and it falls back to the middle of
+ * the frame when it finds nothing better — a dedicated texture uploaded against
+ * the product always looks better.
+ */
+function materialFromPhoto(texture: CanvasImageSource): HTMLCanvasElement {
+  const { width, height } = sizeOf(texture);
+  const side = Math.min(width, height) * PHOTO_CROP;
+  const patch = locatePatch(texture, width, height) ?? {
+    x: (1 - side / width) / 2,
+    y: (1 - side / height) / 2,
+    width: side / width,
+    height: side / height,
+  };
+  const crop = cropTo(
+    texture,
+    patch.x * width,
+    patch.y * height,
+    patch.width * width,
+    patch.height * height,
+  );
+
+  return settled(crop) ?? crop;
+}
+
+function locatePatch(texture: CanvasImageSource, width: number, height: number): Patch | null {
+  const scale = PATCH_PROBE_SIDE / Math.max(width, height);
+  const probe = readable(texture, Math.round(width * scale), Math.round(height * scale));
+
+  return probe ? findMaterialPatch(probe) : null;
+}
+
+/** Evened out and seamless, or null when the crop cannot be read back. */
+function settled(crop: HTMLCanvasElement): HTMLCanvasElement | null {
+  const image = readable(crop, crop.width, crop.height);
+  const light = readable(blurred(crop), crop.width, crop.height);
+
+  if (!image || !light) return null;
+
+  const { data, width, height } = makeSeamless(evenLighting(image, light), SEAM_BAND);
+  const result = document.createElement("canvas");
+  result.width = width;
+  result.height = height;
+  result
+    .getContext("2d")
+    ?.putImageData(new ImageData(new Uint8ClampedArray(data), width, height), 0, 0);
+
+  return result;
+}
+
+/** The crop's slow changes in brightness: shrunk past its grain, then scaled up. */
+function blurred(source: HTMLCanvasElement): HTMLCanvasElement {
+  return scaled(scaled(source, LIGHT_PROBE_PX, LIGHT_PROBE_PX), source.width, source.height);
+}
+
+function readable(source: CanvasImageSource, width: number, height: number): Pixels | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width);
+  canvas.height = Math.max(1, height);
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!context) return null;
+
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+  try {
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+  } catch {
+    return null;
+  }
 }
 
 /**

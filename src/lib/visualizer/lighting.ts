@@ -30,8 +30,21 @@ export type LightingMaps = { shading: HTMLCanvasElement; highlights: HTMLCanvasE
 /** Working resolution: shadows are soft enough that this loses nothing visible. */
 const MAX_SIDE = 1600;
 
-/** Blur radius as a share of the longer side — enough to remove a board's grain. */
-const BLUR_SHARE = 0.0025;
+/**
+ * Blur radius as a share of the longer side: enough to remove not just a
+ * board's grain but the pattern of a parquet or a tiled floor, which would
+ * otherwise ghost through the new one. Shadows are soft enough not to mind.
+ */
+const BLUR_SHARE = 0.006;
+
+/**
+ * How much of the darkness below the floor's average is kept.
+ *
+ * A polished floor mirrors whatever stands on it, and a mirror image measures
+ * exactly like a shadow. Keeping most of the depth holds on to the shadows that
+ * ground the furniture, without printing dark columns across a matt floor.
+ */
+const SHADOW_DEPTH = 0.68;
 
 /** How far above the floor's average a pixel must be to count as a highlight. */
 const HIGHLIGHT_START = 1.2;
@@ -127,7 +140,7 @@ function compute(
 
   for (let index = 0; index < count; index++) {
     const ratio = blurred[index] / mean;
-    const shade = Math.round(Math.min(1, ratio) * 255);
+    const shade = Math.round((1 - (1 - Math.min(1, ratio)) * SHADOW_DEPTH) * 255);
     const glint = Math.round(
       Math.min(1, Math.max(0, (ratio - HIGHLIGHT_START) / HIGHLIGHT_RANGE)) * 255,
     );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, Loader2, Maximize2, Minus, Plus } from "lucide-react";
+import { Loader2, Maximize2, Minus, Plus } from "lucide-react";
 import { beforeAfterImage } from "@/lib/visualizer/compose";
 import { canvasToBlob, getTexture, loadImage } from "@/lib/visualizer/images";
 import {
@@ -30,6 +30,8 @@ const MAX_ZOOM = 5;
 const OVERLAY_MAX_WIDTH = 1024;
 /** A tap moves less than this (in CSS pixels) between down and up. */
 const TAP_SLOP = 6;
+/** How long one floor takes to dissolve into the next, in milliseconds. */
+const FADE_MS = 260;
 
 export type CompareMode = "wipe" | "split" | "products";
 export type StageTool = "view" | "corners" | "brush" | "polygon" | "smart";
@@ -52,6 +54,9 @@ export type RoomStageHandle = {
   /** The original and the visualised room in one labelled image. */
   beforeAfter: (title: string, subtitle?: string | null) => Promise<Blob | null>;
 };
+
+/** A material whose image has arrived: the two are only ever swapped together. */
+type LoadedTexture = { material: StageMaterial; image: HTMLImageElement };
 
 type View = { scale: number; x: number; y: number };
 const IDENTITY: View = { scale: 1, x: 0, y: 0 };
@@ -83,6 +88,7 @@ export function RoomStage({
   onReady,
   onPhotoLoaded,
   onRendered,
+  onTextureFailed,
   detection,
   onSmartTap,
   smartBusyAt,
@@ -111,8 +117,10 @@ export function RoomStage({
   onPhotoLoaded?: (size: { width: number; height: number }) => void;
   /** Automatic floor detection, for the loading overlay. */
   detection?: DetectionState;
-  /** Called after a render that included a material. */
+  /** Called after a render that showed the chosen material. */
   onRendered?: () => void;
+  /** A material's image could not be loaded; the floor before it stays on show. */
+  onTextureFailed?: (src: string) => void;
   className?: string;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -120,9 +128,12 @@ export function RoomStage({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const compareCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const fadeRef = useRef<HTMLCanvasElement>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
-  const textureRef = useRef<HTMLImageElement | null>(null);
-  const compareTextureRef = useRef<HTMLImageElement | null>(null);
+  const textureRef = useRef<LoadedTexture | null>(null);
+  const compareTextureRef = useRef<LoadedTexture | null>(null);
+  /** What the main canvas last showed, to tell when the floor has changed. */
+  const shownRef = useRef<string | null>(null);
 
   // Keyed by source so a new photo resets the status during render rather
   // than in an effect, which would paint the old room's state once more.
@@ -140,15 +151,33 @@ export function RoomStage({
   const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
   const [stroke, setStroke] = useState<Point[] | null>(null);
   const [pointer, setPointer] = useState<Point | null>(null);
+  const [aspect, setAspect] = useState(1.6);
+  // The room this visitor would rather mark by hand than wait for.
+  const [skippedFor, setSkippedFor] = useState<string | null>(null);
 
   // --- Rendering -------------------------------------------------------------
 
   // What the next frame should draw. Updated after each commit, read by the
   // frame callback, so a burst of changes renders once with the newest values.
-  const latest = useRef({ quad, placement, mask, material, compareMaterial, mode, onRendered });
+  const latest = useRef({
+    quad,
+    placement,
+    mask,
+    material,
+    awaitingFloor: false,
+    mode,
+    onRendered,
+  });
+
+  // Until the floor is known there is only a guessed trapezoid to lay material
+  // on, and a patch in the middle of a room reads as a broken render. The room
+  // stays on show; the floor arrives when it is found, or when the visitor
+  // chooses to mark it themselves.
+  const isFindingFloor = detection?.status === "running" || detection?.status === "loading";
+  const awaitingFloor = !mask && isFindingFloor && skippedFor !== photoSrc && tool !== "corners";
 
   useLayoutEffect(() => {
-    latest.current = { quad, placement, mask, material, compareMaterial, mode, onRendered };
+    latest.current = { quad, placement, mask, material, awaitingFloor, mode, onRendered };
   });
 
   const draw = useCallback(() => {
@@ -156,21 +185,18 @@ export function RoomStage({
     if (!photo) return;
 
     const current = latest.current;
-    const layer = (
-      texture: HTMLImageElement | null,
-      stageMaterial: StageMaterial | null,
-    ): SurfaceLayer[] =>
-      stageMaterial
+    const layer = (loaded: LoadedTexture | null): SurfaceLayer[] =>
+      loaded && !current.awaitingFloor
         ? [
             {
               kind: "floor",
-              texture,
-              textureKey: stageMaterial.textureSrc,
+              texture: loaded.image,
+              textureKey: loaded.material.textureSrc,
               quad: current.quad,
               placement: current.placement,
-              materialKind: stageMaterial.kind,
-              isSeamless: stageMaterial.isSeamless,
-              textureSizeM: stageMaterial.textureSizeM,
+              materialKind: loaded.material.kind,
+              isSeamless: loaded.material.isSeamless,
+              textureSizeM: loaded.material.textureSizeM,
               mask: current.mask,
             },
           ]
@@ -182,21 +208,33 @@ export function RoomStage({
       photoHeight: photo.naturalHeight,
     };
 
+    const loaded = textureRef.current;
+    const shown = current.awaitingFloor ? "" : (loaded?.material.textureSrc ?? "");
+
+    if (shownRef.current !== shown) {
+      if (shownRef.current !== null && canvasRef.current && fadeRef.current) {
+        fadeFrom(canvasRef.current, fadeRef.current);
+      }
+      shownRef.current = shown;
+    }
+
     if (canvasRef.current) {
       renderRoom(canvasRef.current, {
         ...options,
-        surfaces: layer(textureRef.current, current.material),
+        surfaces: layer(loaded),
       });
     }
 
     if (current.mode === "products" && compareCanvasRef.current) {
       renderRoom(compareCanvasRef.current, {
         ...options,
-        surfaces: layer(compareTextureRef.current, current.compareMaterial),
+        surfaces: layer(compareTextureRef.current),
       });
     }
 
-    if (textureRef.current && current.material) current.onRendered?.();
+    if (loaded && loaded.material.textureSrc === current.material?.textureSrc) {
+      current.onRendered?.();
+    }
   }, []);
 
   const frameRef = useRef(0);
@@ -215,6 +253,8 @@ export function RoomStage({
       .then((image) => {
         if (cancelled) return;
         photoRef.current = image;
+        shownRef.current = null;
+        setAspect(image.naturalWidth / image.naturalHeight);
         setStatus({ src: photoSrc, state: "ready" });
         onPhotoLoaded?.({ width: image.naturalWidth, height: image.naturalHeight });
         scheduleDraw();
@@ -231,19 +271,14 @@ export function RoomStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoSrc, scheduleDraw]);
 
-  const textureStatus = useTexture(material?.textureSrc ?? null, textureRef, scheduleDraw);
-  useTexture(compareMaterial?.textureSrc ?? null, compareTextureRef, scheduleDraw);
-
-  // The overlay can be waved away for this room; detection carries on.
-  const [overlayDismissedFor, setOverlayDismissedFor] = useState<string | null>(null);
-  const loading = loadingSteps(status.state, textureStatus, detection);
-  const showOverlay = loading !== null && overlayDismissedFor !== photoSrc;
+  const textureStatus = useTexture(material, textureRef, scheduleDraw, onTextureFailed);
+  useTexture(compareMaterial, compareTextureRef, scheduleDraw, onTextureFailed);
 
   // Redraw when anything that shapes the picture changes. The mode is included
   // because switching layout mounts fresh canvases.
   useEffect(() => {
     scheduleDraw();
-  }, [scheduleDraw, quad, placement, mask, material, compareMaterial, mode]);
+  }, [scheduleDraw, quad, placement, mask, material, compareMaterial, mode, awaitingFloor]);
 
   useEffect(() => {
     onReady?.({
@@ -545,20 +580,21 @@ export function RoomStage({
     <img src={photoSrc} alt="" className="block w-full select-none" draggable={false} />
   );
 
+  const stageStatus = statusLine(detection, isFindingFloor, textureStatus === "loading", material);
+
   const overlays = (
     <>
-      {showOverlay && loading && (
-        <LoadingOverlay
-          loading={loading}
-          canDismiss={status.state === "ready"}
-          onDismiss={() => setOverlayDismissedFor(photoSrc)}
+      {status.state !== "error" && stageStatus && (
+        <StatusChip
+          label={stageStatus}
+          // Only the wait for detection can be skipped: the room and tools are
+          // already here, and the floor can be marked by hand.
+          onSkip={
+            awaitingFloor && detection?.status === "running"
+              ? () => setSkippedFor(photoSrc)
+              : undefined
+          }
         />
-      )}
-      {!showOverlay && loading?.detecting && (
-        <DetectionChip label={detectionLabel(loading.detecting)} />
-      )}
-      {detection?.status === "done" && detection.refining && (
-        <DetectionChip label="Sharpening the floor's edges" />
       )}
       {status.state === "error" && (
         <div className="absolute inset-0 grid place-items-center bg-background/90 p-6 text-center">
@@ -642,14 +678,19 @@ export function RoomStage({
   const handleScale = 1 / view.scale;
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2", className)}>
       <div
         ref={viewportRef}
-        className="relative select-none overflow-hidden rounded-lg bg-muted"
-        style={{
-          touchAction: isPainting || view.scale > 1 || draggingCorner !== null ? "none" : "pan-y",
-          cursor: isPainting ? "crosshair" : view.scale > 1 ? "grab" : undefined,
-        }}
+        // On a phone the room stays in view above the floors, so it may only
+        // take so much of the screen; a tall photograph is narrowed to fit.
+        className="relative mx-auto select-none overflow-hidden rounded-lg bg-muted max-lg:max-w-[calc(46dvh*var(--stage-aspect))]"
+        style={
+          {
+            "--stage-aspect": aspect,
+            touchAction: isPainting || view.scale > 1 || draggingCorner !== null ? "none" : "pan-y",
+            cursor: isPainting ? "crosshair" : view.scale > 1 ? "grab" : undefined,
+          } as React.CSSProperties
+        }
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -667,6 +708,13 @@ export function RoomStage({
             ref={canvasRef}
             aria-label="Your room with the selected floor applied"
             className="absolute inset-0 h-full w-full"
+            style={{ clipPath: `inset(0 ${100 - wipe}% 0 0)` }}
+          />
+
+          <canvas
+            ref={fadeRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
             style={{ clipPath: `inset(0 ${100 - wipe}% 0 0)` }}
           />
 
@@ -710,15 +758,15 @@ export function RoomStage({
 
           {tool === "polygon" && polygonDraft.length > 0 && (
             <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
-              <polyline
-                points={polygonDraft
-                  .map((point) => `${point.x * 100}%,${point.y * 100}%`)
-                  .join(" ")}
-                fill="none"
-                className="stroke-gold"
-                strokeWidth={2}
-                vectorEffect="non-scaling-stroke"
-              />
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
+                <polyline
+                  points={polygonDraft.map((point) => svgPoint(point)).join(" ")}
+                  fill="none"
+                  className="stroke-gold"
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
               {polygonDraft.map((point, index) => (
                 <circle
                   key={index}
@@ -732,9 +780,14 @@ export function RoomStage({
           )}
 
           {tool === "corners" && (
-            <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden
+            >
               <polygon
-                points={quad.map((point) => `${point.x * 100}%,${point.y * 100}%`).join(" ")}
+                points={quad.map((point) => svgPoint(point)).join(" ")}
                 className="fill-gold/10 stroke-gold"
                 strokeWidth={2}
                 strokeDasharray="6 4"
@@ -792,6 +845,13 @@ export function RoomStage({
             ))}
 
           {tool === "view" && wipe < 100 && wipe > 0 && (
+            <>
+              <WipeLabel side="left">After</WipeLabel>
+              <WipeLabel side="right">Before</WipeLabel>
+            </>
+          )}
+
+          {tool === "view" && wipe < 100 && wipe > 0 && (
             <WipeDivider
               position={wipe}
               scale={handleScale}
@@ -828,6 +888,12 @@ export function RoomStage({
           )}
         </div>
 
+        {material && tool === "view" && (
+          <p className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-9rem)] truncate rounded bg-charcoal-dark/80 px-2 py-1 text-[11px] font-semibold text-primary-foreground">
+            {material.label}
+          </p>
+        )}
+
         {overlays}
       </div>
 
@@ -853,6 +919,21 @@ export function RoomStage({
         </span>
       </div>
     </div>
+  );
+}
+
+/** Which side of the line is which: the photograph alone does not say. */
+function WipeLabel({ side, children }: { side: "left" | "right"; children: React.ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute top-2 rounded bg-charcoal-dark/80 px-2 py-1 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground",
+        side === "left" ? "left-2" : "right-2",
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -914,15 +995,43 @@ function ZoomButton({
   );
 }
 
-/** Load a texture into a ref and redraw when it lands; the newest request wins. */
+/**
+ * Hold the outgoing picture over the new one and dissolve it away, so a change
+ * of floor reads as the floor changing rather than as a flicker.
+ */
+function fadeFrom(canvas: HTMLCanvasElement, fade: HTMLCanvasElement): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  fade.width = canvas.width;
+  fade.height = canvas.height;
+  fade.getContext("2d")?.drawImage(canvas, 0, 0);
+  fade.animate({ opacity: [1, 0] }, { duration: FADE_MS, easing: "ease-out" });
+}
+
+/**
+ * Load a material's image and hand it over with the material it belongs to; the
+ * newest request wins.
+ *
+ * The two travel together because the renderer caches its baked tiles by
+ * material. While a new image loads the previous pair stays on show: pairing the
+ * old image with the new material would bake the old floor under the new
+ * floor's name, and it would then stay on screen after the real image landed.
+ */
 function useTexture(
-  src: string | null,
-  ref: React.RefObject<HTMLImageElement | null>,
+  material: StageMaterial | null,
+  ref: React.RefObject<LoadedTexture | null>,
   onLoaded: () => void,
+  onFailed?: (src: string) => void,
 ): "none" | "loading" | "ready" {
+  const src = material?.textureSrc ?? null;
   // The source whose load has settled, so "loading" is derived rather than set
   // synchronously in the effect.
   const [settled, setSettled] = useState<string | null>(null);
+  const latestMaterial = useRef(material);
+
+  useLayoutEffect(() => {
+    latestMaterial.current = material;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -935,45 +1044,38 @@ function useTexture(
 
     getTexture(src)
       .then((image) => {
-        if (cancelled) return;
-        ref.current = image;
+        if (cancelled || !latestMaterial.current) return;
+        ref.current = { material: latestMaterial.current, image };
         setSettled(src);
         onLoaded();
       })
       .catch(() => {
         if (cancelled) return;
-        ref.current = null;
         setSettled(src);
-        onLoaded();
+        onFailed?.(src);
       });
 
     return () => {
       cancelled = true;
     };
+    // `onFailed` is a notification; a new one must not reload the image.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, ref, onLoaded]);
 
   return src === null ? "none" : settled === src ? "ready" : "loading";
 }
 
-type LoadingSteps = {
-  photo: "loading" | "ready";
-  material: "none" | "loading" | "ready";
-  /** Null once detection has finished, or given up. */
-  detecting: Extract<DetectionState, { status: "running" }> | null;
-};
-
-function loadingSteps(
-  photo: "loading" | "ready" | "error",
-  material: "none" | "loading" | "ready",
+/** What the stage is waiting for, in a line, or null when it is waiting for nothing. */
+function statusLine(
   detection: DetectionState | undefined,
-): LoadingSteps | null {
-  if (photo === "error") return null;
-
-  const detecting = detection?.status === "running" ? detection : null;
-
-  if (photo === "ready" && material !== "loading" && !detecting) return null;
-
-  return { photo, material, detecting };
+  isFindingFloor: boolean,
+  isLoadingTexture: boolean,
+  material: StageMaterial | null,
+): string | null {
+  if (detection?.status === "running") return detectionLabel(detection);
+  if (detection?.status === "done" && detection.refining) return "Sharpening the floor's edges";
+  if (isLoadingTexture && !isFindingFloor) return `Laying ${material?.label ?? "your floor"}`;
+  return null;
 }
 
 function detectionLabel(detection: Extract<DetectionState, { status: "running" }>): string {
@@ -981,128 +1083,43 @@ function detectionLabel(detection: Extract<DetectionState, { status: "running" }
 
   if (progress.stage === "downloading") {
     return progress.percent
-      ? `Downloading floor detection · ${progress.percent}%`
-      : "Downloading floor detection";
+      ? `Getting floor detection ready · ${progress.percent}%`
+      : "Getting floor detection ready";
   }
 
-  return progress.stage === "preparing"
-    ? "Starting floor detection"
-    : "Finding the floor in your photo";
+  return progress.stage === "preparing" ? "Starting floor detection" : "Finding your floor";
 }
 
-/**
- * What is still loading, step by step, over the stage.
- *
- * Detection is the slow part on a first visit — a one-time download, then
- * analysis in a background worker — so the visitor can wave this away and work
- * with the floor area by hand while it finishes.
- */
-function LoadingOverlay({
-  loading,
-  canDismiss,
-  onDismiss,
-}: {
-  loading: LoadingSteps;
-  canDismiss: boolean;
-  onDismiss: () => void;
-}) {
-  const detecting = loading.detecting;
-  const percent =
-    detecting?.progress.stage === "downloading" ? (detecting.progress.percent ?? 0) : null;
-
+/** Work in progress, in a corner of the room: it never stands in the way of it. */
+function StatusChip({ label, onSkip }: { label: string; onSkip?: () => void }) {
   return (
     <div
-      className="absolute inset-0 z-20 grid place-items-center bg-background/80 p-2 sm:p-4"
+      className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-full bg-charcoal-dark/85 py-1.5 pl-3 pr-3 text-xs text-primary-foreground"
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div
-        role="status"
-        aria-live="polite"
-        className="w-full max-w-xs rounded-lg border border-border bg-background p-3 shadow-luxe sm:p-4"
-      >
-        <p className="font-display text-sm font-semibold">
-          {loading.photo === "loading" ? "Opening your room…" : "Preparing your room…"}
-        </p>
-
-        <ul className="mt-2 space-y-1.5 text-sm sm:mt-3 sm:space-y-2">
-          <LoadingStep done={loading.photo === "ready"}>Room photo</LoadingStep>
-          {loading.material !== "none" && (
-            <LoadingStep done={loading.material === "ready"}>Floor material</LoadingStep>
-          )}
-          <LoadingStep done={!detecting}>
-            {detecting ? detectionLabel(detecting) : "Floor detected"}
-          </LoadingStep>
-        </ul>
-
-        {percent !== null && (
-          <div
-            className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-label="Floor detection download"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-          >
-            <div
-              className="h-full bg-gold transition-[width] motion-reduce:transition-none"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        )}
-
-        {detecting && (
-          <p className="mt-3 hidden text-[11px] leading-snug text-muted-foreground sm:block">
-            {detecting.progress.stage === "analysing"
-              ? "Keeping furniture out of the floor. This takes a few seconds."
-              : "A one-time download on your first visit; it is remembered after that."}
-          </p>
-        )}
-
-        {canDismiss && detecting && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="mt-2 text-xs font-semibold underline underline-offset-2 hover:text-gold sm:mt-3"
-          >
-            Continue without waiting
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LoadingStep({ done, children }: { done: boolean; children: React.ReactNode }) {
-  return (
-    <li className="flex items-center gap-2">
-      {done ? (
-        <Check className="h-4 w-4 shrink-0 text-gold" aria-hidden />
-      ) : (
+      <span role="status" aria-live="polite" className="flex min-w-0 items-center gap-2">
         <Loader2
-          className="h-4 w-4 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+          className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none"
           aria-hidden
         />
+        <span className="truncate">{label}</span>
+      </span>
+      {onSkip && (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="shrink-0 font-semibold underline underline-offset-2 hover:text-gold-light"
+        >
+          Mark it by hand
+        </button>
       )}
-      <span className={done ? "text-muted-foreground" : undefined}>{children}</span>
-    </li>
+    </div>
   );
 }
 
-/**
- * Detection still at work without blocking the room: running after the overlay
- * was dismissed, or refining a floor that is already on screen.
- */
-function DetectionChip({ label }: { label: string }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 rounded-full bg-charcoal-dark/85 px-3 py-1.5 text-xs text-primary-foreground"
-    >
-      <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
-      {label}
-    </div>
-  );
+/** A photo position in a 100-unit SVG box; `points` takes no percentages. */
+function svgPoint(point: Point): string {
+  return `${point.x * 100},${point.y * 100}`;
 }
 
 function clamp(value: number, min: number, max: number): number {

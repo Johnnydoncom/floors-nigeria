@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DetectionProgress, DetectionQuality } from "@/lib/visualizer/detect-floor";
-import type { Quad } from "@/lib/visualizer/types";
+import { loadImage } from "@/lib/visualizer/images";
+import type { FloorPreset, Quad } from "@/lib/visualizer/types";
 
 export type DetectionState =
+  /** Reading a floor found ahead of time: a moment, with nothing to report. */
+  | { status: "loading" }
   | { status: "running"; progress: DetectionProgress }
   /** `refining` while the precise model sharpens a floor already on screen. */
   | { status: "done"; refining: boolean }
@@ -14,13 +17,14 @@ export type DetectionState =
 const PROGRESS_INTERVAL_MS = 250;
 
 const STARTING: DetectionState = { status: "running", progress: { stage: "downloading" } };
+const LOADING: DetectionState = { status: "loading" };
 
 /**
- * Runs automatic floor detection for the current room.
+ * Finds the floor of the current room.
  *
- * The model loads only when this runs, and the room is already on screen with
- * a default floor area by then — detection refines what the visitor can see
- * rather than holding up the first render.
+ * A sample room's floor was found ahead of time, so it is read from a small
+ * mask and no model is involved. For a room of the visitor's own the model
+ * loads only when this runs, and the room is already on screen by then.
  *
  * Two passes. The fast model puts a floor on screen within seconds; where the
  * visit can afford it, the precise model then runs in the background and its
@@ -29,13 +33,16 @@ const STARTING: DetectionState = { status: "running", progress: { stage: "downlo
  */
 export function useFloorDetection({
   photoSrc,
+  preset,
   onDetected,
 }: {
   photoSrc: string;
+  /** The room's floor, when it is already known. */
+  preset?: FloorPreset;
   /** Must be stable, or detection will restart on every render. */
   onDetected: (quad: Quad, mask: CanvasImageSource, pass: DetectionQuality) => void;
 }) {
-  const [state, setState] = useState<DetectionState>(STARTING);
+  const [state, setState] = useState<DetectionState>(preset ? LOADING : STARTING);
 
   // Reset for a new room during render rather than in an effect, so the
   // previous room's result never flashes against the new photograph.
@@ -43,7 +50,7 @@ export function useFloorDetection({
 
   if (lastSrc !== photoSrc) {
     setLastSrc(photoSrc);
-    setState(STARTING);
+    setState(preset ? LOADING : STARTING);
   }
 
   // Detection is slow enough that a room can change mid-run; only the newest
@@ -63,6 +70,22 @@ export function useFloorDetection({
 
       const run = ++runRef.current;
       const isCurrent = () => run === runRef.current && isWanted();
+
+      if (preset) {
+        try {
+          const image = await loadImage(preset.mask);
+
+          if (!isCurrent()) return;
+
+          onDetected(preset.quad, imageCanvas(image), "fast");
+          setState({ status: "done", refining: false });
+          return;
+        } catch {
+          // The mask could not be fetched. The model can still find the floor.
+          if (!isCurrent()) return;
+          setState(STARTING);
+        }
+      }
 
       try {
         const { canAffordPreciseDetection, detectFloor } =
@@ -121,13 +144,13 @@ export function useFloorDetection({
         if (isCurrent()) setState({ status: "unavailable" });
       }
     },
-    [photoSrc, onDetected],
+    [photoSrc, preset, onDetected],
   );
 
   const retry = useCallback(() => {
-    setState(STARTING);
+    setState(preset ? LOADING : STARTING);
     void detect();
-  }, [detect]);
+  }, [detect, preset]);
 
   // Detect whenever the room changes, so the common path needs no button.
   useEffect(() => {
@@ -143,6 +166,15 @@ export function useFloorDetection({
     const start = () => {
       if (wanted) void detect(() => wanted);
     };
+
+    // A known floor is only a small image, and the room should open with it.
+    if (preset) {
+      start();
+      return () => {
+        wanted = false;
+      };
+    }
+
     const idle = typeof window.requestIdleCallback === "function";
     const handle = idle
       ? window.requestIdleCallback(start, { timeout: 1500 })
@@ -153,9 +185,17 @@ export function useFloorDetection({
       if (idle) window.cancelIdleCallback(handle);
       else window.clearTimeout(handle);
     };
-  }, [detect]);
+  }, [detect, preset]);
 
   return { state, retry };
+}
+
+function imageCanvas(image: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  canvas.getContext("2d")?.drawImage(image, 0, 0);
+  return canvas;
 }
 
 function maskCanvas(mask: ImageData): HTMLCanvasElement {

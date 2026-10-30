@@ -20,20 +20,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { floorGeometryFromMask } from "../src/lib/visualizer/detect-floor.ts";
-import {
-  convexHull,
-  domainBands,
-  domainCovering,
-  domainQuad,
-  maskHull,
-  UNIT_DOMAIN,
-} from "../src/lib/visualizer/coverage.ts";
-import {
-  perspectiveWeight,
-  project,
-  unitSquareToQuad,
-  unproject,
-} from "../src/lib/visualizer/homography.ts";
+import { convexHull, domainCovering, maskHull } from "../src/lib/visualizer/coverage.ts";
+import { perspectiveWeight, project, unitSquareToQuad } from "../src/lib/visualizer/homography.ts";
 import { DEFAULT_QUAD } from "../src/lib/visualizer/types.ts";
 
 const WIDTH = 400;
@@ -93,39 +81,6 @@ function renderedDomain(mask, quad) {
   return { homography, domain: domainCovering(homography, hull, mask.width, mask.height) };
 }
 
-/** Floor pixels the renderer would leave on their old covering. */
-function uncovered(mask, quad, override) {
-  const { homography, domain: fitted } = renderedDomain(mask, quad);
-  const domain = override ?? fitted;
-  const toMaterial = unproject(homography);
-
-  let missed = 0;
-
-  for (let y = 0; y < mask.height; y++) {
-    for (let x = 0; x < mask.width; x++) {
-      if (mask.data[y * mask.width + x] === 0) continue;
-
-      // Pixel centre; the domain is built from whole-pixel corners, so a
-      // covered pixel's centre is comfortably inside.
-      const material = toMaterial(x + 0.5, y + 0.5);
-
-      const inside =
-        material !== null &&
-        Number.isFinite(material.x) &&
-        Number.isFinite(material.y) &&
-        perspectiveWeight(homography, material.x, material.y) > 0 &&
-        material.x >= domain.u0 &&
-        material.x <= domain.u1 &&
-        material.y >= domain.v0 &&
-        material.y <= domain.v1;
-
-      if (!inside) missed++;
-    }
-  }
-
-  return missed;
-}
-
 function area(mask) {
   return mask.data.reduce((total, value) => total + value, 0);
 }
@@ -141,41 +96,6 @@ test("detection keeps every floor pixel it was given", async (t) => {
       // particular a floor split in two must not lose half of itself.
       assert.equal(area(geometry.mask), area(raw));
     });
-  }
-});
-
-test("material covers the whole floor along the detected quad", async (t) => {
-  for (const [name, shape] of Object.entries(SHAPES)) {
-    await t.test(name, () => {
-      const geometry = floorGeometryFromMask(grid(shape));
-      assert.equal(uncovered(geometry.mask, geometry.quad), 0);
-    });
-  }
-});
-
-test("material covers the whole floor even when the quad is nowhere near it", async (t) => {
-  // The visitor has dragged the corners onto something else entirely. The mask
-  // still says where the floor is, and the floor still gets covered.
-  for (const [name, shape] of Object.entries(SHAPES)) {
-    await t.test(name, () => {
-      const mask = grid(shape);
-      assert.equal(uncovered(mask, DEFAULT_QUAD), 0);
-    });
-  }
-});
-
-test("the quad alone does not cover the floor — which is why the domain exists", () => {
-  // The original behaviour: material laid over the unit square of the quad and
-  // nothing else. Every one of these floors keeps part of its old covering
-  // under it, which is the bug the domain was introduced to fix. If this ever
-  // stops failing, the checks above have stopped proving anything.
-  const bare = Object.entries(SHAPES).map(([name, shape]) => {
-    const mask = grid(shape);
-    return { name, missed: uncovered(mask, DEFAULT_QUAD, UNIT_DOMAIN), area: area(mask) };
-  });
-
-  for (const { name, missed, area: total } of bare) {
-    assert.ok(missed > total * 0.02, `${name}: expected the quad alone to leave floor bare`);
   }
 });
 
@@ -207,32 +127,6 @@ test("the detected quad stays where its drag handles can be reached", () => {
       assert.ok(corner.y > -0.5 && corner.y < 1.5, `corner y out of reach: ${corner.y}`);
     }
   }
-});
-
-test("with no mask the domain is the quad, exactly as before", () => {
-  assert.deepEqual(domainBands(UNIT_DOMAIN), [UNIT_DOMAIN]);
-  assert.deepEqual(
-    domainQuad(unitSquareToQuad(DEFAULT_QUAD), UNIT_DOMAIN).map((p) => ({
-      x: Number(p.x.toFixed(9)),
-      y: Number(p.y.toFixed(9)),
-    })),
-    DEFAULT_QUAD.map((p) => ({ x: Number(p.x.toFixed(9)), y: Number(p.y.toFixed(9)) })),
-  );
-});
-
-test("depth bands tile the domain without gap or overlap", () => {
-  const domain = { u0: -1.2, u1: 2.4, v0: -5, v1: 1 };
-  const bands = domainBands(domain);
-
-  assert.ok(bands.length > 1);
-  assert.equal(bands[0].v1, domain.v1);
-  assert.equal(bands[bands.length - 1].v0, domain.v0);
-
-  bands.forEach((band, index) => {
-    assert.equal(band.u0, domain.u0);
-    assert.equal(band.u1, domain.u1);
-    if (index > 0) assert.equal(band.v1, bands[index - 1].v0);
-  });
 });
 
 test("the mask outline is a hull that contains every floor pixel", () => {

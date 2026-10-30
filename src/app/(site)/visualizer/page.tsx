@@ -4,7 +4,9 @@ import { Camera, Layers, ScanLine } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
 import { getFilterOptions, getProducts } from "@/lib/api/catalog";
 import type { FilterOptions } from "@/lib/api/types";
-import { toTextureChoices } from "@/lib/room/materials";
+import { floorChoices, isFloorCategory } from "@/lib/room/materials";
+import sampleFloors from "@/lib/visualizer/sample-floors.json";
+import type { FloorPreset } from "@/lib/visualizer/types";
 import { VisualizerStudio, type SampleRoom } from "@/components/visualizer/VisualizerStudio";
 import type { VisualizerFilters } from "@/components/visualizer/MaterialBrowser";
 
@@ -15,13 +17,19 @@ export const metadata: Metadata = pageMetadata({
   path: "/visualizer",
 });
 
-/** Rooms to try when a visitor has not photographed their own yet. */
+/**
+ * Rooms to try when a visitor has not photographed their own yet. Their floors
+ * were found ahead of time, so these open with no model to download.
+ */
 const SAMPLE_ROOMS: SampleRoom[] = [
   { src: "/images/hero-living.jpg", label: "Living room" },
   { src: "/images/project-residence.jpg", label: "Residence" },
   { src: "/images/project-office.jpg", label: "Office" },
   { src: "/images/project-hotel.jpg", label: "Hotel lobby" },
-];
+].map((room) => ({
+  ...room,
+  floor: (sampleFloors as unknown as Record<string, FloorPreset>)[room.src],
+}));
 
 /** Materials shipped with the page, for an instant first screen. */
 const MATERIAL_LIMIT = 24;
@@ -38,7 +46,7 @@ export default async function VisualizerPage() {
     getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" }),
     getFilterOptions(),
   ]);
-  const materials = products.flatMap(toTextureChoices);
+  const materials = floorChoices(products);
 
   return (
     <>
@@ -88,7 +96,9 @@ function visualizerFilters(options: FilterOptions): VisualizerFilters {
     options.attributes.find((attribute) => /colou?r/i.test(attribute.slug));
 
   return {
-    categories: options.categories.map(({ slug, name }) => ({ slug, name })),
+    categories: options.categories
+      .filter(({ name }) => isFloorCategory(name))
+      .map(({ slug, name }) => ({ slug, name })),
     brands: options.brands,
     colour: colour
       ? {

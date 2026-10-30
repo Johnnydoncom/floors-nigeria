@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 import { Box, Camera, PencilRuler } from "lucide-react";
 import { getProducts } from "@/lib/api/catalog";
-import { toTextureChoices } from "@/lib/room/materials";
+import { floorChoices } from "@/lib/room/materials";
 import { RoomDesigner } from "@/components/designer/RoomDesigner";
 
 export const metadata: Metadata = pageMetadata({
@@ -26,7 +26,7 @@ export default async function RoomDesignerPage() {
   const { data: products } = await getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" });
   // Rugs and mats are placed on a floor, not laid wall to wall, so they have no
   // place in a room being measured for flooring.
-  const materials = products.flatMap(toTextureChoices).filter((choice) => choice.kind !== "rug");
+  const materials = floorChoices(products).filter((choice) => choice.kind !== "rug");
 
   return (
     <>

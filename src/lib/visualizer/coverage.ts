@@ -2,25 +2,17 @@ import { perspectiveWeight, project, unproject, type Homography } from "./homogr
 import type { Point, Quad } from "./types";
 
 /**
- * Making the material reach every floor pixel.
+ * Stretching the displayed quad over the floor.
  *
  * The quad and the mask answer different questions — the quad says *how*
- * perspective runs, the mask says *where* material belongs — and the renderer
- * lays material over the unit square of the quad. That is only enough when the
- * quad happens to contain the whole mask, and it usually does not: a quad
- * fitted to the open middle of a floor stops short of the skirting, a visitor
- * drags a corner inwards, a second patch of floor shows past a doorway. What is
- * left over keeps its old covering, which is the first thing a customer sees.
+ * perspective runs, the mask says *where* material belongs. A quad fitted to the
+ * open middle of a floor stops short of the skirting, and those corners are the
+ * handles the visitor drags, so detection stretches it along its own plane: a
+ * *domain* — a rectangle in the material's own coordinates, `[u0,u1] × [v0,v1]`,
+ * which may reach outside the unit square — whose image contains the floor.
  *
- * The fix is to stop treating the quad as the edge of the material. The quad
- * fixes the plane; a *domain* — a rectangle in the material's own coordinates,
- * `[u0,u1] × [v0,v1]`, which may reach well outside the unit square — fixes how
- * much of that plane is laid. Choose the domain so its image contains every
- * floor pixel, and the mask alone decides the outline.
- *
- * A domain's image under the homography is a quad on the same plane with the
- * same perspective, so the renderer needs no new maths: it draws the domain
- * quad exactly as it drew the unit quad before.
+ * This shapes the handles only. The renderer works per pixel and needs no domain
+ * to reach the floor (`floor-raster.ts`).
  */
 
 export type MaterialDomain = { u0: number; v0: number; u1: number; v1: number };
@@ -295,43 +287,6 @@ export function fitDomainToFrame(
   return blend(domain, safe);
 }
 
-export function domainSpan(domain: MaterialDomain): { u: number; v: number } {
-  return { u: domain.u1 - domain.u0, v: domain.v1 - domain.v0 };
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-/**
- * Material depths covered by one off-screen plane.
- *
- * A domain that runs towards the horizon is deep in material terms and shallow
- * on screen, so laying it from a single plane would spend the plane's rows on
- * floor that occupies a dozen pixels and starve the floor underfoot. Splitting
- * it into bands of bounded depth gives every band the same material resolution.
- */
-const BAND_DEPTH = 2;
-
-/** Enough for the deepest domain allowed; a guard, not a working limit. */
-const MAX_BANDS = 8;
-
-/**
- * A domain cut into bands of bounded depth, near to far.
- *
- * Bands abut exactly and every plane is anchored to the material's origin, so
- * the pattern runs continuously across the joins.
- */
-export function domainBands(domain: MaterialDomain): MaterialDomain[] {
-  const bands: MaterialDomain[] = [];
-
-  let far = domain.v1;
-
-  while (far > domain.v0 && bands.length < MAX_BANDS) {
-    const next = Math.max(domain.v0, far - BAND_DEPTH);
-    bands.push({ u0: domain.u0, u1: domain.u1, v0: next, v1: far });
-    far = next;
-  }
-
-  return bands.length > 0 ? bands : [domain];
 }

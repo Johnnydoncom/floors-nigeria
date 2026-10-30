@@ -141,18 +141,37 @@ const EDGE_BAND = 0.12;
 const MIN_FAR_WIDTH_RATIO = 0.25;
 
 /**
+ * How far above the floor's furthest row the horizon sits, as a share of the
+ * photograph's height, and the range it is believed in.
+ *
+ * Parallel lines on a floor meet on the horizon, so the horizon is what sets the
+ * perspective. A phone held level at chest height, a room of ordinary depth,
+ * puts the far wall's foot a sixth or so of the frame below it. Measuring the
+ * floor's own narrowing instead only works in a narrow room: a floor running out
+ * of frame on both sides does not visibly narrow at all, and took the horizon
+ * off the top of the photograph, foreshortening nothing.
+ */
+const HORIZON_ABOVE_FLOOR = 0.17;
+const HORIZON_RANGE = { min: 0.15, max: 0.5 };
+
+/** How much of the far rows' lean to believe: furniture hides one side of them. */
+const FAR_CENTRE_TRUST = 0.5;
+
+/** How far off-centre the point the floor recedes to may be, either way. */
+const VANISHING_REACH = 0.32;
+
+/**
  * How far past its own edges the detected quad may be stretched to swallow the
  * mask, in quad widths and depths.
  *
  * Modest on purpose. This quad is what the visitor sees and drags when they
- * open "Adjust floor area", so it has to stay on the photograph; the renderer
- * no longer relies on it to bound the material, and widens its own domain
- * until every floor pixel is covered whatever this comes out as.
+ * open the perspective tool, so it has to stay on the photograph; the renderer
+ * lays every floor pixel whatever this comes out as.
  */
 const MAX_EXPANSION = { u: 1.6, v: 1.1 };
 
-/** How far outside the photo a corner handle may sit and still be draggable. */
-const HANDLE_MARGIN = 0.14;
+/** How far outside the photo a corner handle may sit: the stage clips anything further. */
+const HANDLE_MARGIN = 0;
 
 /** A row counts as open floor at this share of the floor's widest row. */
 const BODY_WIDTH_RATIO = 0.45;
@@ -234,7 +253,8 @@ async function loadSegmenter(
 
   const model = await AutoModel.from_pretrained(modelId, {
     dtype: "q8",
-    device: "wasm",
+    // WebAssembly in a browser; `bake-sample-floors.mjs` runs this under Node.
+    device: typeof self === "undefined" ? "cpu" : "wasm",
     progress_callback: (event: {
       status?: string;
       file?: string;
@@ -383,7 +403,7 @@ function sharpenAgainstPhoto(scene: LabelledScene, photo: Rgb): LabelledScene {
  *
  * It is then pulled back inside the photograph, because these four corners
  * carry the drag handles. Coverage does not depend on the result: the renderer
- * widens its own domain over the mask whatever quad it is given.
+ * asks every floor pixel for its material, whatever quad it is given.
  */
 function expandQuadOverMask(quad: Quad, mask: Grid): Quad {
   const { width, height } = mask;
@@ -611,12 +631,11 @@ function onTheSamePlane(patch: Patch, primary: Patch, highest: number): boolean 
  * Fitting lines to that outline traces the sofa.
  *
  * Instead the quad is built from the two facts a floor mask does report
- * reliably: how far up the photograph the floor reaches, and roughly where it
- * recedes to. The near edge spans the width of the floor at the bottom of the
- * frame; the far edge is centred on the middle of the floor's furthest rows,
- * narrowed by how much the floor has closed in by then. That yields a
- * trapezoid whose sides converge on the part of the room the floor actually
- * runs towards — and the visitor can still drag any corner.
+ * reliably: how far up the photograph the floor reaches, which places the
+ * horizon, and roughly where it recedes to. The near edge spans the width of the
+ * floor at the bottom of the frame, and its sides run to a point on the horizon
+ * above the part of the room the floor runs towards. That is a true perspective
+ * whatever the room's width — and the visitor can still drag any corner.
  */
 function quadFromRegion(region: Region, width: number, height: number): Quad | null {
   const { left, right, top, bottom } = region;
@@ -654,11 +673,25 @@ function quadFromRegion(region: Region, width: number, height: number): Quad | n
 
   if (nearWidth <= 0) return null;
 
-  // How much the floor has closed in by its far rows, floored so an
-  // occluded far end cannot collapse the quad to a point.
-  const closing = Math.max(MIN_FAR_WIDTH_RATIO, Math.min(1, (far.right - far.left) / nearWidth));
+  const horizon =
+    height * clamp(top / height - HORIZON_ABOVE_FLOOR, HORIZON_RANGE.min, HORIZON_RANGE.max);
+
+  // Similar triangles: how much narrower the far row is, by how much nearer it
+  // lies to the horizon. Floored so a very deep floor cannot collapse to a point.
+  const closing = clamp((band.top - horizon) / (band.bottom - horizon), MIN_FAR_WIDTH_RATIO, 1);
   const farWidth = nearWidth * closing;
-  const farCentre = (far.left + far.right) / 2;
+
+  // Where the sides meet. Perspective is set by the horizon; this only decides
+  // which way the material runs, so a far row half hidden by a sofa may lean it
+  // but may not throw it off the room.
+  const nearCentre = (near.left + near.right) / 2;
+  const seenCentre = nearCentre + ((far.left + far.right) / 2 - nearCentre) * FAR_CENTRE_TRUST;
+  const vanishing = clamp(
+    nearCentre + (seenCentre - nearCentre) / Math.max(1 - closing, 0.05),
+    width * (0.5 - VANISHING_REACH),
+    width * (0.5 + VANISHING_REACH),
+  );
+  const farCentre = nearCentre + (vanishing - nearCentre) * (1 - closing);
 
   return [
     normalise({ x: farCentre - farWidth / 2, y: band.top }, width, height),
@@ -718,6 +751,10 @@ function widestBand(
   }
 
   return best;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function normalise(point: { x: number; y: number }, width: number, height: number) {

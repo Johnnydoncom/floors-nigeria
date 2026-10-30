@@ -1,0 +1,86 @@
+{
+  "/images/hero-living.jpg": {
+    "mask": "/images/rooms/hero-living.floor.png",
+    "quad": [
+      {
+        "x": 0.0685,
+        "y": 0.7875
+      },
+      {
+        "x": 0.736,
+        "y": 0.7875
+      },
+      {
+        "x": 0.9992,
+        "y": 0.9988
+      },
+      {
+        "x": 0,
+        "y": 0.9988
+      }
+    ]
+  },
+  "/images/project-residence.jpg": {
+    "mask": "/images/rooms/project-residence.floor.png",
+    "quad": [
+      {
+        "x": 0.332,
+        "y": 0.6318
+      },
+      {
+        "x": 0.68,
+        "y": 0.6318
+      },
+      {
+        "x": 0.9992,
+        "y": 0.9989
+      },
+      {
+        "x": 0,
+        "y": 0.9989
+      }
+    ]
+  },
+  "/images/project-office.jpg": {
+    "mask": "/images/rooms/project-office.floor.png",
+    "quad": [
+      {
+        "x": 0.2558,
+        "y": 0.6398
+      },
+      {
+        "x": 0.6379,
+        "y": 0.6398
+      },
+      {
+        "x": 0.9992,
+        "y": 0.9989
+      },
+      {
+        "x": 0,
+        "y": 0.9989
+      }
+    ]
+  },
+  "/images/project-hotel.jpg": {
+    "mask": "/images/rooms/project-hotel.floor.png",
+    "quad": [
+      {
+        "x": 0.349,
+        "y": 0.5682
+      },
+      {
+        "x": 0.6385,
+        "y": 0.5682
+      },
+      {
+        "x": 0.9992,
+        "y": 0.9989
+      },
+      {
+        "x": 0,
+        "y": 0.9989
+      }
+    ]
+  }
+}

@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Heart, Loader2, Search, X } from "lucide-react";
+import { Heart, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import { naira } from "@/lib/format";
+import { getTexture } from "@/lib/visualizer/images";
 import { library, materialKey, useLibrary } from "@/lib/visualizer/library";
 import type { TextureChoice } from "@/lib/visualizer/types";
 import { cn } from "@/lib/utils";
@@ -62,12 +63,15 @@ export function MaterialBrowser({
   initial,
   filters,
   selected,
+  unavailable,
   onSelect,
   header,
 }: {
   initial: TextureChoice[];
   filters: VisualizerFilters;
   selected: TextureChoice | null;
+  /** Textures that would not load, so their floors are no longer offered. */
+  unavailable: ReadonlySet<string>;
   onSelect: (choice: TextureChoice) => void;
   /** Shown above the grid, e.g. which side of a comparison is being chosen. */
   header?: React.ReactNode;
@@ -83,6 +87,7 @@ export function MaterialBrowser({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const { favorites, recent } = useLibrary();
   const debouncedSearch = useDebounced(query.q, 300);
 
@@ -142,7 +147,9 @@ export function MaterialBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, isFiltered]);
 
-  const items = view === "favorites" ? favorites : view === "recent" ? recent : state.items;
+  const items = (
+    view === "favorites" ? favorites : view === "recent" ? recent : state.items
+  ).filter((choice) => !unavailable.has(choice.textureUrl));
   const canLoadMore = view === "all" && state.page < state.lastPage && !isLoading;
 
   const update = (patch: Partial<Query>) => {
@@ -156,25 +163,41 @@ export function MaterialBrowser({
     <div className="space-y-3">
       {header}
 
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <label htmlFor="material-search" className="sr-only">
-          Search floors
-        </label>
-        <input
-          id="material-search"
-          type="search"
-          value={query.q}
-          onChange={(event) => update({ q: event.target.value })}
-          placeholder="Search oak, grey tile, SPC…"
-          className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/10"
-        />
+      <div className="flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <label htmlFor="material-search" className="sr-only">
+            Search floors
+          </label>
+          <input
+            id="material-search"
+            type="search"
+            value={query.q}
+            onChange={(event) => update({ q: event.target.value })}
+            placeholder="Search oak, grey tile, SPC…"
+            className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-gold focus:ring-4 focus:ring-gold/10"
+          />
+        </div>
+        <button
+          type="button"
+          aria-expanded={showFilters}
+          onClick={() => setShowFilters((current) => !current)}
+          className={cn(
+            "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+            showFilters || isFiltered
+              ? "border-charcoal font-semibold"
+              : "border-border hover:border-foreground/40",
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden />
+          Filter
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={cn("grid-cols-2 gap-2", showFilters ? "grid" : "hidden")}>
         {filters.categories.length > 0 && (
           <FilterSelect
             label="Type"
@@ -323,6 +346,8 @@ function MaterialSwatch({
         aria-checked={isSelected}
         aria-label={name}
         onClick={onSelect}
+        // Have the floor ready before the click lands; a failure surfaces then.
+        onPointerEnter={() => void getTexture(choice.textureUrl).catch(() => undefined)}
         title={name}
         className={cn(
           "group block w-full rounded-md text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2",
@@ -336,6 +361,10 @@ function MaterialSwatch({
             fill
             sizes="120px"
             className="object-cover"
+            // The tile's own grey reads better than a broken-image icon.
+            onError={(event) => {
+              event.currentTarget.style.visibility = "hidden";
+            }}
           />
         </span>
         <span className="mt-1.5 block truncate text-[11px] leading-tight">

@@ -2,7 +2,12 @@
 
 import { RotateCcw } from "lucide-react";
 import { LAYOUT_LABELS, layoutsFor } from "@/lib/visualizer/patterns";
-import type { Finish, MaterialKind, Placement } from "@/lib/visualizer/types";
+import {
+  FLOOR_WIDTH_RANGE,
+  type Finish,
+  type MaterialKind,
+  type Placement,
+} from "@/lib/visualizer/types";
 import { cn } from "@/lib/utils";
 
 const ROTATION_PRESETS = [0, 45, 90];
@@ -37,7 +42,7 @@ export function AdjustPanel({
 }) {
   const set = (patch: Partial<Placement>) => onChange({ ...placement, ...patch });
   const layouts = layoutsFor(kind);
-  const showsPieces = placement.layout !== "natural" || kind === "rug";
+  const showsPieces = placement.layout !== "natural";
   const isCustomSize =
     placement.plankLengthMm !== productDimensions.lengthMm ||
     placement.plankWidthMm !== productDimensions.widthMm;
@@ -64,7 +69,7 @@ export function AdjustPanel({
           </div>
           {placement.layout === "natural" && (
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Shows the product photo as it is. Choose a pattern to lay individual{" "}
+              Repeats the surface from the product photo. Choose a pattern to lay individual{" "}
               {kind === "tile" ? "tiles" : "planks"} at their real size.
             </p>
           )}
@@ -106,15 +111,15 @@ export function AdjustPanel({
           id="floor-width"
           label="Floor width in the photo"
           hint={`≈ ${placement.widthM.toFixed(1)} m`}
-          min={1.5}
-          max={12}
+          min={FLOOR_WIDTH_RANGE.min}
+          max={FLOOR_WIDTH_RANGE.max}
           step={0.1}
           value={placement.widthM}
           onChange={(widthM) => set({ widthM })}
         />
         <p className="-mt-2 text-[11px] text-muted-foreground">
-          Roughly how wide the marked floor is. Adjust until the{" "}
-          {kind === "tile" ? "tiles" : "planks"} look the right size against your furniture.
+          Worked out from your photo. Adjust until the {kind === "tile" ? "tiles" : "planks"} look
+          the right size against your furniture.
         </p>
 
         {showsPieces && (
@@ -122,7 +127,7 @@ export function AdjustPanel({
             <div className="grid grid-cols-2 gap-2">
               <MillimetreInput
                 id="plank-length"
-                label={kind === "rug" ? "Rug length (mm)" : "Length (mm)"}
+                label="Length (mm)"
                 value={placement.plankLengthMm}
                 onChange={(plankLengthMm) =>
                   set({ plankLengthMm: Math.max(plankLengthMm, placement.plankWidthMm) })
@@ -130,7 +135,7 @@ export function AdjustPanel({
               />
               <MillimetreInput
                 id="plank-width"
-                label={kind === "rug" ? "Rug width (mm)" : "Width (mm)"}
+                label="Width (mm)"
                 value={placement.plankWidthMm}
                 onChange={(plankWidthMm) =>
                   set({ plankWidthMm: Math.min(plankWidthMm, placement.plankLengthMm) })

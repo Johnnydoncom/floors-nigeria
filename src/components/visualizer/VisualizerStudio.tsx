@@ -7,6 +7,7 @@ import {
   Brush,
   Camera,
   Check,
+  ChevronDown,
   Columns2,
   Eraser,
   Layers,
@@ -40,10 +41,13 @@ import {
   type MaskEdit,
   type MaskMode,
 } from "@/lib/visualizer/mask-edits";
+import { floorWidthFromCamera, unitSquareToQuad } from "@/lib/visualizer/homography";
 import { defaultDimensions, LAYOUT_LABELS, layoutsFor } from "@/lib/visualizer/patterns";
 import {
   DEFAULT_PLACEMENT,
   DEFAULT_QUAD,
+  FLOOR_WIDTH_RANGE,
+  type FloorPreset,
   type LayoutPattern,
   type Placement,
   type Point,
@@ -70,7 +74,7 @@ import { useFloorDetection, type DetectionState } from "./useFloorDetection";
 /** Anything larger is not a room photo; it would only be downscaled anyway. */
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-export type SampleRoom = { src: string; label: string };
+export type SampleRoom = { src: string; label: string; floor?: FloorPreset };
 
 type Panel = "floors" | "adjust" | "room";
 type Share = { key: string; url: string; token: string };
@@ -102,12 +106,13 @@ export function VisualizerStudio({
   const [room, setRoom] = useState<RoomSource>(() => ({
     src: sampleRooms[0]?.src ?? "",
     label: sampleRooms[0]?.label ?? "Sample room",
+    floor: sampleRooms[0]?.floor,
     origin: "sample",
   }));
-  const [material, setMaterial] = useState<TextureChoice | null>(materials[0] ?? null);
+  const [material, setMaterial] = useState<TextureChoice | null>(() => starterMaterial(materials));
   const [compareMaterial, setCompareMaterial] = useState<TextureChoice | null>(null);
   const [placement, setPlacement] = useState<Placement>(() =>
-    placementFor(materials[0] ?? null, DEFAULT_PLACEMENT, false),
+    placementFor(starterMaterial(materials), DEFAULT_PLACEMENT, false),
   );
   const [layoutPinned, setLayoutPinned] = useState(false);
   const [quad, setQuad] = useState<Quad>(DEFAULT_QUAD);
@@ -143,9 +148,19 @@ export function VisualizerStudio({
 
   /** The corners the fast pass placed, to tell whether anyone has moved them since. */
   const detectedQuadRef = useRef<Quad | null>(null);
+  /** Set once the visitor, or a saved design, has said how wide the floor is. */
+  const widthPinnedRef = useRef(false);
+  const suggestedWidthRef = useRef(DEFAULT_PLACEMENT.widthM);
 
   const onDetected = useCallback(
     (detectedQuad: Quad, mask: CanvasImageSource, pass: DetectionQuality) => {
+      const suggested = suggestedFloorWidth(detectedQuad, mask as HTMLCanvasElement);
+
+      if (suggested && !keepQuadRef.current && !widthPinnedRef.current) {
+        suggestedWidthRef.current = suggested;
+        setPlacement((current) => ({ ...current, widthM: suggested }));
+      }
+
       if (pass === "fast") {
         detectedQuadRef.current = keepQuadRef.current ? null : detectedQuad;
         if (!keepQuadRef.current) setQuad(detectedQuad);
@@ -162,7 +177,7 @@ export function VisualizerStudio({
     [],
   );
 
-  const detection = useFloorDetection({ photoSrc: room.src, onDetected });
+  const detection = useFloorDetection({ photoSrc: room.src, preset: room.floor, onDetected });
 
   useEffect(() => {
     if (detection.state.status === "done")
@@ -204,12 +219,15 @@ export function VisualizerStudio({
   const changeRoom = (next: RoomSource) => {
     setRoom(next);
     setSmart({ status: "idle" });
-    setQuad(DEFAULT_QUAD);
-    detectedQuadRef.current = null;
-    setDetectedMask(null);
+    // The same photograph is not detected again, so it keeps the floor it has.
+    if (next.src !== room.src) {
+      setQuad(DEFAULT_QUAD);
+      detectedQuadRef.current = null;
+      setDetectedMask(null);
+      setPhotoSize(null);
+    }
     setMaskEdits([]);
     setPolygonDraft([]);
-    setPhotoSize(null);
     setTool("view");
     track("room_selected", {
       origin: next.origin ?? "sample",
@@ -269,6 +287,33 @@ export function VisualizerStudio({
 
   const productDimensions = useMemo(() => dimensionsOf(material), [material]);
 
+  /** The floor last seen on the stage, to go back to when a new one will not load. */
+  const shownMaterialRef = useRef<TextureChoice | null>(null);
+  const [unavailable, setUnavailable] = useState<ReadonlySet<string>>(new Set());
+  const unavailableRef = useRef(new Set<string>());
+
+  const onTextureFailed = useCallback(
+    (src: string) => {
+      unavailableRef.current.add(src);
+      setUnavailable(new Set(unavailableRef.current));
+      setCompareMaterial((current) => (current?.textureUrl === src ? null : current));
+
+      const shown = shownMaterialRef.current;
+      const fallback =
+        shown && shown.textureUrl !== src
+          ? shown
+          : starterMaterial(
+              materials.filter((choice) => !unavailableRef.current.has(choice.textureUrl)),
+            );
+
+      setMaterial((current) => (current?.textureUrl === src ? fallback : current));
+      setPlacement((current) => placementFor(fallback, current, false));
+
+      if (shown) toast.error("That floor's image could not be loaded. Please try another.");
+    },
+    [materials],
+  );
+
   // --- Links in: a product page, a shared design -----------------------------
 
   const loadLinkedProduct = async (slug: string, sku: string | null) => {
@@ -318,9 +363,15 @@ export function VisualizerStudio({
       }
 
       const savedQuad = parseQuad(settings.quad);
-      keepQuadRef.current = savedQuad !== null;
 
-      changeRoom({ src, label: "Saved design", origin: "design" });
+      keepQuadRef.current = savedQuad !== null && src !== room.src;
+
+      changeRoom({
+        src,
+        label: "Saved design",
+        origin: "design",
+        floor: sampleRooms.find((sample) => sample.src === src)?.floor,
+      });
       if (savedQuad) setQuad(savedQuad);
       setMaskEdits(parseMaskEdits(settings.mask_edits));
 
@@ -329,6 +380,7 @@ export function VisualizerStudio({
         library.viewed(choice);
       }
 
+      widthPinnedRef.current = typeof settings.width_m !== "undefined";
       setPlacement((current) => restorePlacement(settings, placementFor(choice, current, false)));
       setLayoutPinned(typeof settings.layout === "string");
       setPanel("floors");
@@ -527,6 +579,7 @@ export function VisualizerStudio({
   }, []);
 
   const onRendered = useCallback(() => {
+    shownMaterialRef.current = material;
     if (!material || detection.state.status === "running") return;
     const key = `${room.src}|${materialKey(material)}`;
     if (completedRef.current.has(key)) return;
@@ -569,9 +622,9 @@ export function VisualizerStudio({
     : false;
 
   return (
-    <div className="container-fluid grid grid-cols-1 gap-6 py-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8 lg:py-10">
-      {/* Stage and its tools */}
-      <div className="min-w-0 space-y-3 lg:col-start-1 lg:row-start-1">
+    <div className="container-fluid grid grid-cols-1 gap-4 py-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-x-8 lg:py-10">
+      {/* The room. On a phone it stays in view while floors are chosen below it. */}
+      <div className="z-20 min-w-0 space-y-2 bg-background pb-2 max-lg:sticky max-lg:top-[var(--header-height)] lg:col-start-1 lg:row-start-1 lg:pb-0">
         <RoomStage
           photoSrc={room.src}
           material={stageMaterial}
@@ -591,6 +644,7 @@ export function VisualizerStudio({
           onReady={onStageReady}
           onPhotoLoaded={setPhotoSize}
           onRendered={onRendered}
+          onTextureFailed={onTextureFailed}
           detection={detection.state}
         />
 
@@ -599,48 +653,56 @@ export function VisualizerStudio({
           onRetry={detection.retry}
           onMarkByHand={() => selectTool("corners")}
         />
+      </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="radiogroup" aria-label="Compare" className="flex flex-wrap gap-1.5">
-            <ModeButton
-              active={mode === "wipe"}
-              icon={<SplitSquareHorizontal className="h-4 w-4" aria-hidden />}
-              onClick={() => setMode("wipe")}
-            >
-              Before / after
-            </ModeButton>
-            <ModeButton
-              active={mode === "split"}
-              icon={<Columns2 className="h-4 w-4" aria-hidden />}
-              onClick={() => {
-                setMode("split");
-                setTool("view");
-                track("comparison_used", { mode: "split" });
-              }}
-            >
-              Side by side
-            </ModeButton>
-            <ModeButton
-              active={mode === "products"}
-              icon={<Layers className="h-4 w-4" aria-hidden />}
-              onClick={() => {
-                setMode("products");
-                setTool("view");
-                setCompareSlot("b");
-                setPanel("floors");
-                track("comparison_used", { mode: "products" });
-              }}
-            >
-              Compare floors
-            </ModeButton>
-          </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:col-start-1 lg:row-start-2">
+        <div role="radiogroup" aria-label="Compare" className="flex flex-wrap gap-1.5">
+          <ModeButton
+            active={mode === "wipe"}
+            icon={<SplitSquareHorizontal className="h-4 w-4" aria-hidden />}
+            onClick={() => setMode("wipe")}
+          >
+            Before / after
+          </ModeButton>
+          <ModeButton
+            active={mode === "split"}
+            icon={<Columns2 className="h-4 w-4" aria-hidden />}
+            onClick={() => {
+              setMode("split");
+              setTool("view");
+              track("comparison_used", { mode: "split" });
+            }}
+          >
+            Side by side
+          </ModeButton>
+          <ModeButton
+            active={mode === "products"}
+            icon={<Layers className="h-4 w-4" aria-hidden />}
+            onClick={() => {
+              setMode("products");
+              setTool("view");
+              setCompareSlot("b");
+              setPanel("floors");
+              track("comparison_used", { mode: "products" });
+            }}
+          >
+            Compare floors
+          </ModeButton>
+        </div>
 
+        <div className="flex flex-wrap gap-1.5">
+          <Button variant="outline" className="h-10" onClick={() => uploadRef.current?.click()}>
+            <Upload aria-hidden />
+            Use your room
+          </Button>
           <Button className="h-10" onClick={() => setIsShareOpen(true)} disabled={!material}>
             <Share2 aria-hidden />
             Save &amp; share
           </Button>
         </div>
+      </div>
 
+      <div className="order-last min-w-0 lg:order-none lg:col-start-1 lg:row-start-3">
         <FloorAreaTools
           tool={tool}
           onTool={selectTool}
@@ -667,7 +729,7 @@ export function VisualizerStudio({
       </div>
 
       {/* Floors, layout and room */}
-      <aside className="min-w-0 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+      <aside className="min-w-0 lg:sticky lg:top-[var(--header-height)] lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:max-h-[calc(100dvh-var(--header-height)-1rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
         <Tabs value={panel} onValueChange={(value) => setPanel(value as Panel)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="floors">Floors</TabsTrigger>
@@ -680,6 +742,7 @@ export function VisualizerStudio({
               initial={materials}
               filters={filters}
               selected={mode === "products" && compareSlot === "b" ? compareMaterial : material}
+              unavailable={unavailable}
               onSelect={(choice) => chooseMaterial(choice)}
               header={
                 mode === "products" ? (
@@ -717,11 +780,21 @@ export function VisualizerStudio({
               placement={placement}
               kind={material?.kind ?? "plank"}
               productDimensions={productDimensions}
-              onChange={setPlacement}
+              onChange={(next) => {
+                if (next.widthM !== placement.widthM) widthPinnedRef.current = true;
+                setPlacement(next);
+              }}
               onLayoutChange={changeLayout}
               onReset={() => {
                 setLayoutPinned(false);
-                setPlacement(placementFor(material, DEFAULT_PLACEMENT, false));
+                widthPinnedRef.current = false;
+                setPlacement(
+                  placementFor(
+                    material,
+                    { ...DEFAULT_PLACEMENT, widthM: suggestedWidthRef.current },
+                    false,
+                  ),
+                );
               }}
             />
           </TabsContent>
@@ -733,6 +806,7 @@ export function VisualizerStudio({
               onUpload={() => uploadRef.current?.click()}
               onCamera={() => cameraRef.current?.click()}
               onSample={(sample) => {
+                if (sample.src === room.src) return;
                 keepQuadRef.current = false;
                 changeRoom({ ...sample, origin: "sample" });
               }}
@@ -768,7 +842,7 @@ export function VisualizerStudio({
       </aside>
 
       {/* The product and what to do next */}
-      <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2">
+      <div className="order-last min-w-0 space-y-4 lg:order-none lg:col-start-1 lg:row-start-4">
         {material && (
           <MaterialDetails
             material={material}
@@ -857,41 +931,27 @@ function FloorAreaTools({
   onCancelPolygon: () => void;
 }) {
   const isPainting = tool === "brush" || tool === "polygon" || tool === "smart";
+  const [isOpen, setIsOpen] = useState(false);
+  const showTools = isOpen || tool !== "view";
 
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Floor area
-        </span>
-        <ToolButton
-          active={tool === "corners"}
-          onClick={() => onTool("corners")}
-          icon={<Move className="h-4 w-4" aria-hidden />}
+        <button
+          type="button"
+          aria-expanded={showTools}
+          onClick={() => {
+            setIsOpen(!showTools);
+            if (showTools) onTool("view");
+          }}
+          className="inline-flex h-8 items-center gap-1.5 rounded text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
-          Perspective
-        </ToolButton>
-        <ToolButton
-          active={tool === "smart"}
-          onClick={() => onTool("smart")}
-          icon={<Wand2 className="h-4 w-4" aria-hidden />}
-        >
-          Smart select
-        </ToolButton>
-        <ToolButton
-          active={tool === "brush"}
-          onClick={() => onTool("brush")}
-          icon={<Brush className="h-4 w-4" aria-hidden />}
-        >
-          Paint
-        </ToolButton>
-        <ToolButton
-          active={tool === "polygon"}
-          onClick={() => onTool("polygon")}
-          icon={<PenTool className="h-4 w-4" aria-hidden />}
-        >
-          Draw area
-        </ToolButton>
+          Fix the floor area
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform", showTools && "rotate-180")}
+            aria-hidden
+          />
+        </button>
         {editCount > 0 && (
           <Button variant="ghost" size="sm" className="h-8" onClick={onUndo}>
             <Undo2 aria-hidden />
@@ -900,9 +960,42 @@ function FloorAreaTools({
         )}
         <Button variant="ghost" size="sm" className="ml-auto h-8" onClick={onResetCorners}>
           <RotateCcw aria-hidden />
-          Re-detect
+          Reset floor
         </Button>
       </div>
+
+      {showTools && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <ToolButton
+            active={tool === "corners"}
+            onClick={() => onTool("corners")}
+            icon={<Move className="h-4 w-4" aria-hidden />}
+          >
+            Perspective
+          </ToolButton>
+          <ToolButton
+            active={tool === "smart"}
+            onClick={() => onTool("smart")}
+            icon={<Wand2 className="h-4 w-4" aria-hidden />}
+          >
+            Smart select
+          </ToolButton>
+          <ToolButton
+            active={tool === "brush"}
+            onClick={() => onTool("brush")}
+            icon={<Brush className="h-4 w-4" aria-hidden />}
+          >
+            Paint
+          </ToolButton>
+          <ToolButton
+            active={tool === "polygon"}
+            onClick={() => onTool("polygon")}
+            icon={<PenTool className="h-4 w-4" aria-hidden />}
+          >
+            Draw area
+          </ToolButton>
+        </div>
+      )}
 
       {tool === "corners" && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -1243,6 +1336,20 @@ function ToolButton({
 
 // --- Helpers -----------------------------------------------------------------
 
+/**
+ * The floor the studio opens on. The first impression should be the best one
+ * the catalogue can give: a real texture if there is one, or else a plank floor,
+ * whose photographs make the most convincing surface.
+ */
+function starterMaterial(materials: TextureChoice[]): TextureChoice | null {
+  return (
+    materials.find((choice) => choice.isSeamless) ??
+    materials.find((choice) => choice.kind === "plank") ??
+    materials[0] ??
+    null
+  );
+}
+
 function toStageMaterial(choice: TextureChoice | null): StageMaterial | null {
   if (!choice) return null;
 
@@ -1255,6 +1362,19 @@ function toStageMaterial(choice: TextureChoice | null): StageMaterial | null {
       ? `${choice.productName} — ${choice.variantName}`
       : choice.productName,
   };
+}
+
+/** The real width of a detected quad, to the nearest 10cm the slider can show. */
+function suggestedFloorWidth(quad: Quad, mask: HTMLCanvasElement): number | null {
+  const { width, height } = mask;
+  const corners = quad.map((point) => ({ x: point.x * width, y: point.y * height })) as Quad;
+  const metres = floorWidthFromCamera(unitSquareToQuad(corners), width, height);
+
+  if (metres === null) return null;
+
+  const { min, max } = FLOOR_WIDTH_RANGE;
+
+  return Math.round(Math.min(max, Math.max(min, metres)) * 10) / 10;
 }
 
 /** The product's own piece size, longest side first, or a typical one. */
@@ -1281,8 +1401,9 @@ function dimensionsOf(choice: TextureChoice | null): {
 /**
  * Placement for a newly chosen material: its own piece size, and a layout it
  * can actually be laid in. A layout the visitor picked is kept wherever the new
- * floor allows it; otherwise a dedicated texture is laid in its natural
- * pattern and a product photograph is shown as photographed.
+ * floor allows it; otherwise it is laid the way that floor is fitted: planks
+ * staggered, tiles in a grid. Both cut the surface into real pieces, which is
+ * what makes it read as a floor rather than a photograph repeated.
  */
 function placementFor(
   choice: TextureChoice | null,
@@ -1292,13 +1413,8 @@ function placementFor(
   const kind = choice?.kind ?? "plank";
   const dimensions = dimensionsOf(choice);
   const layouts = layoutsFor(kind);
-  const fallbackLayout: LayoutPattern = choice?.isSeamless
-    ? kind === "tile"
-      ? "grid"
-      : kind === "plank"
-        ? "staggered"
-        : "natural"
-    : "natural";
+  const fallbackLayout: LayoutPattern =
+    kind === "tile" ? "grid" : kind === "plank" ? "staggered" : "natural";
 
   return {
     ...current,
@@ -1326,7 +1442,7 @@ function restorePlacement(settings: Record<string, unknown>, base: Placement): P
 
   return {
     ...base,
-    widthM: numberOr(settings.width_m, base.widthM, 1, 20),
+    widthM: numberOr(settings.width_m, base.widthM, 1, FLOOR_WIDTH_RANGE.max),
     rotation: numberOr(settings.rotation, base.rotation, -180, 180),
     lighting: numberOr(settings.lighting, base.lighting, 0, 1),
     brightness: numberOr(settings.brightness, base.brightness, 0.5, 1.5),

@@ -12,13 +12,16 @@ and how the floor is found in the first place.
 2. **Add a room.** Upload a photo, take one on a phone, or start from a sample
    room. Uploads are downscaled in the browser (`images.ts`) and never touch the
    network until the visitor saves or sends them.
-3. **The floor is found automatically.** A segmentation model labels the floor
-   pixels. The visitor can correct the perspective with four corners, paint
-   floor in or out, or draw round an area — irregular rooms and floors split by
-   furniture included.
-4. **Lay it.** Pattern (as photographed, staggered, straight, herringbone,
-   diagonal, grid), direction with 0°/45°/90° presets, real plank size, floor
-   width, finish, and how strongly the room's own light shows through.
+3. **The floor is found automatically.** A sample room's floor was found ahead
+   of time and ships as a small mask. For a room of the visitor's own, a
+   segmentation model labels the floor pixels in the browser. Either way the
+   visitor can correct the perspective with four corners, paint floor in or out,
+   or draw round an area — irregular rooms and floors split by furniture
+   included.
+4. **Lay it.** Whatever is chosen covers the whole floor. Pattern (staggered,
+   straight, herringbone, diagonal, grid, or as photographed), direction with
+   0°/45°/90° presets, real plank size, floor width (worked out from the photo),
+   finish, and how strongly the room's own light shows through.
 5. **Compare.** A draggable before/after wipe, the two side by side, or two
    floors in the same room. Zoom and pan to inspect.
 6. **Keep and share.** Save to a link; share it through the phone's share sheet,
@@ -33,7 +36,10 @@ and how the floor is found in the first place.
 | Path                                                          | Responsibility                                                   |
 | ------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `src/lib/visualizer/homography.ts`                            | The projective map, and the floor's true proportions.            |
-| `src/lib/visualizer/coverage.ts`                              | How much material to lay, so the whole floor is covered.         |
+| `src/lib/visualizer/floor-raster.ts`                          | Every pixel → the material: WebGL2, with a JavaScript fallback.  |
+| `src/lib/visualizer/material-patch.ts`                        | The clean rectangle of material inside a product photograph.     |
+| `src/lib/visualizer/sample-floors.json`                       | Sample rooms' floors, baked by `scripts/bake-sample-floors.mjs`. |
+| `src/lib/visualizer/coverage.ts`                              | Stretching the detected quad over the floor it found.            |
 | `src/lib/visualizer/floor-mask.ts`                            | The label map sorted into floor, structure and occluders.        |
 | `src/lib/visualizer/floor-detector.ts`                        | Main-thread side of detection: reads the photo, runs the worker. |
 | `src/lib/visualizer/detect-floor.worker.ts`                   | Runs the model and mask analysis off the main thread.            |
@@ -45,7 +51,7 @@ and how the floor is found in the first place.
 | `src/lib/visualizer/material-tile.ts`                         | A texture baked into planks or tiles, with joints.               |
 | `src/lib/visualizer/lighting.ts`                              | The room's light, separated from the old floor.                  |
 | `src/lib/visualizer/mask-edits.ts`                            | Hand corrections to the floor area, as replayable edits.         |
-| `src/lib/visualizer/render.ts`                                | Canvas rendering of surface layers: mesh, light, mask.           |
+| `src/lib/visualizer/render.ts`                                | Composes a surface: material, room light, then the mask.         |
 | `src/lib/visualizer/compose.ts`                               | The labelled before-and-after image.                             |
 | `src/lib/visualizer/images.ts`                                | Upload downscaling, optimized textures, texture cache.           |
 | `src/lib/visualizer/library.ts`                               | Favourites, recently tried and saved designs (browser).          |
@@ -66,14 +72,16 @@ and how the floor is found in the first place.
 | `src/app/api/visualizations/route.ts`                         | Proxies a save to Laravel, keeping the API URL server-side.      |
 | `src/app/api/visualizations/[token]/route.ts`                 | A saved design, for reopening in the studio.                     |
 | `src/app/api/leads/route.ts`                                  | Quote and sample requests → `POST /v1/quotes`.                   |
-| `scripts/visualizer-coverage.test.mjs`                        | The coverage guarantee, checked without a browser.               |
+| `scripts/floor-raster.test.mjs`                               | Every pixel receives material; the true-scale estimate.          |
+| `scripts/material-patch.test.mjs`                             | Finding the material in cut-outs, staged shots and scenes.       |
+| `scripts/visualizer-coverage.test.mjs`                        | Detection keeps its floor; the quad's handles stay reachable.    |
 | `scripts/floor-mask.test.mjs`                                 | The mask rules, against the mistakes the model makes.            |
 | `scripts/patterns.test.mjs`                                   | Every layout tiles; planks keep their real proportions.          |
 
 Everything renders in the browser, including detection. The only network calls
-are the model download, catalogue browsing, and saving or sending — the last
-two the customer's explicit choice. Good for privacy and for anyone on a
-Nigerian mobile connection.
+are the model download — which a sample room never needs — catalogue browsing,
+and saving or sending, the last two the customer's explicit choice. Good for
+privacy and for anyone on a Nigerian mobile connection.
 
 ## Mask and quad answer different questions
 
@@ -84,48 +92,42 @@ made an earlier version lay floors across sofas.
   may be drawn, and it is what lets material stop at a chair leg.
 - The **quad** is four points on the floor plane. It decides _how_ the material
   recedes, and nothing else.
-- The **domain** is a rectangle in the material's own coordinates — `[u0,u1] ×
-[v0,v1]`, free to reach well outside the unit square. It decides _how much_
-  material is laid.
+  A quad alone cannot express "floor, except where the sofa is" — a real floor's
+  visible outline is bounded by furniture, not by walls, so fitting lines to that
+  outline traces the sofa. A mask alone carries no perspective. Together they are
+  sufficient.
 
-A quad alone cannot express "floor, except where the sofa is" — a real floor's
-visible outline is bounded by furniture, not by walls, so fitting lines to that
-outline traces the sofa. A mask alone carries no perspective. Together they are
-sufficient.
+### Covering the whole floor
 
-The domain is the piece that took longest to arrive, and its absence was a
-visible bug: material over the middle of a room, the edges left on their old
-covering. Drawing the unit square of the quad covers the floor only when the
-quad happens to contain the whole mask, and it usually does not — a quad fitted
-to the open middle of a floor stops short of the skirting, and a visitor who
-drags a corner can put it anywhere. So the renderer widens its own domain until
-the image of that rectangle contains every floor pixel, and lets the mask alone
-decide the outline (`coverage.ts`).
+The first thing a customer notices is a floor that is only partly covered, and
+it came back in several forms while material was drawn by placing it on the
+photograph: a quad that stopped short of the skirting, a reach that ran out, a
+horizon that pulled the whole laid area back, a far edge past the last mesh
+band. Each had a fix, and the next form was still there.
 
-Widening is safe in a way that clipping is not. An oversized domain costs mesh
-cells and nothing else, because the mask trims the overhang; an undersized one
-costs bare floor. So the quad is _never_ clipped to when a mask is present —
-that clip is what put the floor back inside the quad.
+So the question was turned round. `floor-raster.ts` asks of every photo pixel
+_which part of the material lands here_: the inverse homography, then metres,
+then the lay angle, then the repeating tile. Asked that way there is nothing to
+reach and nothing to run out of. Every pixel has an answer, whatever the quad,
+and the mask alone decides the outline. A pixel past the horizon, which no real
+floor has but a dragged corner can produce, gets the material's average colour
+rather than a hole.
 
-Concretely: the mesh is composed off-screen, the lighting pass is applied, and
-a single `destination-in` composite trims the result to the mask before it
-reaches the photograph. Without a mask — a hand-marked floor — the quad is
-clipped to and does all three jobs, as it must.
+Concretely: the whole frame is filled off-screen, the room's light goes over it,
+and a single `destination-in` composite trims the result to the mask before it
+reaches the photograph. Without a mask — a floor marked by hand — the quad is
+clipped to and does all three jobs, as it must. `coverage.ts` survives only to
+stretch the detected quad over its mask, because those corners are the handles
+the visitor drags.
 
-Finding the domain is a few points of arithmetic per outline point. `u` and `v`
-are linear-fractional in the photograph's `(x, y)`, and such a function attains
-its extremes over a convex region at a vertex, so the mask's convex hull carries
-every extreme the domain needs — a few dozen points rather than a megapixel. The
-hull is computed once per mask and cached against it, so moving a slider does
-not re-scan the floor.
+Whatever is chosen fills the floor. A rug or mat used to be stamped once in the
+middle of the room, which read as a floor that had not worked; only AR still
+places one as a thing on a floor.
 
-Two things are refused rather than trusted. A point mapping to behind the camera
-is not on the visible floor plane and would drag the domain through infinity, so
-it is dropped. A point past the domain's bound is _clamped_, not dropped —
-dropping it silently leaves that floor bare, which is the whole failure being
-fixed. The domain is then pulled back until all four corners sit in front of the
-horizon, which for a divisor linear in `(u, v)` is enough to keep the whole
-rectangle there.
+### Measured
+
+Driving the real page over all four sample rooms: 98.7–100% of floor pixels
+change, and under 0.2% of the pixels outside the floor do (the anti-aliased edge).
 
 ## Automatic floor detection
 
@@ -143,9 +145,10 @@ the initial bundle entirely.
   at 0.95, and a jute rug a footstool.
 - **Precise — B2, about 28MB, three times the work.** It gets both right
   (treads: stairway 0.6–0.75; rug: 0.97). It runs second, in the worker, only
-  when the visit can afford it — not on Save-Data, a sub-4G connection, under
-  4GB of device memory or 4 cores (`canAffordPreciseDetection`) — and never
-  inline, where its seconds of work would freeze the page. Its floor replaces
+  when the visit can afford it — not on a touch screen, Save-Data, a sub-4G
+  connection, under 4GB of device memory or 4 cores
+  (`canAffordPreciseDetection`) — and never inline, where its seconds of work
+  would freeze the page. Its floor replaces
   the fast one when it lands; corners the visitor has dragged stay put, and
   brush and polygon edits are replayed over the new mask. A chip says
   "Sharpening the floor's edges" meanwhile.
@@ -271,22 +274,34 @@ From the model's per-pixel labels:
    then both fail.
 
 3. The perspective quad is built from the two things a floor mask reports
-   reliably: how far up the photograph the floor reaches, and roughly where it
-   recedes to. The near edge spans the floor's width at the bottom of frame;
-   the far edge is centred on the middle of its furthest rows, narrowed by how
-   much the floor has closed in by then.
-4. That quad is then stretched along its own plane to fit the floor, by the
-   same domain arithmetic the renderer uses — but bounded modestly and pulled
+   reliably: how far up the photograph the floor reaches, which places the
+   horizon, and roughly where it recedes to. The near edge spans the floor's
+   width at the bottom of frame, and its sides run to a point on the horizon.
+4. That quad is then stretched along its own plane to fit the floor, and pulled
    back inside the photograph, because these four corners carry the drag
    handles, and a handle out in the margins is a handle nobody can reach.
-   Coverage no longer depends on the result: the renderer widens its own domain
-   over the mask whatever quad it is given.
+   Coverage does not depend on the result: the renderer asks every floor pixel
+   for its material, whatever quad it is given.
 
 Step 3 deserves its scars. Fitting straight lines to the mask's left and right
 boundaries seems obvious and is wrong: on a real room it latches onto a sliver
-of floor past a staircase and skews the whole quad. Measuring the floor's
-_extent_ over a band of rows is far steadier, and only has to be approximately
-right because the mask handles containment.
+of floor past a staircase and skews the whole quad. Taking the narrowing from
+the floor's _extent_ is steadier but understates perspective badly: a floor
+running out of frame on both sides does not visibly narrow, and the sample lobby
+got a horizon above the top of the photograph. Parallel lines on a floor meet on
+the horizon, and a phone held level at chest height puts the far wall's foot
+about a sixth of the frame below it, so that is what sets the perspective now.
+The far rows only lean it left or right, by half what they show, because
+furniture hides one side of them.
+
+### A sample room needs no model
+
+A sample room is the same photograph for everyone, so `bake-sample-floors.mjs`
+runs the precise pass once and ships the result: a two-colour PNG of 1–4KB and
+four corners. Those floors are the first anyone sees, so the script also applies
+`TOUCH_UPS`, polygons drawn by hand against a gridded zoom of the photo. Opening
+the studio therefore fetches no model at all; `useFloorDetection` reads the
+preset and falls back to the model only if it will not load.
 
 ### Off the main thread
 
@@ -322,10 +337,19 @@ use before relying on it commercially, and before hosting the weights here.
 
 ### Loading, shown
 
-While the photo, the material and detection load, the stage shows each step
-with the download's progress (`RoomStage` → `LoadingOverlay`). The visitor can
-"continue without waiting" and work with the floor area by hand; a small chip
-keeps reporting until detection lands.
+Nothing is laid while a room's floor is unknown: the only thing to lay it on
+would be a guessed trapezoid, and a patch in the middle of a room reads as a
+broken render. The room stays on show with a chip in its corner reporting the
+download, and "Mark it by hand" gives the visitor the corners at once. If
+detection fails, the notice under the stage offers the same.
+
+A new floor keeps the old one on show until its image has landed, then dissolves
+in (`fadeFrom` in `RoomStage`). An image and its material are only ever swapped
+together, because baked tiles are cached by material: pairing the old image with
+the new material baked the old floor under the new floor's name, and it stayed
+on screen after the real image arrived. That was the bug behind "selecting a
+floor does nothing". A floor whose image will not load goes back to the last one
+shown, says so, and is taken out of the list.
 
 ### Snapping the boundary to the photograph
 
@@ -370,11 +394,13 @@ With the junction on the real edge, the floor's pull-back from walls is 1px;
 at 2px it left a visible line of old floor along every wall. Edge strength is
 computed only inside the bands, which keeps the step to about half a second.
 
-The mask is then composited with `imageSmoothingEnabled = false`, or scaling
-would feather the boundary straight back out.
+The join is then cleaned up in `cleanFloorMask`. Each column ending at a wall
+takes the median of its neighbours' far edge, and a wide blur rounds off steep
+joins, both beside structure only: a skirting line is straight, but a chair leg
+is thinner than the blur.
 
-Detection never blocks: the room and material render immediately against a
-default floor area, and the detected result replaces it when ready.
+The mask is composited with smoothing on. It is smaller than the photograph, and
+a hard scale steps every edge in it.
 
 ### Around and under furniture: colour decides
 
@@ -454,17 +480,30 @@ texture, and treating it as one would cut marketing photos into planks — and
 
 A product texture is either a **dedicated seamless asset** uploaded to the
 `visualizer_texture` media collection, or the marketing photograph standing in
-for one. The API says which (`visualizer_texture_is_dedicated`), and the
-difference decides everything below.
+for one. The API says which (`visualizer_texture_is_dedicated`).
 
-Catalogue photography is staged — a plank propped on a pallet, a skirting board
-in frame, a lobby with dark inlay bands — so a photograph is cropped to its
-middle and, by default, shown **as photographed**: repeated as it is, with no
-joints of our own. Cutting a photograph of a whole floor into planks puts its
-seams and props inside every board; that was tried against the catalogue's own
-imagery, and it is why this is not the default. A dedicated texture defaults to
-the product's natural pattern — staggered planks, a tile grid — and every layout
-is a tap away either way.
+Catalogue photography is staged: a tile cut out on white, a vase on a plank, a
+deck beside a swimming pool. Repeating that lays the photograph across the floor,
+backdrop and props included. So a photograph is reduced to the material first
+(`material-patch.ts`, `materialFromPhoto`):
+
+1. On a 96px copy, discount the white backdrop reachable from the frame, take the
+   weighted median colour of the lower middle of the shot, mark everything near
+   it, and find the largest rectangle of marked cells.
+2. Even out its light and cross-fade its edges (`texture-prep.ts`, the same steps
+   as the admin tool), so no seam or lit side repeats.
+
+It finds a clean patch in most of the catalogue. It fails on shots with no large
+run of one surface — a playground, a multicoloured stack of samples — which is
+the case for a dedicated texture. Those still give the best result by far.
+
+Every material now defaults to its real layout: planks staggered, tiles in a
+grid, at the product's size. Cutting the old centre-crops into planks repeated
+their props, which is why photographs used to default to "as photographed"; cut
+from a clean patch they read as a floor, and a repeated photograph does not.
+
+Products that are not floors (wall panels, trims, fixings) are left out of the
+studio by `floorChoices`; a direct link to one still opens it.
 
 ### One period per pattern
 
@@ -506,9 +545,9 @@ near — and tiles get grout a little lighter and greyer than the tile. The bake
 also produces a height map of the joints, which the AR view turns into a normal
 map: real grooves that catch light, where the photo view has to paint them.
 
-Bakes are sized to the resolution the plane draws them at (bucketed by powers of
-√2 and cached), so a joint stays a crisp pixel or two rather than an eighth of
-one shimmering after a heavy downscale.
+Bakes are sized to the floor underfoot (bucketed by powers of √2 and cached),
+and mipmaps and anisotropic filtering look after the far end, so a joint stays
+crisp near the camera without shimmering across the room.
 
 ### True proportions
 
@@ -523,9 +562,13 @@ percent, and absurd quads clamp to a safe range. Tested against a synthetic
 pinhole camera photographing floors of known size, angled and off-centre shots
 included.
 
-With depth known, the plane is laid **in metres**: its width is the visitor's
-"floor width in the photo" — the one measurement a photograph cannot supply —
-and planks are drawn at the variation's real millimetres against it.
+With depth known, the plane is laid **in metres**, and planks are drawn at the
+variation's real millimetres against the quad's width. That width used to be a
+flat 4m for every room. `floorWidthFromCamera` now works it out: with the camera
+intrinsics removed the columns are λ·A·r₁, λ·B·r₂, λ·t, so the floor's normal is
+r₁ × r₂, the camera's height above it is |n·t| in the quad's units, and assuming
+a phone at 1.4m gives A in metres. It is tested against a synthetic camera, and
+the "floor width" slider overrides it.
 
 ### Light
 
@@ -535,9 +578,11 @@ were lost because a multiply can only darken. `lighting.ts` divides each pixel's
 blurred luminance by the floor's average. Below 1 is colourless shading centred
 on the floor's own exposure, multiplied; above 1 is highlight, screened in
 proportion to the finish (matte, satin, gloss). The blur takes out the old
-floor's grain and grout lines, which are texture, not light. Computed once per
-photo and floor area. Reflections of dark furniture in a glossy old floor still
-read as shadows; "Room lighting" turns them down.
+floor's grain, grout and parquet pattern, which are texture, not light. Computed
+once per photo and floor area. A polished floor mirrors what stands on it, and a
+reflection measures exactly like a shadow, so only 68% of the depth is kept:
+enough to ground the furniture without printing dark columns across a matt floor.
+"Room lighting" turns it down further.
 
 ## The homography
 
@@ -569,48 +614,29 @@ Two shapes are special-cased: a parallelogram (a floor viewed square-on) has no
 perspective term, and a collapsed quad falls back to an affine map so a
 mis-dragged corner still renders something instead of dividing by zero.
 
-### Drawing it on a 2D canvas
+### Drawing it
 
-`setTransform` is affine — it cannot divide by `w`, so it cannot do perspective
-on its own. The material is therefore drawn as a **mesh of small cells**: each
-cell's corners are projected through the homography, and the cell itself is
-filled with an affine transform. Across a cell a few pixels wide, affine and
-projective are indistinguishable; the mesh as a whole is perspective-correct.
+`setTransform` on a 2D canvas is affine and cannot divide by `w`, so the material
+is mapped in a fragment shader (`floor-raster.ts`). The inverse homography, the
+laying in metres, the lay angle and the tile's size multiply into one 3×3 matrix,
+so the shader is a matrix multiply and a divide. It is normalised so the divisor
+is +1 in the middle of the quad; a homography's sign depends on the quad's
+winding, and "in front of the horizon" only means something once it is fixed.
 
-Two details make it hold up:
+The WebGL canvas is only ever a source: the result is drawn straight onto the 2D
+canvas in the same task, so `preserveDrawingBuffer` is not needed, and light,
+mask, comparison and export are all plain 2D compositing as before.
 
-- **Rows are spaced evenly on screen, not evenly across the material.** Along
-  the quad's centre line the homography reduces to `y = (A + Bv)/(C + Dv)`,
-  which inverts to `v = (A − yC)/(yD − B)`. That answers "which part of the
-  material lands on this screen row?" exactly, putting fine subdivision where
-  foreshortening is strongest and coarse subdivision underfoot where it is not.
-- **Cells overlap by about 1.5px, plus 3% of the cell.** A cell is filled with
-  an affine transform, so its corners land on a parallelogram while the true
-  projection is a trapezoid, and the mismatch grows with the cell. A fixed
-  bleed closes the seam underfoot and leaves a fine bright wedge showing up the
-  room; the proportional part removes it. The mask — or the clip path, without
-  one — keeps the bleed inside the floor.
+This reverses an earlier decision to stay on a 2D canvas for mid-range phones,
+drawing a mesh of affine cells. That needed a domain, depth bands, seam bleeds
+and cell budgets, each to patch a gap the last one left. Per pixel it needs none
+of them, a phone GPU does it in a frame or two, and the far floor is filtered
+properly for the first time. The file is smaller than the mesh it replaced.
 
-Cell counts adapt to the floor's size on screen, between 16 and 160 rows, and
-are measured from the part of the mesh that lands in frame: a domain reaching
-well past the photograph would otherwise spend its whole budget off-canvas.
-
-The domain is laid in **bands of bounded depth**, each from its own off-screen
-plane. A domain running towards the horizon is deep in material terms and
-shallow on screen, so one plane would spend its rows on floor occupying a dozen
-pixels and starve the floor underfoot. Bands abut exactly, and every plane is
-anchored to the same point in material coordinates — the quad's middle — so the
-pattern runs continuously across the joins, and widening the domain lays more
-planks around the ones already on screen rather than shifting every plank the
-visitor was looking at.
-
-### Why not WebGL for the photo?
-
-A fragment shader would do the divide per pixel and be the obvious choice for a
-desktop tool. This one is aimed at mid-range Android phones on mobile data,
-where a 2D canvas starts instantly, needs no context loss handling, and
-degrades predictably. The mesh is rendered on demand — when a control changes,
-not sixty times a second — so the cost lands once per adjustment.
+Where WebGL2 is missing, or its context is lost, `rasterise` does the same
+arithmetic in JavaScript at up to 1280px, choosing a mip level per pixel. It is
+softer at the far end, and it is pure, so the coverage guarantee is tested on it
+directly. After two lost contexts the GPU is left alone for the visit.
 
 ### Making it look real
 
@@ -632,14 +658,12 @@ The check that matters most is **"a straight plank stays straight"**: sample
 three points along a line on the material, project them, and confirm they stay
 collinear. A per-row approximation fails this; a real homography cannot.
 
-Coverage has a suite of its own — `npm run test:visualizer` — because "the
-floor is not all covered" is the failure a customer reports first. Over floor
-shapes real photographs produce (a sofa bitten out, a floor split in two by a
-table, an L-shape turning a corner, a deep room reaching towards the horizon)
-it asserts that **every floor pixel maps inside the domain**, both along the
-quad detection produces and along a quad dragged nowhere near the floor. One
-test asserts the opposite for the unit square alone: if laying only the quad
-ever stops leaving floor bare, the other checks have stopped proving anything.
+Coverage has a suite of its own — `npm run test:visualizer` — because "the floor
+is not all covered" is the failure a customer reports first. `floor-raster.test`
+renders through `rasterise` and asserts **every pixel of the photograph receives
+material**, for a floor in the lower half, a tiny quad far from most of the floor,
+a camera turned hard to one side, a horizon inside the frame, and corners dragged
+out of order.
 
 The mask rules have a suite of their own alongside it, built from the mistakes
 the model actually makes: a floor leaking onto a staircase, a wood-toned door
@@ -669,8 +693,8 @@ re-render at another resolution.
 Saving also stores the layout, plank size, floor width, finish, lighting, the
 hand edits to the floor area and — for a sample room — its path, so
 `/visualizer?design={token}` reopens a design for editing rather than only
-viewing. The quad is restored as saved, detection supplies the mask again, and
-the edits replay on top. Edits are kept as normalised operations, not pixels,
+viewing. The quad is restored as saved, detection or the sample's preset supplies
+the mask again, and the edits replay on top. Edits are kept as normalised operations, not pixels,
 which is also how undo works: a stack of full-resolution mask snapshots would
 cost a phone tens of megabytes.
 
