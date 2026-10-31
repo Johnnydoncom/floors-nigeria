@@ -686,7 +686,9 @@ export function VisualizerStudio({
               track("comparison_used", { mode: "products" });
             }}
           >
-            Compare<span className="hidden sm:inline"> floors</span>
+            <span>
+              Compare<span className="hidden sm:inline"> floors</span>
+            </span>
           </ModeButton>
         </div>
 
