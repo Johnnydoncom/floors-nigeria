@@ -24,7 +24,7 @@ import type { CameraMode } from "./RoomScene";
 const RoomScene = dynamic(() => import("./RoomScene").then((module) => module.RoomScene), {
   ssr: false,
   loading: () => (
-    <div className="grid aspect-[4/3] place-items-center bg-surface">
+    <div className="grid h-full place-items-center bg-surface">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         Building your room…
@@ -86,16 +86,10 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
     : "";
 
   return (
-    <div className="container-fluid grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div>
-        <section className="mb-6">
-          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            1 · Your room
-          </h2>
-          <RoomDimensions plan={plan} onChange={setPlan} />
-        </section>
-
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+    <div className="container-fluid grid gap-x-8 gap-y-4 pb-10 pt-2 lg:grid-cols-[minmax(0,1fr)_340px] lg:pt-4">
+      {/* The room. On a phone it stays in view while everything below it changes. */}
+      <div className="z-20 min-w-0 bg-background pb-2 max-lg:sticky max-lg:top-[calc(var(--header-height)-0.25rem)] max-lg:pt-1 lg:col-start-1 lg:row-start-1 lg:pb-0">
+        <div className="mb-2 flex items-center gap-1.5">
           <ViewTab
             active={view === "room"}
             onClick={() => setView("room")}
@@ -112,7 +106,7 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
           </ViewTab>
 
           {view === "room" && (
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex gap-1.5">
               <ViewTab
                 active={cameraMode === "overview"}
                 onClick={() => setCameraMode("overview")}
@@ -134,19 +128,22 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
         {view === "plan" ? (
           <PlanEditor plan={plan} areaSqm={areaSqm} />
         ) : (
-          <>
-            <div className="aspect-[4/3] max-h-[70vh] w-full overflow-hidden border border-border bg-surface">
-              <RoomScene plan={plan} spec={arSpec} cameraMode={cameraMode} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {cameraMode === "overview"
-                ? "Drag to turn the room, scroll or pinch to zoom."
-                : "Drag to look around the room."}
-            </p>
-          </>
+          <div className="aspect-[4/3] w-full overflow-hidden border border-border bg-surface max-lg:max-h-[46dvh] lg:max-h-[calc(max(100dvh-var(--header-height)-10rem,24rem))]">
+            <RoomScene plan={plan} spec={arSpec} cameraMode={cameraMode} />
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 max-lg:order-2 lg:col-start-1 lg:row-start-2">
+        {view === "room" && (
+          <p className="text-xs text-muted-foreground">
+            {cameraMode === "overview"
+              ? "Drag to turn the room, scroll or pinch to zoom."
+              : "Drag to look around the room."}
+          </p>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <div className="min-w-[9rem]">
             <label htmlFor="lay-direction" className="text-sm">
               Lay direction{" "}
@@ -173,6 +170,13 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
           />
         </div>
 
+        <section className="mt-6">
+          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Your room
+          </h2>
+          <RoomDimensions plan={plan} onChange={setPlan} />
+        </section>
+
         {arSpec && (
           <p className="mt-4 text-xs text-muted-foreground">
             {arSpec.layout === "natural"
@@ -185,20 +189,22 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
         )}
       </div>
 
-      <aside className="space-y-8">
-        <section>
+      {/* On a phone its sections join the page's own order: floors directly under
+          the room, the totals after the measurements that drive them. */}
+      <aside className="min-w-0 space-y-8 max-lg:contents lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <section className="min-w-0 max-lg:order-1">
           <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            2 · Choose a floor
+            Choose a floor
           </h2>
           {/* Scrolls on its own so the totals below stay within reach. */}
-          <div className="mt-3 max-h-[26rem] overflow-y-auto p-1">
+          <div className="mt-3 lg:max-h-[26rem] lg:overflow-y-auto lg:p-1">
             <MaterialPicker choices={materials} selected={material} onSelect={setMaterial} />
           </div>
         </section>
 
-        <section className="border-t border-border pt-6">
+        <section className="min-w-0 border-t border-border pt-6 max-lg:order-3">
           <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            3 · What you need
+            What you need
           </h2>
 
           <dl className="mt-3 space-y-2 text-sm">
@@ -222,7 +228,7 @@ export function RoomDesigner({ materials }: { materials: TextureChoice[] }) {
         </section>
 
         {material && (
-          <section className="border-t border-border pt-6">
+          <section className="min-w-0 border-t border-border pt-6 max-lg:order-4">
             <p className="font-display text-lg leading-tight">{material.productName}</p>
             {material.variantName && (
               <p className="text-sm text-muted-foreground">{material.variantName}</p>
@@ -300,11 +306,11 @@ function ViewTab({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-10 items-center gap-2 border border-charcoal-dark bg-charcoal-dark px-4 text-sm font-semibold text-primary-foreground"
-          : "inline-flex h-10 items-center gap-2 border border-border px-4 text-sm transition hover:border-gold hover:text-gold"
+          ? "inline-flex h-9 items-center gap-2 whitespace-nowrap border border-charcoal-dark bg-charcoal-dark px-3 text-xs font-semibold text-primary-foreground sm:h-10 sm:px-4 sm:text-sm"
+          : "inline-flex h-9 items-center gap-2 whitespace-nowrap border border-border px-3 text-xs transition hover:border-gold hover:text-gold sm:h-10 sm:px-4 sm:text-sm"
       }
     >
-      {icon}
+      <span className="hidden sm:contents">{icon}</span>
       {children}
     </button>
   );

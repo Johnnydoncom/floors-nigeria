@@ -31,6 +31,14 @@ and how the floor is found in the first place.
    ft²), request a quote or order a sample (both reach the CRM with the render
    attached), ask on WhatsApp, find a showroom — or view the floor in AR.
 
+## The tool comes first
+
+Both tools open on the tool itself. `ToolHeading` is a single line, and the
+explanation sits below in `ToolGuide`, where search engines still read it. A large
+banner above a tool hid it entirely on a phone. On a phone the room is pinned under
+the site header and capped at 46% of the screen, with floors directly beneath it;
+on a laptop it stops short of the fold, so a whole room is always in view.
+
 ## Where the work happens
 
 | Path                                                          | Responsibility                                                   |
@@ -67,6 +75,7 @@ and how the floor is found in the first place.
 | `src/components/visualizer/ShareDialog.tsx`, `LeadDialog.tsx` | Sharing; quote and sample requests.                              |
 | `src/components/visualizer/ArLauncher.tsx`                    | "View in your room" for whichever AR the device has.             |
 | `src/components/visualizer/useFloorDetection.ts`              | Runs detection per room, out of the render path.                 |
+| `src/components/tools/ToolIntro.tsx`                          | The one-line heading above each tool, and the guide below it.    |
 | `src/app/(site)/visualizer/page.tsx`                          | Server component; popular materials and filter choices.          |
 | `src/app/api/catalog/materials/route.ts`                      | Catalogue search/filter and product deep links as materials.     |
 | `src/app/api/visualizations/route.ts`                         | Proxies a save to Laravel, keeping the API URL server-side.      |

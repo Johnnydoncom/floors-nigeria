@@ -248,7 +248,13 @@ export function MaterialBrowser({
         />
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      {/* Behind Filter on a phone, where every row here keeps floors further away. */}
+      <div
+        className={cn(
+          "items-center justify-between gap-2",
+          showFilters || isFiltered || view !== "all" ? "flex" : "hidden lg:flex",
+        )}
+      >
         <div role="group" aria-label="Show" className="flex gap-1">
           <ViewTab active={view === "all"} onClick={() => setView("all")}>
             All

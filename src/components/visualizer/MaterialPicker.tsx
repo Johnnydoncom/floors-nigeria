@@ -32,7 +32,7 @@ export function MaterialPicker({
     <div
       role="radiogroup"
       aria-label="Choose a material"
-      className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3"
+      className="flex gap-2 overflow-x-auto p-1 pb-2 lg:grid lg:grid-cols-3 lg:overflow-visible lg:p-0"
     >
       {choices.map((choice) => {
         // Colour terms carry no variation id, so their name tells them apart.
@@ -51,7 +51,7 @@ export function MaterialPicker({
             onClick={() => onSelect(choice)}
             title={`${choice.productName}${choice.variantName ? ` — ${choice.variantName}` : ""}`}
             className={cn(
-              "group text-left transition focus-visible:outline-none",
+              "group w-24 shrink-0 text-left transition focus-visible:outline-none lg:w-auto",
               isSelected
                 ? "ring-2 ring-gold ring-offset-2 ring-offset-background"
                 : "hover:opacity-90",

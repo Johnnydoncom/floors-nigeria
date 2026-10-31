@@ -7,6 +7,7 @@ import type { FilterOptions } from "@/lib/api/types";
 import { floorChoices, isFloorCategory } from "@/lib/room/materials";
 import sampleFloors from "@/lib/visualizer/sample-floors.json";
 import type { FloorPreset } from "@/lib/visualizer/types";
+import { ToolGuide, ToolHeading } from "@/components/tools/ToolIntro";
 import { VisualizerStudio, type SampleRoom } from "@/components/visualizer/VisualizerStudio";
 import type { VisualizerFilters } from "@/components/visualizer/MaterialBrowser";
 
@@ -50,31 +51,10 @@ export default async function VisualizerPage() {
 
   return (
     <>
-      <section className="bg-charcoal-dark pt-header text-primary-foreground">
-        <div className="container-fluid py-10 lg:py-14">
-          <p className="eyebrow text-gold-light">Room Visualizer</p>
-          <h1 className="mt-2 max-w-3xl text-balance font-display text-4xl tracking-tight md:text-5xl">
-            See it on your own floor before you buy.
-          </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-primary-foreground/70">
-            Photograph your room and we find the floor for you. Try any of our floors on it — in the
-            pattern, direction and finish you want — then compare, share, or see it in AR. Nothing
-            is uploaded until you choose to save.
-          </p>
-
-          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
-            <Step icon={<Camera className="h-4 w-4" aria-hidden />} title="Add your room">
-              Upload or take a photo, or start from one of ours.
-            </Step>
-            <Step icon={<ScanLine className="h-4 w-4" aria-hidden />} title="We find the floor">
-              Furniture stays put. Paint or draw to fine-tune.
-            </Step>
-            <Step icon={<Layers className="h-4 w-4" aria-hidden />} title="Try, compare, decide">
-              Switch floors and patterns, then request a quote or a sample.
-            </Step>
-          </ol>
-        </div>
-      </section>
+      <ToolHeading
+        title="See it on your own floor before you buy."
+        summary="Try any of our floors in your room. Your photo stays on this device until you choose to save."
+      />
 
       {/* The studio follows ?product, ?variant and ?design links, which are
           only known in the browser — the shell prerenders without them. */}
@@ -85,6 +65,29 @@ export default async function VisualizerPage() {
           filters={visualizerFilters(filterOptions)}
         />
       </Suspense>
+
+      <ToolGuide
+        eyebrow="How it works"
+        title="Your room, any floor, in a few taps."
+        description="Photograph your room and we find the floor for you. Try any of our floors on it — in the pattern, direction and finish you want — then compare, share, or see it in AR. Nothing is uploaded until you choose to save."
+        steps={[
+          {
+            icon: <Camera className="h-4 w-4" aria-hidden />,
+            title: "Add your room",
+            detail: "Upload or take a photo, or start from one of ours.",
+          },
+          {
+            icon: <ScanLine className="h-4 w-4" aria-hidden />,
+            title: "We find the floor",
+            detail: "Furniture stays put. Paint or draw to fine-tune.",
+          },
+          {
+            icon: <Layers className="h-4 w-4" aria-hidden />,
+            title: "Try, compare, decide",
+            detail: "Switch floors and patterns, then request a quote or a sample.",
+          },
+        ]}
+      />
     </>
   );
 }
@@ -114,29 +117,9 @@ function visualizerFilters(options: FilterOptions): VisualizerFilters {
 
 function StudioSkeleton() {
   return (
-    <div className="container-fluid grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="container-fluid grid gap-8 pb-10 pt-2 lg:grid-cols-[minmax(0,1fr)_380px] lg:pt-4">
       <div className="aspect-[4/3] animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
       <div className="hidden h-96 animate-pulse rounded-lg bg-muted motion-reduce:animate-none lg:block" />
     </div>
-  );
-}
-
-function Step({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="rounded-lg border border-white/10 p-4">
-      <p className="flex items-center gap-2 font-display text-sm font-semibold text-gold-light">
-        {icon}
-        {title}
-      </p>
-      <p className="mt-1.5 text-sm text-primary-foreground/65">{children}</p>
-    </li>
   );
 }

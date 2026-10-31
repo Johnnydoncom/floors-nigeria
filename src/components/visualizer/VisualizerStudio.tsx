@@ -622,9 +622,9 @@ export function VisualizerStudio({
     : false;
 
   return (
-    <div className="container-fluid grid grid-cols-1 gap-4 py-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-x-8 lg:py-10">
+    <div className="container-fluid grid grid-cols-1 gap-3 pb-8 pt-2 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4 lg:gap-x-8 lg:pb-10 lg:pt-4">
       {/* The room. On a phone it stays in view while floors are chosen below it. */}
-      <div className="z-20 min-w-0 space-y-2 bg-background pb-2 max-lg:sticky max-lg:top-[var(--header-height)] lg:col-start-1 lg:row-start-1 lg:pb-0">
+      <div className="z-20 min-w-0 space-y-2 bg-background pb-2 max-lg:sticky max-lg:top-[calc(var(--header-height)-0.25rem)] max-lg:pt-1 lg:col-start-1 lg:row-start-1 lg:pb-0">
         <RoomStage
           photoSrc={room.src}
           material={stageMaterial}
@@ -656,7 +656,7 @@ export function VisualizerStudio({
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:col-start-1 lg:row-start-2">
-        <div role="radiogroup" aria-label="Compare" className="flex flex-wrap gap-1.5">
+        <div role="radiogroup" aria-label="Compare" className="flex gap-1.5">
           <ModeButton
             active={mode === "wipe"}
             icon={<SplitSquareHorizontal className="h-4 w-4" aria-hidden />}
@@ -686,16 +686,24 @@ export function VisualizerStudio({
               track("comparison_used", { mode: "products" });
             }}
           >
-            Compare floors
+            Compare<span className="hidden sm:inline"> floors</span>
           </ModeButton>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          <Button variant="outline" className="h-10" onClick={() => uploadRef.current?.click()}>
+        <div className="flex gap-1.5 max-sm:w-full">
+          <Button
+            variant="outline"
+            className="h-9 max-sm:flex-1 sm:h-10"
+            onClick={() => uploadRef.current?.click()}
+          >
             <Upload aria-hidden />
             Use your room
           </Button>
-          <Button className="h-10" onClick={() => setIsShareOpen(true)} disabled={!material}>
+          <Button
+            className="h-9 max-sm:flex-1 sm:h-10"
+            onClick={() => setIsShareOpen(true)}
+            disabled={!material}
+          >
             <Share2 aria-hidden />
             Save &amp; share
           </Button>
@@ -737,7 +745,7 @@ export function VisualizerStudio({
             <TabsTrigger value="room">Room</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="floors" className="mt-4">
+          <TabsContent value="floors" className="mt-3">
             <MaterialBrowser
               initial={materials}
               filters={filters}
@@ -1293,7 +1301,7 @@ function ModeButton({
       aria-checked={active}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+        "inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold sm:h-10 sm:gap-2 sm:px-3 sm:text-sm",
         active
           ? "border-charcoal bg-charcoal font-semibold text-primary-foreground"
           : "border-border hover:border-foreground/40",

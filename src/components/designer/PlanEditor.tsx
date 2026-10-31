@@ -103,7 +103,7 @@ export function PlanEditor({ plan, areaSqm }: { plan: RoomPlan; areaSqm: number 
     <div className="border border-border bg-surface p-3">
       <svg
         viewBox={viewBox}
-        className="mx-auto block h-auto max-h-[min(62vh,560px)] w-full"
+        className="mx-auto block h-auto w-full max-lg:max-h-[calc(46dvh-1.5rem)] lg:max-h-[max(100dvh-var(--header-height)-11rem,22rem)]"
         role="img"
         aria-label={`Room plan, ${number(plan.width)} by ${number(plan.length)} metres`}
       >

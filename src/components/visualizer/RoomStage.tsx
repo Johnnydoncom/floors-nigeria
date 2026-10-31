@@ -661,7 +661,7 @@ export function RoomStage({
           ];
 
     return (
-      <div className={cn("grid gap-2 sm:grid-cols-2", className)}>
+      <div className={cn("grid grid-cols-2 gap-2", className)}>
         {panels.map((panel, index) => (
           <figure key={index} className="relative overflow-hidden rounded-lg bg-muted">
             {panel.content}
@@ -681,9 +681,10 @@ export function RoomStage({
     <div className={cn("space-y-2", className)}>
       <div
         ref={viewportRef}
-        // On a phone the room stays in view above the floors, so it may only
-        // take so much of the screen; a tall photograph is narrowed to fit.
-        className="relative mx-auto select-none overflow-hidden rounded-lg bg-muted max-lg:max-w-[calc(46dvh*var(--stage-aspect))]"
+        // The whole room should be in view at once. On a phone it stays above the
+        // floors, so it may only take so much of the screen; on a laptop it stops
+        // short of the fold. Either way a tall photograph is narrowed to fit.
+        className="relative mx-auto select-none overflow-hidden rounded-lg bg-muted max-lg:max-w-[calc(46dvh*var(--stage-aspect))] lg:max-w-[calc(max(100dvh-var(--header-height)-7rem,26rem)*var(--stage-aspect))]"
         style={
           {
             "--stage-aspect": aspect,
