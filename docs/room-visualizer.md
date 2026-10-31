@@ -37,7 +37,8 @@ Both tools open on the tool itself. `ToolHeading` is a single line, and the
 explanation sits below in `ToolGuide`, where search engines still read it. A large
 banner above a tool hid it entirely on a phone. On a phone the room is pinned under
 the site header and capped at 46% of the screen, with floors directly beneath it;
-on a laptop it stops short of the fold, so a whole room is always in view.
+on a larger screen a room fills its column, and only a portrait photo is narrowed
+to fit the window height.
 
 ## Where the work happens
 

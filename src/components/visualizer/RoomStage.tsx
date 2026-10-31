@@ -681,10 +681,14 @@ export function RoomStage({
     <div className={cn("space-y-2", className)}>
       <div
         ref={viewportRef}
-        // The whole room should be in view at once. On a phone it stays above the
-        // floors, so it may only take so much of the screen; on a laptop it stops
-        // short of the fold. Either way a tall photograph is narrowed to fit.
-        className="relative mx-auto select-none overflow-hidden rounded-lg bg-muted max-lg:max-w-[calc(46dvh*var(--stage-aspect))] lg:max-w-[calc(max(100dvh-var(--header-height)-7rem,26rem)*var(--stage-aspect))]"
+        // A room fills its column. On a phone it stays above the floors, so it may
+        // only take so much of the screen; on a larger screen only a portrait
+        // photograph is narrowed, since at full width it would not fit in view.
+        className={cn(
+          "relative mx-auto select-none overflow-hidden rounded-lg bg-muted max-lg:max-w-[calc(46dvh*var(--stage-aspect))]",
+          aspect < 1 &&
+            "lg:max-w-[calc(max(100dvh-var(--header-height)-7rem,26rem)*var(--stage-aspect))]",
+        )}
         style={
           {
             "--stage-aspect": aspect,
