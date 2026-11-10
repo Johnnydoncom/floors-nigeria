@@ -55,5 +55,4 @@ export function WhatsAppIcon({
     </svg>
   );
 }
-
 export default WhatsAppIcon;
