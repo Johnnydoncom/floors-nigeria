@@ -29,7 +29,9 @@ export type NavIcon =
   | "reports"
   | "staff"
   | "settings"
-  | "audit";
+  | "audit"
+  | "support"
+  | "knowledge";
 
 export type NavItem = { href: string; label: string; icon: NavIcon; permissions: string[] };
 export type NavGroup = { label: string; items: NavItem[] };
@@ -159,6 +161,35 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "Insights",
     items: [
       { href: "/admin/reports", label: "Reports", icon: "reports", permissions: ["reports.view"] },
+    ],
+  },
+  {
+    label: "AI Support",
+    items: [
+      {
+        href: "/admin/support",
+        label: "Inbox",
+        icon: "support",
+        permissions: ["ai_support.conversations.view"],
+      },
+      {
+        href: "/admin/support-knowledge",
+        label: "Knowledge",
+        icon: "knowledge",
+        permissions: ["ai_support.knowledge.view"],
+      },
+      {
+        href: "/admin/support-analytics",
+        label: "Analytics",
+        icon: "reports",
+        permissions: ["ai_support.analytics.view"],
+      },
+      {
+        href: "/admin/support-settings",
+        label: "Settings",
+        icon: "settings",
+        permissions: ["ai_support.settings.view"],
+      },
     ],
   },
   {

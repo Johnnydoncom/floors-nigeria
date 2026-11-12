@@ -16,9 +16,11 @@ import {
   FolderKanban,
   GalleryHorizontalEnd,
   Hammer,
+  HeadsetIcon,
   Image as ImageIcon,
   Inbox,
   LayoutDashboard,
+  LibraryBig,
   ListChecks,
   Menu,
   Ruler,
@@ -65,6 +67,8 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   staff: ShieldCheck,
   settings: Settings,
   audit: ScrollText,
+  support: HeadsetIcon,
+  knowledge: LibraryBig,
 };
 
 function isActive(pathname: string, href: string): boolean {
