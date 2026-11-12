@@ -467,6 +467,15 @@ export default function SupportSettingsPage() {
         </button>
       </div>
 
+      {settings.length > 0 &&
+        (!switches["ai_support.enabled"] || !switches["ai_support.channel.website"]) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            The chat widget is hidden from the storefront. Turn on the{" "}
+            <strong>Master switch</strong> and <strong>Website chat</strong> below, then save, and
+            it appears on every page.
+          </div>
+        )}
+
       {error && (
         <div
           role="alert"
