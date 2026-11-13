@@ -160,10 +160,13 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     if (!conversationId) return;
 
     run(async () => {
-      const result = await adminFetch<{ draft: string }>(
+      const result = await adminFetch<{ draft: string; message?: string | null }>(
         `conversations/${conversationId}/copilot-draft`,
         { method: "POST" },
       );
+      if (!result.draft) {
+        throw new Error(result.message || "The AI could not draft a reply. Try again.");
+      }
       setCopilotDraft(result.draft);
       setReplyText(result.draft);
     });

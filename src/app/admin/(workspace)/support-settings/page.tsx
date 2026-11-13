@@ -1,664 +1,1185 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Settings, Save, Eye, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import { PageHeader, Panel, StatusBadge } from "@/components/admin/ui";
+import { inputClass } from "@/components/admin/forms";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
-type SettingEntry = {
-  key: string;
-  value: unknown;
-  group: string;
-  is_public: boolean;
-  is_secret?: boolean;
-};
+/* ─── API shapes ─────────────────────────────────────────────────────────── */
 
-type FieldType = "text" | "number" | "password" | "select";
+type SettingEntry = { key: string; value: unknown; is_secret?: boolean };
 
-type Field = {
-  key: string;
+type Provider = {
+  id: string;
   label: string;
-  description?: string;
-  type?: FieldType;
-  options?: { value: string; label: string }[];
+  free: boolean;
+  self_hosted: boolean;
+  requires_key: boolean;
+  supports_embeddings: boolean;
+  has_key: boolean;
+  base_url: string;
+  default_base_url: string;
+  suggested_model: string;
+  suggested_embedding_model: string;
+  key_url: string;
+  note: string;
+  configured: boolean;
 };
+
+type ModelEntry = { provider: string; model: string };
+
+type ChannelStatus = { webhook_url: string; configured: boolean };
+
+type SettingsResponse = {
+  settings: SettingEntry[];
+  providers: Provider[];
+  models: ModelEntry[];
+  active_models: number;
+  channels: Record<string, ChannelStatus>;
+};
+
+type CatalogModel = { id: string; label: string; free: boolean; context: number | null };
+
+type ModelOptions = {
+  status: "loading" | "ready" | "error";
+  models: CatalogModel[];
+  error?: string;
+};
+
+type TestResult =
+  | { status: "running" }
+  | { status: "ok"; reply: string; latency: number }
+  | { status: "error"; error: string };
+
+type Row = ModelEntry & { uid: string };
+
+/* ─── Constants ──────────────────────────────────────────────────────────── */
+
+const MASK = "••••••••";
+const MODELS_KEY = "ai_support.ai.models";
+
+const CHANNEL_LABELS = {
+  website: "Website",
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+} as const;
+
+const FEATURE_SWITCHES = [
+  [
+    "ai_support.enabled",
+    "AI support module",
+    "Master switch. Off hides the chat widget and stops every AI reply.",
+  ],
+  [
+    "ai_support.feature.auto_reply",
+    "AI auto-reply",
+    "The AI answers customers on every enabled channel.",
+  ],
+  [
+    "ai_support.feature.human_support",
+    "Human inbox",
+    "Customers can ask for a person; agents reply from the inbox.",
+  ],
+  ["ai_support.feature.copilot", "Agent copilot", "Agents can ask the AI to draft a reply."],
+  [
+    "ai_support.feature.lead_capture",
+    "Lead capture",
+    "Customers can leave contact details; a CRM lead is created.",
+  ],
+  [
+    "ai_support.feature.ingestion",
+    "Knowledge base",
+    "Approved knowledge sources are indexed and used in answers.",
+  ],
+] as const;
+
+const LIMIT_FIELDS = [
+  [
+    "ai_support.budget.daily_usd",
+    "Daily budget (USD)",
+    "Paid models only. 0 removes the cap. Free models never count.",
+  ],
+  ["ai_support.rate_limit.messages_per_minute", "Messages per minute", "Per visitor."],
+  ["ai_support.rate_limit.messages_per_session", "Messages per conversation", ""],
+  [
+    "ai_support.retention.days",
+    "Keep conversations (days)",
+    "Applied by php artisan ai-support:cleanup.",
+  ],
+  [
+    "ai_support.calculator.waste_default",
+    "Waste allowance (%)",
+    "Added by the quantity calculator.",
+  ],
+] as const;
+
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/admin/ai-support/${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", Accept: "application/json", ...init?.headers },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (body as { message?: string }).message;
+    throw new Error(message || `Request failed (${res.status}).`);
+  }
+  return body as T;
 }
 
-const PROVIDERS = [
-  { value: "openrouter", label: "OpenRouter (free models)" },
-  { value: "groq", label: "Groq (free tier)" },
-  { value: "gemini", label: "Google Gemini (free tier)" },
-  { value: "ollama", label: "Ollama (self-hosted)" },
-  { value: "lmstudio", label: "LM Studio (self-hosted)" },
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "custom", label: "Custom OpenAI-compatible" },
-];
+const providerKeySetting = (id: string) => `ai_support.providers.${id}.api_key`;
+const providerUrlSetting = (id: string) => `ai_support.providers.${id}.base_url`;
 
-const PROVIDER_OPTIONS = [{ value: "", label: "— None —" }, ...PROVIDERS];
+let rowCounter = 0;
+const toRow = (entry: ModelEntry): Row => ({ ...entry, uid: `row-${++rowCounter}` });
 
-const SWITCH_KEYS: Field[] = [
-  {
-    key: "ai_support.enabled",
-    label: "Master switch",
-    description: "Enable/disable the entire AI support module",
-  },
-  {
-    key: "ai_support.channel.website",
-    label: "Website chat",
-    description: "Enable website chat widget",
-  },
-  {
-    key: "ai_support.channel.instagram",
-    label: "Instagram DMs",
-    description: "Enable Instagram messaging",
-  },
-  {
-    key: "ai_support.channel.whatsapp",
-    label: "WhatsApp",
-    description: "Enable WhatsApp messaging",
-  },
-  {
-    key: "ai_support.feature.auto_reply",
-    label: "AI auto-reply",
-    description: "Let AI respond to customer messages",
-  },
-  {
-    key: "ai_support.feature.copilot",
-    label: "Agent copilot",
-    description: "AI draft suggestions for agents",
-  },
-  {
-    key: "ai_support.feature.human_support",
-    label: "Human inbox",
-    description: "Enable the agent inbox",
-  },
-  {
-    key: "ai_support.feature.lead_capture",
-    label: "Lead capture",
-    description: "AI can create quote requests",
-  },
-  {
-    key: "ai_support.feature.ingestion",
-    label: "Knowledge ingestion",
-    description: "Auto-index product catalogue",
-  },
-];
-
-const ROUTING_FIELDS: Field[] = [
-  {
-    key: "ai_support.provider.primary",
-    label: "Primary provider",
-    type: "select",
-    options: PROVIDER_OPTIONS,
-  },
-  {
-    key: "ai_support.provider.model",
-    label: "Primary model",
-    description: "Model id sent to the primary provider",
-  },
-  {
-    key: "ai_support.provider.fallback",
-    label: "Fallback provider",
-    type: "select",
-    options: PROVIDER_OPTIONS,
-  },
-  { key: "ai_support.provider.fallback_model", label: "Fallback model" },
-  {
-    key: "ai_support.embeddings.provider",
-    label: "Embedding provider",
-    type: "select",
-    options: PROVIDER_OPTIONS,
-    description: "Leave empty for lexical-only retrieval (zero cost)",
-  },
-];
-
-const LIMIT_FIELDS: Field[] = [
-  {
-    key: "ai_support.budget.daily_usd",
-    label: "Daily AI budget (USD)",
-    type: "number",
-    description: "0 disables the cap. Free and self-hosted models cost $0.",
-  },
-  {
-    key: "ai_support.rate_limit.messages_per_minute",
-    label: "Messages per minute",
-    type: "number",
-  },
-  {
-    key: "ai_support.rate_limit.messages_per_session",
-    label: "Messages per session",
-    type: "number",
-  },
-  { key: "ai_support.retention.days", label: "Retention (days)", type: "number" },
-  {
-    key: "ai_support.calculator.waste_default",
-    label: "Default waste allowance (%)",
-    type: "number",
-  },
-];
-
-const WIDGET_FIELDS: Field[] = [
-  { key: "ai_support.widget.greeting", label: "Greeting" },
-  { key: "ai_support.widget.offline_message", label: "Offline message" },
-  {
-    key: "ai_support.widget.position",
-    label: "Position",
-    type: "select",
-    options: [
-      { value: "bottom-right", label: "Bottom right" },
-      { value: "bottom-left", label: "Bottom left" },
-    ],
-  },
-  {
-    key: "ai_support.widget.theme",
-    label: "Theme",
-    type: "select",
-    options: [
-      { value: "light", label: "Light" },
-      { value: "dark", label: "Dark" },
-    ],
-  },
-  {
-    key: "ai_support.widget.theme_color",
-    label: "Theme colour",
-    description: "Hex colour; leave blank to use the site's primary colour",
-  },
-];
-
-const MASK = "••••••••";
-
-type ChannelStatus = { webhook_url: string; configured: boolean };
-
-/** Shared by both Meta channels: signs and verifies every webhook. */
-const META_SECRETS: Field[] = [
-  {
-    key: "ai_support.meta.app_secret",
-    label: "Meta app secret",
-    description: "App settings → Basic. Verifies X-Hub-Signature-256 on every webhook.",
-  },
-  {
-    key: "ai_support.meta.verify_token",
-    label: "Webhook verify token",
-    description: "Any long random string; paste the same value into Meta's webhook setup.",
-  },
-];
-
-const WHATSAPP_SECRETS: Field[] = [
-  {
-    key: "ai_support.whatsapp.access_token",
-    label: "Access token",
-    description: "Permanent system-user token with whatsapp_business_messaging.",
-  },
-];
-
-const WHATSAPP_FIELDS: Field[] = [
-  {
-    key: "ai_support.whatsapp.phone_number_id",
-    label: "Phone number ID",
-    description: "WhatsApp → API Setup. Messages to other numbers are ignored.",
-  },
-  { key: "ai_support.whatsapp.business_account_id", label: "WhatsApp Business Account ID" },
-];
-
-const INSTAGRAM_SECRETS: Field[] = [
-  {
-    key: "ai_support.instagram.access_token",
-    label: "Access token",
-    description: "Instagram account token with instagram_manage_messages.",
-  },
-];
-
-const PROVIDER_FIELDS: Record<string, Field[]> = Object.fromEntries(
-  PROVIDERS.map((provider) => [
-    provider.value,
-    [
-      { key: `ai_support.providers.${provider.value}.base_url`, label: "Base URL" },
-      { key: `ai_support.providers.${provider.value}.model`, label: "Model" },
-      { key: `ai_support.providers.${provider.value}.embedding_model`, label: "Embedding model" },
-    ],
-  ]),
-);
-
-const EMBEDDING_FLAGS = PROVIDERS.map((provider) => ({
-  key: `ai_support.providers.${provider.value}.supports_embeddings`,
-  label: `${provider.label} supports embeddings`,
-}));
-
-function toInputValue(value: unknown): string {
+function normaliseValue(value: unknown): string | boolean {
+  if (typeof value === "boolean") return value;
   if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
-function toBoolean(value: unknown): boolean {
-  return value === true || value === "true" || value === "1" || value === 1;
+function asBoolean(value: string | boolean | undefined): boolean {
+  return value === true || value === "true" || value === "1";
 }
 
+/* ─── Page ───────────────────────────────────────────────────────────────── */
+
 export default function SupportSettingsPage() {
-  const [settings, setSettings] = useState<SettingEntry[]>([]);
-  const [channels, setChannels] = useState<Record<string, ChannelStatus>>({});
-  const [copied, setCopied] = useState<string | null>(null);
-  const [switches, setSwitches] = useState<Record<string, boolean>>({});
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [data, setData] = useState<SettingsResponse | null>(null);
+  const [initialValues, setInitialValues] = useState<Record<string, string | boolean>>({});
+  const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [secrets, setSecrets] = useState<Record<string, string>>({});
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [isPending, startTransition] = useTransition();
-  const [saved, setSaved] = useState(false);
+  const [removedSecrets, setRemovedSecrets] = useState<string[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [initialModels, setInitialModels] = useState("[]");
+  const [options, setOptions] = useState<Record<string, ModelOptions>>({});
+  const [tests, setTests] = useState<Record<string, TestResult>>({});
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [isSaving, startSaving] = useTransition();
 
-  const settingMap = useMemo(() => {
-    const map: Record<string, SettingEntry> = {};
-    for (const entry of settings) map[entry.key] = entry;
-    return map;
-  }, [settings]);
+  const providers = useMemo(() => data?.providers ?? [], [data]);
+  const providerById = useMemo(
+    () => Object.fromEntries(providers.map((p) => [p.id, p])) as Record<string, Provider>,
+    [providers],
+  );
+  const secretSet = useMemo(
+    () => new Set((data?.settings ?? []).filter((s) => s.value === MASK).map((s) => s.key)),
+    [data],
+  );
 
-  const loadSettings = useCallback(async () => {
-    const result = await adminFetch<{
-      settings: SettingEntry[];
-      channels?: Record<string, ChannelStatus>;
-    }>("settings");
-    setSettings(result.settings);
-    setChannels(result.channels ?? {});
+  /** Unsaved key/base URL win, so models can be listed and tested before saving. */
+  const connectionFor = useCallback(
+    (id: string) => {
+      const key = secrets[providerKeySetting(id)]?.trim();
+      const url = String(values[providerUrlSetting(id)] ?? "").trim();
+      return { ...(key ? { api_key: key } : {}), ...(url ? { base_url: url } : {}) };
+    },
+    [secrets, values],
+  );
 
-    const switchState: Record<string, boolean> = {};
-    for (const field of [...SWITCH_KEYS, ...EMBEDDING_FLAGS]) {
-      const entry = result.settings.find((item) => item.key === field.key);
-      switchState[field.key] = toBoolean(entry?.value);
+  const isUsable = useCallback(
+    (id: string) => {
+      const provider = providerById[id];
+      if (!provider) return false;
+      if (removedSecrets.includes(providerKeySetting(id))) return !provider.requires_key;
+      return provider.configured || Boolean(secrets[providerKeySetting(id)]?.trim());
+    },
+    [providerById, removedSecrets, secrets],
+  );
+
+  const loadOptions = useCallback(
+    async (id: string, force = false) => {
+      if (!force && options[id] && options[id].status !== "error") return;
+      setOptions((prev) => ({
+        ...prev,
+        [id]: { status: "loading", models: prev[id]?.models ?? [] },
+      }));
+      try {
+        const result = await adminFetch<{ models: CatalogModel[] }>(`providers/${id}/models`, {
+          method: "POST",
+          body: JSON.stringify(connectionFor(id)),
+        });
+        setOptions((prev) => ({ ...prev, [id]: { status: "ready", models: result.models } }));
+      } catch (err) {
+        setOptions((prev) => ({
+          ...prev,
+          [id]: {
+            status: "error",
+            models: [],
+            error: err instanceof Error ? err.message : "Could not load models.",
+          },
+        }));
+      }
+    },
+    [connectionFor, options],
+  );
+
+  /**
+   * Applies the server state. `isCurrent` lets the mount effect drop a
+   * response that arrives after its cleanup, so a slow load can never
+   * overwrite rows (and edits) the admin has already started on.
+   */
+  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    const result = await adminFetch<SettingsResponse>("settings");
+    if (!isCurrent()) return;
+    const nextValues: Record<string, string | boolean> = {};
+    for (const entry of result.settings) {
+      if (!entry.is_secret && entry.key !== MODELS_KEY)
+        nextValues[entry.key] = normaliseValue(entry.value);
     }
-    setSwitches(switchState);
-
-    const valueState: Record<string, string> = {};
-    for (const field of [
-      ...ROUTING_FIELDS,
-      ...LIMIT_FIELDS,
-      ...WIDGET_FIELDS,
-      ...WHATSAPP_FIELDS,
-      ...Object.values(PROVIDER_FIELDS).flat(),
-    ]) {
-      const entry = result.settings.find((item) => item.key === field.key);
-      valueState[field.key] = toInputValue(entry?.value);
-    }
-    setValues(valueState);
+    setData(result);
+    setValues(nextValues);
+    setInitialValues(nextValues);
+    setSecrets({});
+    setRemovedSecrets([]);
+    setRows(result.models.map(toRow));
+    setInitialModels(JSON.stringify(result.models));
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the API; state is set after the fetch resolves
-    loadSettings().catch((err) => {
-      setError(err instanceof Error ? err.message : "Could not load settings.");
-    });
-  }, [loadSettings]);
+    let current = true;
+    load(() => current).catch((err) =>
+      setError(err instanceof Error ? err.message : "Could not load settings."),
+    );
+    return () => {
+      current = false;
+    };
+  }, [load]);
 
-  const handleSave = () => {
-    startTransition(async () => {
+  const modelsPayload = JSON.stringify(
+    rows.map(({ provider, model }) => ({ provider, model: model.trim() })),
+  );
+  const changedKeys = Object.keys(values).filter((key) => values[key] !== initialValues[key]);
+  const typedSecrets = Object.entries(secrets).filter(([, value]) => value.trim() !== "");
+  const isDirty =
+    changedKeys.length > 0 ||
+    typedSecrets.length > 0 ||
+    removedSecrets.length > 0 ||
+    modelsPayload !== initialModels;
+
+  const save = () =>
+    startSaving(async () => {
       setError(null);
-
-      const updates: { key: string; value: unknown }[] = [];
-
-      for (const [key, value] of Object.entries(switches)) {
-        updates.push({ key, value });
+      const updates: { key: string; value: unknown }[] = [
+        ...changedKeys.map((key) => ({ key, value: values[key] })),
+        ...typedSecrets.map(([key, value]) => ({ key, value: value.trim() })),
+        ...removedSecrets.map((key) => ({ key, value: null })),
+      ];
+      if (modelsPayload !== initialModels) {
+        updates.push({ key: MODELS_KEY, value: JSON.parse(modelsPayload) });
       }
-
-      for (const [key, value] of Object.entries(values)) {
-        updates.push({ key, value });
-      }
-
-      for (const [key, value] of Object.entries(secrets)) {
-        if (value) updates.push({ key, value });
-      }
-
       try {
         await adminFetch("settings", {
           method: "PATCH",
           body: JSON.stringify({ settings: updates }),
         });
-
-        setSaved(true);
-        setSecrets({});
-        setTimeout(() => setSaved(false), 3000);
-        await loadSettings();
+        await load();
+        setOptions({});
+        setSavedAt(Date.now());
+        setTimeout(() => setSavedAt(null), 3000);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not save settings.");
       }
     });
-  };
 
-  const renderField = (field: Field) => (
-    <label
-      key={field.key}
-      className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{field.label}</p>
-        {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-      </div>
-      {field.type === "select" ? (
-        <select
-          value={values[field.key] ?? ""}
-          onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-          className="w-full rounded-md border px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary sm:w-72"
-        >
-          {field.options?.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={field.type === "number" ? "number" : "text"}
-          step={field.type === "number" ? "any" : undefined}
-          value={values[field.key] ?? ""}
-          onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-          className="w-full rounded-md border px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary sm:w-72"
-        />
-      )}
-    </label>
-  );
-
-  const renderSecret = (field: Field) => {
-    const hasValue = settingMap[field.key]?.value === MASK;
-
-    return (
-      <div
-        key={field.key}
-        className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{field.label}</p>
-          {field.description && (
-            <p className="text-xs text-muted-foreground">{field.description}</p>
-          )}
-        </div>
-        <div className="flex w-full items-center gap-2 sm:w-72">
-          <input
-            type={showSecrets[field.key] ? "text" : "password"}
-            autoComplete="off"
-            placeholder={hasValue ? `${MASK}  (already set)` : "Not set"}
-            value={secrets[field.key] ?? ""}
-            onChange={(e) => setSecrets((prev) => ({ ...prev, [field.key]: e.target.value }))}
-            className="w-full rounded-md border px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-            aria-label={field.label}
-          />
-          <button
-            type="button"
-            onClick={() => setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label={`Toggle ${field.label} visibility`}
-          >
-            {showSecrets[field.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const copyWebhook = async (url: string) => {
+  const runTest = async (row: Row) => {
+    setTests((prev) => ({ ...prev, [row.uid]: { status: "running" } }));
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(url);
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      // Clipboard blocked; the URL is still visible to copy by hand.
+      const result = await adminFetch<{
+        ok: boolean;
+        reply?: string;
+        error?: string;
+        latency_ms: number;
+      }>(`providers/${row.provider}/test`, {
+        method: "POST",
+        body: JSON.stringify({ model: row.model.trim(), ...connectionFor(row.provider) }),
+      });
+      setTests((prev) => ({
+        ...prev,
+        [row.uid]: result.ok
+          ? { status: "ok", reply: result.reply ?? "", latency: result.latency_ms }
+          : { status: "error", error: result.error ?? "The model did not answer." },
+      }));
+    } catch (err) {
+      setTests((prev) => ({
+        ...prev,
+        [row.uid]: { status: "error", error: err instanceof Error ? err.message : "Test failed." },
+      }));
     }
   };
 
-  const renderChannelHeader = (name: string, channelKey: string) => {
-    const status = channels[channelKey];
+  const setValue = (key: string, value: string | boolean) =>
+    setValues((prev) => ({ ...prev, [key]: value }));
+  const updateRow = (uid: string, patch: Partial<ModelEntry>) => {
+    setRows((prev) => prev.map((row) => (row.uid === uid ? { ...row, ...patch } : row)));
+    setTests((prev) => {
+      const next = { ...prev };
+      delete next[uid];
+      return next;
+    });
+  };
+  const moveRow = (index: number, delta: number) =>
+    setRows((prev) => {
+      const next = [...prev];
+      const [row] = next.splice(index, 1);
+      next.splice(index + delta, 0, row);
+      return next;
+    });
 
+  if (!data) {
     return (
-      <div className="flex flex-col gap-2 border-b bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            {name}
-            <span
-              className={
-                status?.configured
-                  ? "rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700"
-                  : "rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800"
-              }
-            >
-              {status?.configured ? "Connected" : "Needs credentials"}
-            </span>
+      <div className="p-6">
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
           </p>
-          {status?.webhook_url && (
-            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-              Callback URL: {status.webhook_url}
-            </p>
-          )}
-        </div>
-        {status?.webhook_url && (
-          <button
-            type="button"
-            onClick={() => copyWebhook(status.webhook_url)}
-            className="btn btn-outline h-8 shrink-0 rounded-md px-3 text-xs"
-          >
-            {copied === status.webhook_url ? "Copied" : "Copy URL"}
-          </button>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading settings…
+          </p>
         )}
+      </div>
+    );
+  }
+
+  const moduleOn = asBoolean(values["ai_support.enabled"]);
+  const usableRows = rows.filter(
+    (row) =>
+      isUsable(row.provider) && (row.model.trim() || providerById[row.provider]?.suggested_model),
+  );
+  const liveChannels = (["website", "whatsapp", "instagram"] as const).filter((channel) =>
+    asBoolean(values[`ai_support.channel.${channel}`]),
+  );
+
+  /* ─── Render helpers ─── */
+
+  const switchRow = (key: string, label: string, help: string, extra?: ReactNode) => (
+    <div key={key} className="flex items-start justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <label htmlFor={key} className="text-sm font-medium">
+          {label}
+        </label>
+        {help && <p className="text-xs text-muted-foreground">{help}</p>}
+        {extra}
+      </div>
+      <Switch
+        id={key}
+        checked={asBoolean(values[key])}
+        onCheckedChange={(checked) => setValue(key, checked)}
+      />
+    </div>
+  );
+
+  const textField = (
+    key: string,
+    label: string,
+    help = "",
+    type: "text" | "number" = "text",
+    placeholder = "",
+  ) => (
+    <div key={key} className="text-sm">
+      <label htmlFor={key} className="mb-1.5 block text-xs font-semibold">
+        {label}
+      </label>
+      <input
+        id={key}
+        type={type}
+        step={type === "number" ? "any" : undefined}
+        placeholder={placeholder}
+        value={String(values[key] ?? "")}
+        onChange={(e) => setValue(key, e.target.value)}
+        className={inputClass}
+      />
+      {help && <p className="mt-1 text-xs text-muted-foreground">{help}</p>}
+    </div>
+  );
+
+  const secretField = (key: string, label: string, help = "") => {
+    const saved = secretSet.has(key) && !removedSecrets.includes(key);
+    return (
+      <SecretInput
+        key={key}
+        id={key}
+        label={label}
+        help={help}
+        saved={saved}
+        value={secrets[key] ?? ""}
+        onChange={(value) => setSecrets((prev) => ({ ...prev, [key]: value }))}
+        onRemove={saved ? () => setRemovedSecrets((prev) => [...prev, key]) : undefined}
+      />
+    );
+  };
+
+  const webhook = (channel: "whatsapp" | "instagram") => {
+    const status = data.channels[channel];
+    if (!status) return null;
+    return (
+      <div className="flex flex-col gap-2 rounded-md bg-muted/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0 break-all font-mono text-xs text-muted-foreground">
+          {status.webhook_url}
+        </p>
+        <CopyButton text={status.webhook_url} />
       </div>
     );
   };
 
   return (
-    <div className="space-y-8 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Settings className="h-6 w-6" /> AI Support Settings
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Control which features are active. All switches default OFF. Free and self-hosted
-            providers never consume the budget.
-          </p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={isPending}
-          className="btn btn-primary h-9 rounded-md px-4 text-sm flex items-center gap-2"
-        >
-          <Save className="h-4 w-4" /> {saved ? "Saved ✓" : "Save changes"}
-        </button>
-      </div>
-
-      {settings.length > 0 &&
-        (!switches["ai_support.enabled"] || !switches["ai_support.channel.website"]) && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            The chat widget is hidden from the storefront. Turn on the{" "}
-            <strong>Master switch</strong> and <strong>Website chat</strong> below, then save, and
-            it appears on every page.
-          </div>
-        )}
+    <div className="p-6">
+      <PageHeader
+        eyebrow="AI Support"
+        title="Settings"
+        description="Turn features on, choose which AI models answer customers, and connect WhatsApp and Instagram."
+        actions={
+          <>
+            {savedAt && (
+              <span className="flex items-center gap-1 text-xs text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" /> Saved
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={save}
+              disabled={!isDirty || isSaving}
+              className="btn btn-primary flex h-9 items-center gap-2 rounded-md px-4 text-sm disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isDirty ? "Save changes" : "No changes"}
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
         >
           {error}
         </div>
       )}
 
-      {/* Switches */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Feature switches</h2>
-        </div>
-        <div className="divide-y">
-          {SWITCH_KEYS.map((field) => (
-            <label
-              key={field.key}
-              className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/50"
-            >
-              <div>
-                <p className="text-sm font-medium">{field.label}</p>
-                <p className="text-xs text-muted-foreground">{field.description}</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={switches[field.key] ?? false}
-                onChange={(e) =>
-                  setSwitches((prev) => ({ ...prev, [field.key]: e.target.checked }))
-                }
-                className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-            </label>
-          ))}
-        </div>
+      {/* Status strip */}
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <StatusCard
+          label="Module"
+          ok={moduleOn}
+          value={moduleOn ? "On" : "Off"}
+          hint={moduleOn ? "Customers can reach the assistant." : "Turn it on under General."}
+        />
+        <StatusCard
+          label="AI models ready"
+          ok={usableRows.length > 0}
+          value={`${usableRows.length} of ${rows.length}`}
+          hint={
+            usableRows.length > 0
+              ? "Tried in order until one answers."
+              : "Add a provider key under AI models."
+          }
+        />
+        <StatusCard
+          label="Channels on"
+          ok={liveChannels.length > 0}
+          value={
+            liveChannels.length ? liveChannels.map((c) => CHANNEL_LABELS[c]).join(", ") : "None"
+          }
+          hint="Website chat, WhatsApp, Instagram."
+        />
       </div>
 
-      {/* Messaging channels */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Channels — WhatsApp &amp; Instagram</h2>
-          <p className="text-xs text-muted-foreground">
-            Both use one Meta app. Subscribe the callback URL to the <code>messages</code> field in
-            Meta&apos;s webhook settings, then turn the channel on under Feature switches. Secrets
-            are stored encrypted and never shown again.
-          </p>
-        </div>
-        <div className="divide-y">
-          <div className="bg-muted/30 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Meta app
-          </div>
-          {META_SECRETS.map(renderSecret)}
-        </div>
-        <div className="divide-y border-t">
-          {renderChannelHeader("WhatsApp AI agent", "whatsapp")}
-          {WHATSAPP_FIELDS.map(renderField)}
-          {WHATSAPP_SECRETS.map(renderSecret)}
-          <p className="px-4 py-3 text-xs text-muted-foreground">
-            WhatsApp only accepts free-form replies within 24 hours of the customer&apos;s last
-            message. Later replies are refused and marked failed in the inbox.
-          </p>
-        </div>
-        <div className="divide-y border-t">
-          {renderChannelHeader("Instagram DMs", "instagram")}
-          {INSTAGRAM_SECRETS.map(renderSecret)}
-        </div>
-      </div>
+      <Tabs defaultValue="models">
+        <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start sm:w-auto">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="models">AI models</TabsTrigger>
+          <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="widget">Chat widget</TabsTrigger>
+        </TabsList>
 
-      {/* Provider routing */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Provider routing</h2>
-          <p className="text-xs text-muted-foreground">
-            Defaults ship with a free OpenRouter model and a local Ollama fallback.
-          </p>
-        </div>
-        <div className="divide-y">{ROUTING_FIELDS.map(renderField)}</div>
-      </div>
+        {/* ─── General ─── */}
+        <TabsContent value="general" className="space-y-6">
+          <Panel title="Features">
+            <div className="divide-y">
+              {FEATURE_SWITCHES.map(([key, label, help]) => switchRow(key, label, help))}
+            </div>
+          </Panel>
+          <Panel title="Limits">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {LIMIT_FIELDS.map(([key, label, help]) => textField(key, label, help, "number"))}
+            </div>
+          </Panel>
+        </TabsContent>
 
-      {/* Provider credentials */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Provider credentials &amp; models</h2>
-          <p className="text-xs text-muted-foreground">
-            Stored encrypted where sensitive. Local providers can leave the key blank.
-          </p>
-        </div>
-        <div className="divide-y">
-          {PROVIDERS.map((provider) => {
-            const secretKey = `ai_support.providers.${provider.value}.api_key`;
-            const existing = settingMap[secretKey];
-            const hasValue = existing?.value === "••••••••";
-
-            return (
-              <details key={provider.value} className="group">
-                <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50">
-                  <span>{provider.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {hasValue ? "Key set" : "Key not set"}
-                  </span>
-                </summary>
-                <div className="divide-y border-t">
-                  {PROVIDER_FIELDS[provider.value].map(renderField)}
-
-                  <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">API key</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <input
-                          type={showSecrets[secretKey] ? "text" : "password"}
-                          placeholder={hasValue ? "••••••••  (already set)" : "Enter key…"}
-                          value={secrets[secretKey] ?? ""}
-                          onChange={(e) =>
-                            setSecrets((prev) => ({ ...prev, [secretKey]: e.target.value }))
-                          }
-                          className="w-full rounded-md border px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowSecrets((prev) => ({ ...prev, [secretKey]: !prev[secretKey] }))
-                          }
-                          className="text-muted-foreground hover:text-foreground"
-                          aria-label="Toggle key visibility"
+        {/* ─── AI models ─── */}
+        <TabsContent value="models" className="space-y-6">
+          <Panel
+            title="Model priority"
+            description="Tried top to bottom. If one fails, is rate-limited or has been retired, the next answers. Rows whose provider has no key are skipped."
+            actions={
+              <button
+                type="button"
+                onClick={() => {
+                  const provider = providers.find((p) => isUsable(p.id)) ?? providers[0];
+                  setRows((prev) => [
+                    ...prev,
+                    toRow({ provider: provider.id, model: provider.suggested_model }),
+                  ]);
+                }}
+                className="btn btn-outline flex h-8 items-center gap-1 rounded-md px-3 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add model
+              </button>
+            }
+          >
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No models yet. Add one — Groq, OpenRouter (models ending in &quot;:free&quot;) and
+                Gemini all have free tiers.
+              </p>
+            ) : (
+              <ol className="space-y-3">
+                {rows.map((row, index) => {
+                  const provider = providerById[row.provider];
+                  const usable = isUsable(row.provider);
+                  const catalog = options[row.provider];
+                  const known = catalog?.models.find((m) => m.id === row.model.trim());
+                  const test = tests[row.uid];
+                  const listId = `models-${row.uid}`;
+                  return (
+                    <li
+                      key={row.uid}
+                      className={cn("rounded-md border p-3", !usable && "bg-muted/40")}
+                    >
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+                        <span className="mt-2 hidden w-5 shrink-0 text-xs font-semibold text-muted-foreground lg:block">
+                          {index + 1}.
+                        </span>
+                        <select
+                          aria-label="Provider"
+                          value={row.provider}
+                          onChange={(e) => {
+                            const next = providerById[e.target.value];
+                            updateRow(row.uid, { provider: next.id, model: next.suggested_model });
+                          }}
+                          className={cn(inputClass, "lg:w-52")}
                         >
-                          {showSecrets[secretKey] ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
+                          {providers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.label}
+                              {p.free ? " (free)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="min-w-0 flex-1">
+                          <input
+                            aria-label="Model"
+                            list={listId}
+                            value={row.model}
+                            placeholder={provider?.suggested_model || "model id"}
+                            onFocus={() => usable && loadOptions(row.provider)}
+                            onChange={(e) => updateRow(row.uid, { model: e.target.value })}
+                            className={cn(inputClass, "font-mono text-xs")}
+                          />
+                          <datalist id={listId}>
+                            {catalog?.models.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.free ? "Free" : "Paid"}
+                                {m.context ? ` · ${Math.round(m.context / 1000)}k context` : ""}
+                              </option>
+                            ))}
+                          </datalist>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {!usable && (
+                              <StatusBadge
+                                value="skipped"
+                                label="Skipped — no key for this provider"
+                                tone="warning"
+                              />
+                            )}
+                            {known && (
+                              <StatusBadge
+                                value="free"
+                                label={known.free ? "Free" : "Paid"}
+                                tone={known.free ? "success" : "neutral"}
+                              />
+                            )}
+                            {usable && catalog?.status === "loading" && (
+                              <span>Loading models…</span>
+                            )}
+                            {usable &&
+                              catalog?.status === "ready" &&
+                              !known &&
+                              row.model.trim() && (
+                                <span className="text-orange-700">
+                                  Not in this provider&apos;s current list — test it.
+                                </span>
+                              )}
+                            {usable && catalog?.status === "ready" && (
+                              <span>
+                                {catalog.models.filter((m) => m.free).length} free of{" "}
+                                {catalog.models.length} available
+                              </span>
+                            )}
+                            {catalog?.status === "error" && (
+                              <span className="text-destructive">{catalog.error}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => runTest(row)}
+                            disabled={!usable || test?.status === "running"}
+                            className="btn btn-outline flex h-9 items-center gap-1 rounded-md px-3 text-xs disabled:opacity-50"
+                          >
+                            {test?.status === "running" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Zap className="h-3.5 w-3.5" />
+                            )}
+                            Test
+                          </button>
+                          <IconButton
+                            label="Move up"
+                            disabled={index === 0}
+                            onClick={() => moveRow(index, -1)}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </IconButton>
+                          <IconButton
+                            label="Move down"
+                            disabled={index === rows.length - 1}
+                            onClick={() => moveRow(index, 1)}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </IconButton>
+                          <IconButton
+                            label="Remove"
+                            onClick={() => setRows((prev) => prev.filter((r) => r.uid !== row.uid))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </IconButton>
+                        </div>
                       </div>
+                      {test && test.status !== "running" && (
+                        <div
+                          className={cn(
+                            "mt-2 flex gap-2 rounded-md px-3 py-2 text-xs lg:ml-7",
+                            test.status === "ok"
+                              ? "bg-emerald-600/10 text-emerald-900 dark:text-emerald-200"
+                              : "bg-destructive/10 text-destructive",
+                          )}
+                        >
+                          {test.status === "ok" ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          ) : (
+                            <XCircle className="h-4 w-4 shrink-0" />
+                          )}
+                          <span>
+                            {test.status === "ok" ? (
+                              <>
+                                Answered in {(test.latency / 1000).toFixed(1)}s: &ldquo;{test.reply}
+                                &rdquo;
+                              </>
+                            ) : (
+                              test.error
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            <p className="mt-4 text-xs text-muted-foreground">
+              Tip: list two or three free models from different providers. Free tiers are
+              rate-limited, and a backup keeps customers from seeing an apology instead of an
+              answer.
+            </p>
+          </Panel>
+
+          <Panel
+            title="Providers"
+            description="One key per provider. Keys are stored encrypted and never shown again. Changes apply after Save."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              {providers.map((provider) => {
+                const keySetting = providerKeySetting(provider.id);
+                const saved = provider.has_key && !removedSecrets.includes(keySetting);
+                const status =
+                  provider.self_hosted && !provider.requires_key
+                    ? { label: "Self-hosted", tone: "info" as const }
+                    : saved
+                      ? { label: "Key saved", tone: "success" as const }
+                      : { label: "No key", tone: "neutral" as const };
+                return (
+                  <div key={provider.id} className="flex flex-col gap-3 rounded-md border p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                          {provider.label}
+                          {(provider.free || !provider.self_hosted) && (
+                            <StatusBadge
+                              value="tier"
+                              label={
+                                provider.free
+                                  ? provider.self_hosted
+                                    ? "Free"
+                                    : "Free tier"
+                                  : "Paid"
+                              }
+                              tone={provider.free ? "success" : "neutral"}
+                            />
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{provider.note}</p>
+                      </div>
+                      <StatusBadge value="status" label={status.label} tone={status.tone} />
                     </div>
-                    {hasValue && (
-                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
-                        Set
-                      </span>
+                    {(provider.requires_key || provider.id === "custom") && (
+                      <SecretInput
+                        id={keySetting}
+                        label="API key"
+                        saved={saved}
+                        value={secrets[keySetting] ?? ""}
+                        onChange={(value) =>
+                          setSecrets((prev) => ({ ...prev, [keySetting]: value }))
+                        }
+                        onRemove={
+                          saved
+                            ? () => setRemovedSecrets((prev) => [...prev, keySetting])
+                            : undefined
+                        }
+                      />
+                    )}
+                    {provider.self_hosted &&
+                      textField(
+                        providerUrlSetting(provider.id),
+                        "Base URL",
+                        "Must be reachable from the backend server.",
+                        "text",
+                        provider.default_base_url || "https://…/v1",
+                      )}
+                    {provider.key_url && (
+                      <a
+                        href={provider.key_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        {provider.self_hosted ? "Download" : "Get a key"}{" "}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
+                );
+              })}
+            </div>
+          </Panel>
 
-                  <label className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/50">
-                    <span className="text-sm font-medium">Supports embeddings</span>
-                    <input
-                      type="checkbox"
-                      checked={
-                        switches[`ai_support.providers.${provider.value}.supports_embeddings`] ??
-                        false
-                      }
-                      onChange={(e) =>
-                        setSwitches((prev) => ({
-                          ...prev,
-                          [`ai_support.providers.${provider.value}.supports_embeddings`]:
-                            e.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                  </label>
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      </div>
+          <Panel
+            title="Knowledge search"
+            description="Optional. Off uses keyword search, which is free and works well for most catalogues."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="text-sm">
+                <label htmlFor="embeddings-provider" className="mb-1.5 block text-xs font-semibold">
+                  Semantic search provider
+                </label>
+                <select
+                  id="embeddings-provider"
+                  value={String(values["ai_support.embeddings.provider"] ?? "")}
+                  onChange={(e) => {
+                    setValue("ai_support.embeddings.provider", e.target.value);
+                    setValue(
+                      "ai_support.embeddings.model",
+                      providerById[e.target.value]?.suggested_embedding_model ?? "",
+                    );
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Off — keyword search</option>
+                  {providers
+                    .filter((p) => p.supports_embeddings)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Re-index knowledge sources after changing this.
+                </p>
+              </div>
+              {values["ai_support.embeddings.provider"] &&
+                textField(
+                  "ai_support.embeddings.model",
+                  "Embedding model",
+                  "",
+                  "text",
+                  providerById[String(values["ai_support.embeddings.provider"])]
+                    ?.suggested_embedding_model,
+                )}
+            </div>
+          </Panel>
+        </TabsContent>
 
-      {/* Limits */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Limits &amp; retention</h2>
-          <p className="text-xs text-muted-foreground">
-            Run <code>php artisan ai-support:cleanup</code> on a schedule to apply retention.
-          </p>
-        </div>
-        <div className="divide-y">{LIMIT_FIELDS.map(renderField)}</div>
-      </div>
+        {/* ─── Channels ─── */}
+        <TabsContent value="channels" className="space-y-6">
+          <Panel title="Website chat">
+            {switchRow(
+              "ai_support.channel.website",
+              "Show the chat widget",
+              "Appears on every storefront page while the module is on.",
+            )}
+          </Panel>
 
-      {/* Widget */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-semibold">Widget appearance</h2>
+          <Panel
+            title="WhatsApp"
+            actions={
+              <StatusBadge
+                value="wa"
+                label={data.channels.whatsapp?.configured ? "Connected" : "Needs credentials"}
+                tone={data.channels.whatsapp?.configured ? "success" : "warning"}
+              />
+            }
+          >
+            <div className="space-y-4">
+              {switchRow(
+                "ai_support.channel.whatsapp",
+                "Reply on WhatsApp",
+                "WhatsApp only allows free-form replies within 24 hours of the customer's last message.",
+              )}
+              <div>
+                <p className="mb-1.5 text-xs font-semibold">
+                  Callback URL (Meta → WhatsApp → Configuration)
+                </p>
+                {webhook("whatsapp")}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {textField(
+                  "ai_support.whatsapp.phone_number_id",
+                  "Phone number ID",
+                  "WhatsApp → API Setup. Other numbers are ignored.",
+                )}
+                {textField("ai_support.whatsapp.business_account_id", "Business account ID")}
+              </div>
+              {secretField(
+                "ai_support.whatsapp.access_token",
+                "Access token",
+                "Permanent system-user token with whatsapp_business_messaging.",
+              )}
+            </div>
+          </Panel>
+
+          <Panel
+            title="Instagram"
+            actions={
+              <StatusBadge
+                value="ig"
+                label={data.channels.instagram?.configured ? "Connected" : "Needs credentials"}
+                tone={data.channels.instagram?.configured ? "success" : "warning"}
+              />
+            }
+          >
+            <div className="space-y-4">
+              {switchRow("ai_support.channel.instagram", "Reply to Instagram DMs", "")}
+              <div>
+                <p className="mb-1.5 text-xs font-semibold">
+                  Callback URL (Meta → Instagram → Webhooks)
+                </p>
+                {webhook("instagram")}
+              </div>
+              {secretField(
+                "ai_support.instagram.access_token",
+                "Access token",
+                "Instagram account token with instagram_manage_messages.",
+              )}
+            </div>
+          </Panel>
+
+          <Panel
+            title="Meta app"
+            description="Shared by WhatsApp and Instagram. Subscribe the callback URLs to the messages field."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              {secretField(
+                "ai_support.meta.app_secret",
+                "App secret",
+                "App settings → Basic. Verifies every webhook.",
+              )}
+              {secretField(
+                "ai_support.meta.verify_token",
+                "Webhook verify token",
+                "Any long random string; paste the same value in Meta.",
+              )}
+            </div>
+          </Panel>
+        </TabsContent>
+
+        {/* ─── Widget ─── */}
+        <TabsContent value="widget" className="space-y-6">
+          <Panel title="Chat widget">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextArea
+                id="ai_support.widget.greeting"
+                label="Greeting"
+                value={String(values["ai_support.widget.greeting"] ?? "")}
+                onChange={(v) => setValue("ai_support.widget.greeting", v)}
+              />
+              <TextArea
+                id="ai_support.widget.offline_message"
+                label="Offline message"
+                value={String(values["ai_support.widget.offline_message"] ?? "")}
+                onChange={(v) => setValue("ai_support.widget.offline_message", v)}
+              />
+              <SelectField
+                id="ai_support.widget.position"
+                label="Position"
+                value={String(values["ai_support.widget.position"] ?? "bottom-right")}
+                onChange={(v) => setValue("ai_support.widget.position", v)}
+                options={[
+                  ["bottom-right", "Bottom right"],
+                  ["bottom-left", "Bottom left"],
+                ]}
+              />
+              <SelectField
+                id="ai_support.widget.theme"
+                label="Theme"
+                value={String(values["ai_support.widget.theme"] ?? "light")}
+                onChange={(v) => setValue("ai_support.widget.theme", v)}
+                options={[
+                  ["light", "Light"],
+                  ["dark", "Dark"],
+                ]}
+              />
+              {textField(
+                "ai_support.widget.theme_color",
+                "Accent colour",
+                "Hex, e.g. #111111. Blank uses the site colour.",
+                "text",
+                "#111111",
+              )}
+            </div>
+          </Panel>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+/* ─── Small components ───────────────────────────────────────────────────── */
+
+function StatusCard({
+  label,
+  value,
+  hint,
+  ok,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  ok: boolean;
+}) {
+  return (
+    <div className="rounded-lg border p-4">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <span
+          className={cn("h-2 w-2 rounded-full", ok ? "bg-emerald-500" : "bg-orange-500")}
+          aria-hidden
+        />
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+function SecretInput({
+  id,
+  label,
+  help,
+  saved,
+  value,
+  onChange,
+  onRemove,
+}: {
+  id: string;
+  label: string;
+  help?: string;
+  saved: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  onRemove?: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="text-sm">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold">
+        {label}
+      </label>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            id={id}
+            type={visible ? "text" : "password"}
+            autoComplete="off"
+            placeholder={saved ? "Saved — type to replace" : "Not set"}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={cn(inputClass, "pr-9")}
+          />
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            className="absolute inset-y-0 right-2 text-muted-foreground hover:text-foreground"
+            aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+          >
+            {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
-        <div className="divide-y">{WIDGET_FIELDS.map(renderField)}</div>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-muted-foreground hover:text-destructive"
+          >
+            Remove
+          </button>
+        )}
       </div>
+      {help && <p className="mt-1 text-xs text-muted-foreground">{help}</p>}
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard blocked; the URL is visible to copy by hand.
+        }
+      }}
+      className="btn btn-outline h-8 shrink-0 rounded-md px-3 text-xs"
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function TextArea({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="text-sm">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(inputClass, "h-auto py-2")}
+      />
+    </div>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <div className="text-sm">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+      >
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
