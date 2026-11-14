@@ -286,6 +286,15 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
               </span>
               <span>{new Date(msg.created_at).toLocaleTimeString()}</span>
               {msg.is_internal_note && <StickyNote className="h-3 w-3 text-yellow-600" />}
+              {msg.metadata?.voice && (
+                <span className="rounded bg-black/10 px-1.5 py-0.5 font-semibold">
+                  {msg.metadata.transcribed
+                    ? "🎤 Voice note · transcribed"
+                    : msg.metadata.transcription_failed
+                      ? "🎤 Voice note · could not transcribe"
+                      : "🎤 Voice note"}
+                </span>
+              )}
             </div>
             {msg.content}
             <DeliveryNote msg={msg} />

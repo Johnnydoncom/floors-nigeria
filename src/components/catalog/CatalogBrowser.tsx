@@ -6,6 +6,7 @@ import { CatalogPagination } from "./CatalogPagination";
 import { CatalogToolbar } from "./CatalogToolbar";
 import { FilterRail } from "./FilterRail";
 import { ProductGrid, ProductGridSkeleton } from "./ProductGrid";
+import { SmartSearchNotice } from "./SmartSearchNotice";
 
 export type CatalogBrowserProps = {
   /** Path the pagination and filter links are built from, e.g. `/products/spc-vinyl`. */
@@ -53,6 +54,9 @@ export function CatalogBrowser({
       </aside>
 
       <div className="min-w-0">
+        <Suspense fallback={null}>
+          <SmartSearchNotice />
+        </Suspense>
         <Suspense fallback={<div className="mb-8 h-10 border-b border-border pb-6" />}>
           <ToolbarSection
             searchParams={searchParams}

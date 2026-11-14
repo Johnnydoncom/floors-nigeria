@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search, X } from "lucide-react";
 import { useProductSearch } from "@/hooks/use-product-search";
+import { looksLikeSentence, useSmartSearch } from "@/hooks/use-smart-search";
 import { SearchSuggestions } from "./SearchSuggestions";
 
 /**
@@ -13,12 +14,17 @@ import { SearchSuggestions } from "./SearchSuggestions";
 export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const [term, setTerm] = useState("");
   const { results, isSearching } = useProductSearch(term);
+  const smartSearch = useSmartSearch();
   const router = useRouter();
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!term.trim()) return;
 
+    if (looksLikeSentence(term)) {
+      void smartSearch.run(term).then(onClose);
+      return;
+    }
     router.push(`/products?q=${encodeURIComponent(term.trim())}`);
     onClose();
   };
@@ -45,7 +51,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           type="search"
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          placeholder="Search products or a SKU…"
+          placeholder="Search, or describe the floor you need…"
           autoComplete="off"
           className="h-full flex-1 bg-transparent text-base outline-none"
         />
@@ -66,6 +72,8 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           isSearching={isSearching}
           onSelect={onClose}
           onTermChange={setTerm}
+          onSmartSearch={() => void smartSearch.run(term).then(onClose)}
+          smartPending={smartSearch.pending}
         />
       </div>
     </div>

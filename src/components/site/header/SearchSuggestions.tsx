@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Loader2, Sparkles } from "lucide-react";
 import type { SearchResults } from "@/lib/api/types";
+import { looksLikeSentence } from "@/hooks/use-smart-search";
 import { naira } from "@/lib/format";
 
 const POPULAR_TERMS = ["SPC", "Vinyl", "Artificial grass", "Epoxy", "Door mat", "Carpet"];
@@ -17,14 +19,40 @@ export function SearchSuggestions({
   isSearching,
   onSelect,
   onTermChange,
+  onSmartSearch,
+  smartPending = false,
 }: {
   term: string;
   results: SearchResults["data"];
   isSearching: boolean;
   onSelect: () => void;
   onTermChange: (term: string) => void;
+  /** Read the query as a request and open matching, filtered results. */
+  onSmartSearch?: () => void;
+  smartPending?: boolean;
 }) {
   const trimmed = term.trim();
+  const smartRow =
+    onSmartSearch && looksLikeSentence(trimmed) ? (
+      <button
+        type="button"
+        onClick={onSmartSearch}
+        disabled={smartPending}
+        className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition hover:bg-muted disabled:opacity-60"
+      >
+        {smartPending ? (
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gold" aria-hidden />
+        ) : (
+          <Sparkles className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">Find floors for “{trimmed}”</span>
+          <span className="block text-xs text-muted-foreground">
+            Smart search reads your request and applies the right filters
+          </span>
+        </span>
+      </button>
+    ) : null;
 
   if (trimmed.length < 2) {
     return (
@@ -49,19 +77,30 @@ export function SearchSuggestions({
   }
 
   if (isSearching) {
-    return <p className="p-6 text-sm text-muted-foreground">Searching…</p>;
+    return (
+      <>
+        {smartRow}
+        <p className="p-6 text-sm text-muted-foreground">Searching…</p>
+      </>
+    );
   }
 
   if (results.products.length === 0 && results.categories.length === 0) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">
-        Nothing matches “{trimmed}”. Try a material, colour or SKU.
-      </p>
+      <>
+        {smartRow}
+        {!smartRow && (
+          <p className="p-6 text-sm text-muted-foreground">
+            Nothing matches “{trimmed}”. Try a material, colour or SKU, or describe what you need.
+          </p>
+        )}
+      </>
     );
   }
 
   return (
     <div className="py-2">
+      {smartRow}
       {results.products.map((product) => (
         <Link
           key={product.id}

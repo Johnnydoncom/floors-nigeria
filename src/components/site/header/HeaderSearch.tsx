@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { useProductSearch } from "@/hooks/use-product-search";
+import { looksLikeSentence, useSmartSearch } from "@/hooks/use-smart-search";
 import { cn } from "@/lib/utils";
 import { SearchSuggestions } from "./SearchSuggestions";
 
@@ -18,6 +19,7 @@ export function HeaderSearch({ className }: { className?: string }) {
   const [term, setTerm] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const { results, isSearching } = useProductSearch(term);
+  const smartSearch = useSmartSearch();
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -35,8 +37,12 @@ export function HeaderSearch({ className }: { className?: string }) {
     event.preventDefault();
     if (!term.trim()) return;
 
-    router.push(`/products?q=${encodeURIComponent(term.trim())}`);
     setIsFocused(false);
+    if (looksLikeSentence(term)) {
+      void smartSearch.run(term);
+      return;
+    }
+    router.push(`/products?q=${encodeURIComponent(term.trim())}`);
   };
 
   const isOpen = isFocused;
@@ -58,10 +64,15 @@ export function HeaderSearch({ className }: { className?: string }) {
           onChange={(event) => setTerm(event.target.value)}
           onFocus={() => setIsFocused(true)}
           onKeyDown={(event) => event.key === "Escape" && setIsFocused(false)}
-          placeholder="Search SPC, vinyl, grass, epoxy or a SKU…"
+          placeholder="Search, or describe the floor you need…"
           autoComplete="off"
           className="h-11 w-full rounded-full border border-transparent bg-surface pl-11 pr-10 text-sm outline-none transition placeholder:text-muted-foreground/80 hover:border-border focus:border-gold focus:bg-background focus:ring-4 focus:ring-gold/10"
         />
+        {smartSearch.pending && (
+          <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            Finding floors…
+          </span>
+        )}
         {term && (
           <button
             type="button"
@@ -82,6 +93,10 @@ export function HeaderSearch({ className }: { className?: string }) {
             isSearching={isSearching}
             onSelect={() => setIsFocused(false)}
             onTermChange={setTerm}
+            onSmartSearch={() => {
+              setIsFocused(false);
+              void smartSearch.run(term);
+            }}
           />
         </div>
       )}

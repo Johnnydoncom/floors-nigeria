@@ -11,6 +11,7 @@ import {
   Award,
   Truck,
   Quote,
+  Compass,
 } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import { HeroSlider } from "@/components/site/HeroSlider";
@@ -71,6 +72,12 @@ const rooms = [
 ];
 
 const tools = [
+  {
+    icon: Compass,
+    title: "Find My Floor",
+    desc: "Five taps to the three floors that suit your space",
+    href: "/floor-finder",
+  },
   {
     icon: Sparkles,
     title: "AI Room Visualizer",

@@ -80,6 +80,25 @@ export async function sendMessage(
 }
 
 /**
+ * Turn a recorded voice note into text. The audio travels as base64 JSON
+ * because the same-origin proxy only forwards JSON bodies.
+ */
+export async function transcribeAudio(audio: Blob): Promise<string> {
+  const bytes = new Uint8Array(await audio.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+
+  const result = await jsonFetch<{ transcript: string }>(`${BASE}/transcribe`, {
+    method: "POST",
+    body: JSON.stringify({ audio: btoa(binary), mime: audio.type || "audio/webm" }),
+  });
+
+  return result.transcript;
+}
+
+/**
  * Fetch paginated messages for a conversation.
  */
 export async function fetchMessages(

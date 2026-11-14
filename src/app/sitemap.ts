@@ -12,6 +12,7 @@ const STATIC_ROUTES = [
   "/visualizer",
   "/room-designer",
   "/calculator",
+  "/floor-finder",
   "/projects",
   "/industries",
   "/blog",

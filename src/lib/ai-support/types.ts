@@ -36,10 +36,15 @@ export interface Message {
   direction: "inbound" | "outbound";
   sender_type: "customer" | "ai" | "agent" | "system";
   content: string;
-  content_type: "text" | "product_card" | "calculation" | "image";
+  content_type: "text" | "voice" | "product_card" | "calculation" | "image";
   is_internal_note: boolean;
   delivery_status: "pending" | "sent" | "delivered" | "read" | "failed";
-  metadata?: { delivery_error?: string } | null;
+  metadata?: {
+    delivery_error?: string;
+    voice?: boolean;
+    transcribed?: boolean;
+    transcription_failed?: boolean;
+  } | null;
   created_at: string;
 }
 
@@ -54,6 +59,8 @@ export interface WidgetConfig {
   human_support?: boolean;
   /** "Continue on WhatsApp" link, present only while the WhatsApp agent is live. */
   whatsapp_url?: string | null;
+  /** Microphone button: voice notes are on and a speech provider is configured. */
+  voice_input?: boolean;
 }
 
 export interface SSEMessage {

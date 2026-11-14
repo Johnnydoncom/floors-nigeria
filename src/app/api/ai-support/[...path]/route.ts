@@ -34,7 +34,12 @@ function isAllowedPath(path: string[]): boolean {
     case "widget-config":
     case "health":
     case "calculate":
+    case "floor-finder":
+    case "transcribe":
       return rest.length === 0;
+
+    case "search":
+      return rest.length === 1 && rest[0] === "interpret";
 
     case "conversations":
       if (rest.length === 0) return true;

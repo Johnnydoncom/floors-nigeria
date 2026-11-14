@@ -26,6 +26,7 @@ export type NavItem = { label: string; href: string };
  * on desktop and in the drawer on mobile.
  */
 export const TOOL_LINKS: NavItem[] = [
+  { label: "Find My Floor", href: "/floor-finder" },
   { label: "Room Visualizer", href: "/visualizer" },
   { label: "Room Designer", href: "/room-designer" },
   { label: "Floor Calculator", href: "/calculator" },

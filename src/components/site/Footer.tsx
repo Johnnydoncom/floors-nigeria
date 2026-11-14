@@ -32,6 +32,7 @@ const cols = [
   {
     title: "Plan & visualise",
     links: [
+      ["Find My Floor", "/floor-finder"],
       ["Room Visualizer", "/visualizer"],
       ["Room Designer", "/room-designer"],
       ["Floor Calculator", "/calculator"],

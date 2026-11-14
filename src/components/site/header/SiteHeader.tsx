@@ -18,6 +18,7 @@ import { UtilityBar } from "./UtilityBar";
  * interactive shell below it ships JavaScript.
  */
 const UTILITY_LINKS = [
+  { label: "Find My Floor", href: "/floor-finder" },
   { label: "Floor Calculator", href: "/calculator" },
   { label: "Installation", href: "/industries" },
   { label: "Projects", href: "/projects" },

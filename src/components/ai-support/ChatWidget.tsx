@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { VoiceButton, canRecordVoice } from "./VoiceButton";
+import { OPEN_CHAT_EVENT } from "@/lib/ai-support/events";
 import type { Message, SSEMessage, WidgetConfig } from "@/lib/ai-support/types";
 import {
   captureLead,
@@ -106,9 +108,20 @@ function TypingDots() {
   );
 }
 
-function ChatInput({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) {
+function ChatInput({
+  onSend,
+  disabled,
+  voiceInput,
+}: {
+  onSend: (text: string) => void;
+  disabled: boolean;
+  voiceInput: boolean;
+}) {
   const [text, setText] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [voiceSupported] = useState(canRecordVoice);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const showVoice = voiceInput && voiceSupported && !text.trim();
 
   const handleSubmit = () => {
     const trimmed = text.trim();
@@ -120,47 +133,59 @@ function ChatInput({ onSend, disabled }: { onSend: (text: string) => void; disab
 
   return (
     <div className="flex items-end gap-2 border-t p-3">
-      <label htmlFor="ai-chat-input" className="sr-only">
-        Message
-      </label>
-      <textarea
-        id="ai-chat-input"
-        ref={inputRef}
-        value={text}
-        maxLength={2000}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSubmit();
-          }
-        }}
-        placeholder="Ask about floors, prices or installation…"
-        rows={1}
-        className="max-h-24 min-h-9 flex-1 resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-      />
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={disabled || !text.trim()}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        aria-label="Send message"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {!recording && (
+        <>
+          <label htmlFor="ai-chat-input" className="sr-only">
+            Message
+          </label>
+          <textarea
+            id="ai-chat-input"
+            ref={inputRef}
+            value={text}
+            maxLength={2000}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder="Ask about floors, prices or installation…"
+            rows={1}
+            className="max-h-24 min-h-9 flex-1 resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+          />
+        </>
+      )}
+      {showVoice ? (
+        <VoiceButton
+          disabled={disabled}
+          onRecordingChange={setRecording}
+          onTranscript={(transcript) => onSend(transcript)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={disabled || !text.trim()}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          aria-label="Send message"
         >
-          <path d="M22 2 11 13" />
-          <path d="M22 2 15 22 11 13 2 9z" />
-        </svg>
-      </button>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M22 2 11 13" />
+            <path d="M22 2 15 22 11 13 2 9z" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -424,6 +449,23 @@ export default function ChatWidget() {
     [appendLocalMessage, conversationId, escalated, sending, startWaiting],
   );
 
+  // Other parts of the site (the floor finder) open the chat with a question
+  // already asked: window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: { message } })).
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      setOpen(true);
+      const message = (event as CustomEvent<{ message?: string }>).detail?.message?.trim();
+      if (message) void handleSendRef.current(message.slice(0, 2000));
+    };
+    window.addEventListener(OPEN_CHAT_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_CHAT_EVENT, onOpen);
+  }, []);
+
   const handleEscalate = async () => {
     if (!conversationId) return;
 
@@ -627,7 +669,11 @@ export default function ChatWidget() {
             </div>
           ) : null}
 
-          <ChatInput onSend={handleSend} disabled={sending} />
+          <ChatInput
+            onSend={handleSend}
+            disabled={sending}
+            voiceInput={Boolean(config.voice_input)}
+          />
         </div>
       )}
     </>

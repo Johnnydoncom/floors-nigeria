@@ -107,7 +107,24 @@ const FEATURE_SWITCHES = [
     "Knowledge base",
     "Approved knowledge sources are indexed and used in answers.",
   ],
+  [
+    "ai_support.feature.voice_notes",
+    "Voice notes",
+    "Customers can send voice notes on WhatsApp, Instagram and the chat widget; the AI answers the transcript.",
+  ],
+  [
+    "ai_support.feature.smart_search",
+    "Smart search & floor finder",
+    "The AI reads plain-language searches and explains floor-finder picks. Both still work, rule-based, when off.",
+  ],
 ] as const;
+
+/** Speech-to-text providers and their default models (see VoiceNoteService). */
+const VOICE_PROVIDERS: Record<string, string> = {
+  groq: "whisper-large-v3-turbo",
+  openai: "gpt-4o-mini-transcribe",
+  custom: "whisper-1",
+};
 
 const LIMIT_FIELDS = [
   [
@@ -843,6 +860,47 @@ export default function SupportSettingsPage() {
                   providerById[String(values["ai_support.embeddings.provider"])]
                     ?.suggested_embedding_model,
                 )}
+            </div>
+          </Panel>
+
+          <Panel
+            title="Voice notes"
+            description="Speech to text for voice notes. Groq's Whisper is free and uses the Groq key above."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="text-sm">
+                <label htmlFor="voice-provider" className="mb-1.5 block text-xs font-semibold">
+                  Transcription provider
+                </label>
+                <select
+                  id="voice-provider"
+                  value={String(values["ai_support.voice.provider"] || "groq")}
+                  onChange={(e) => {
+                    setValue("ai_support.voice.provider", e.target.value);
+                    setValue("ai_support.voice.model", "");
+                  }}
+                  className={inputClass}
+                >
+                  {Object.keys(VOICE_PROVIDERS).map((id) => (
+                    <option key={id} value={id}>
+                      {providerById[id]?.label ?? id}
+                      {isUsable(id) ? "" : " (no key)"}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {asBoolean(values["ai_support.feature.voice_notes"])
+                    ? "Voice notes are on (General tab)."
+                    : "Turn on Voice notes in the General tab."}
+                </p>
+              </div>
+              {textField(
+                "ai_support.voice.model",
+                "Model",
+                "Leave blank for the default.",
+                "text",
+                VOICE_PROVIDERS[String(values["ai_support.voice.provider"] || "groq")],
+              )}
             </div>
           </Panel>
         </TabsContent>
