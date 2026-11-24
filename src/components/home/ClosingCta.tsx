@@ -9,8 +9,8 @@ import { SHOWROOM_PHONE, WHATSAPP_NUMBER } from "@/lib/site-contact";
 /** The two ways to start: a site survey for a home, an account for the trade. */
 export function ClosingCta() {
   return (
-    <section aria-labelledby="home-start" className="container-fluid pb-16 md:pb-24">
-      <div className="grid overflow-hidden rounded-xl lg:grid-cols-12">
+    <section aria-labelledby="home-start" className="container-fluid pb-12 md:pb-24">
+      <div className="grid grid-cols-1 overflow-hidden rounded-xl lg:grid-cols-12">
         <div className="relative isolate overflow-hidden bg-charcoal-dark p-8 text-primary-foreground md:p-12 lg:col-span-7">
           <Image
             src="/images/home/closing-residence-1280.webp"

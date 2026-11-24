@@ -25,7 +25,7 @@ export function ShowroomBand() {
       aria-labelledby="home-showrooms"
       className="overflow-hidden bg-charcoal py-16 text-primary-foreground md:py-24"
     >
-      <div className="container-fluid grid items-center gap-12 lg:grid-cols-12">
+      <div className="container-fluid grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
         <div className="lg:col-span-6">
           <h2
             id="home-showrooms"
@@ -38,7 +38,7 @@ export function ShowroomBand() {
             FCT, plus Ghana, Togo and Benin, with samples of every floor we sell.
           </p>
 
-          <dl className="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+          <dl className="mt-10 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
             {regions.map((region) => (
               <div key={region.id}>
                 <dt className="font-display text-sm font-semibold text-gold-light">

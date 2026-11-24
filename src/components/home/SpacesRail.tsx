@@ -61,7 +61,7 @@ export async function SpacesRail() {
     slug ? (categories.find((category) => category.slug === slug)?.image_url ?? null) : null;
 
   return (
-    <section aria-labelledby="home-spaces" className="container-fluid py-16 md:py-24">
+    <section aria-labelledby="home-spaces" className="container-fluid py-12 md:py-24">
       <ScrollRail
         label="Spaces"
         header={

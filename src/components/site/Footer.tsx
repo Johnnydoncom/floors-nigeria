@@ -147,7 +147,7 @@ export async function Footer() {
     <footer className="bg-charcoal-dark text-primary-foreground">
       {/* Ways to reach a person, first: the footer is where people look for them. */}
       <div className="border-b border-white/10">
-        <div className="container-fluid grid gap-8 py-10 lg:grid-cols-12 lg:items-center lg:py-12">
+        <div className="container-fluid grid grid-cols-1 gap-8 py-10 lg:grid-cols-12 lg:items-center lg:py-12">
           <div className="lg:col-span-4">
             <h2 className="font-display text-2xl font-semibold tracking-tight md:text-[1.75rem]">
               Need help choosing a floor?
@@ -163,7 +163,7 @@ export async function Footer() {
               .
             </p>
           </div>
-          <ul className="grid gap-3 sm:grid-cols-3 lg:col-span-8">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:col-span-8">
             {help.map((item) => (
               <li key={item.title}>
                 <a
@@ -171,7 +171,7 @@ export async function Footer() {
                   {...(item.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="group flex h-full items-center gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 transition hover:border-gold/60 hover:bg-white/[0.06]"
                 >
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gold/15 text-gold-light">
+                  <span className="grid grid-cols-1 h-11 w-11 shrink-0 place-items-center rounded-full bg-gold/15 text-gold-light">
                     {item.icon}
                   </span>
                   <span className="min-w-0">
@@ -190,7 +190,7 @@ export async function Footer() {
       </div>
 
       <div className="container-fluid pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-12 lg:pb-10 lg:pt-16">
-        <div className="grid gap-12 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           {/* Who we are, where, and the sample request. */}
           <div className="space-y-7 lg:col-span-4">
             <Link href="/" aria-label="Floor Nigeria home" className="inline-block">
@@ -235,7 +235,7 @@ export async function Footer() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={label}
-                        className="grid h-10 w-10 place-items-center rounded-full border border-white/15 transition hover:border-gold hover:bg-gold hover:text-charcoal-dark"
+                        className="grid grid-cols-1 h-10 w-10 place-items-center rounded-full border border-white/15 transition hover:border-gold hover:bg-gold hover:text-charcoal-dark"
                       >
                         <Icon className="h-4 w-4" aria-hidden />
                       </a>

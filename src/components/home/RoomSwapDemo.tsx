@@ -52,7 +52,7 @@ export function RoomSwapDemo({ floors }: { floors: TextureChoice[] }) {
   return (
     <div ref={root} className="relative">
       <div
-        className="relative overflow-hidden rounded-xl bg-muted"
+        className="relative overflow-hidden bg-muted sm:rounded-xl"
         style={{ aspectRatio: `${ROOM.width} / ${ROOM.height}` }}
       >
         <Image
@@ -68,21 +68,27 @@ export function RoomSwapDemo({ floors }: { floors: TextureChoice[] }) {
           </div>
         )}
 
-        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold shadow-sm backdrop-blur">
+        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
           Live room preview
         </span>
       </div>
 
       {floors.length > 0 && (
-        <div className="relative mx-3 -mt-8 flex flex-wrap items-center gap-3 rounded-xl bg-background p-3 text-foreground shadow-luxe sm:mx-6">
-          <div className="min-w-0 flex-1">
+        // Phones: under the photo, the swatches a full-width row of large
+        // targets. Wider screens: one row overlapping the photo's edge.
+        <div className="relative mx-5 mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-background p-3 text-foreground shadow-luxe sm:mx-6 sm:-mt-8 sm:flex sm:flex-wrap">
+          <div className="min-w-0 sm:flex-1">
             <p className="text-xs text-muted-foreground">Tap a floor to lay it</p>
             <p className="truncate font-display text-sm font-semibold">
               {selected ? (selected.variantName ?? selected.productName) : "—"}
             </p>
           </div>
-          <div role="radiogroup" aria-label="Floor in the sample room" className="flex gap-1.5">
+          <div
+            role="radiogroup"
+            aria-label="Floor in the sample room"
+            className="col-span-2 row-start-2 grid grid-cols-4 gap-2 sm:flex sm:gap-1.5"
+          >
             {floors.map((floor) => {
               const active = selected !== null && materialKey(floor) === materialKey(selected);
               const label = floor.variantName
@@ -102,7 +108,7 @@ export function RoomSwapDemo({ floors }: { floors: TextureChoice[] }) {
                   }}
                   onPointerEnter={() => void getTexture(floor.textureUrl).catch(() => undefined)}
                   className={cn(
-                    "relative h-10 w-10 overflow-hidden rounded-md bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+                    "relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold sm:aspect-auto sm:h-10 sm:w-10 sm:rounded-md",
                     active
                       ? "ring-2 ring-charcoal ring-offset-2 ring-offset-background"
                       : "hover:-translate-y-0.5",
@@ -112,7 +118,7 @@ export function RoomSwapDemo({ floors }: { floors: TextureChoice[] }) {
                     src={floor.swatchUrl ?? floor.textureUrl}
                     alt=""
                     fill
-                    sizes="40px"
+                    sizes="(min-width: 640px) 40px, 25vw"
                     className="object-cover"
                   />
                 </button>
@@ -121,7 +127,7 @@ export function RoomSwapDemo({ floors }: { floors: TextureChoice[] }) {
           </div>
           <Link
             href={href}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-charcoal px-4 text-xs font-semibold text-primary-foreground transition hover:bg-charcoal-dark"
+            className="col-start-2 row-start-1 inline-flex h-10 items-center gap-1.5 rounded-full bg-charcoal px-4 text-xs font-semibold text-primary-foreground transition hover:bg-charcoal-dark"
           >
             Try your room
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />

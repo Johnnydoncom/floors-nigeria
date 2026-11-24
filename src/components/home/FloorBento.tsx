@@ -23,7 +23,7 @@ export async function FloorBento() {
   const bento = pictured.length === PICTURED;
 
   return (
-    <section aria-labelledby="home-floors" className="container-fluid py-16 md:py-24">
+    <section aria-labelledby="home-floors" className="container-fluid py-12 md:py-24">
       <SectionHeader
         id="home-floors"
         title="What are you flooring?"

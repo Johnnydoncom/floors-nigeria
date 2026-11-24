@@ -20,8 +20,12 @@ export async function VisualizerBand() {
       aria-labelledby="home-visualizer"
       className="bg-charcoal-dark py-16 text-primary-foreground md:py-24"
     >
-      <div className="container-fluid grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
-        <div className="lg:col-span-5">
+      {/*
+        Phones read it top to bottom: the claim, the room working, then the
+        detail. Wide screens keep the copy in one column beside the room.
+      */}
+      <div className="container-fluid grid grid-cols-1 gap-8 lg:grid-cols-12 lg:grid-rows-[auto_auto] lg:gap-x-16 lg:gap-y-0">
+        <div className="lg:col-span-5 lg:row-start-1 lg:self-end">
           <h2
             id="home-visualizer"
             className="text-balance font-display text-[1.9rem] leading-[1.1] tracking-[-0.02em] md:text-[2.6rem]"
@@ -32,7 +36,14 @@ export async function VisualizerBand() {
             Our room visualizer lays any floor in the catalogue at its real plank size, with the
             room&apos;s own light and shadow.
           </p>
-          <ul className="mt-8 space-y-4">
+        </div>
+
+        <div className="-mx-5 sm:mx-0 lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1 lg:self-center">
+          <RoomSwapDemo floors={floors} />
+        </div>
+
+        <div className="lg:col-span-5 lg:row-start-2 lg:mt-8 lg:self-start">
+          <ul className="space-y-4">
             {POINTS.map((point) => (
               <li key={point.text} className="flex gap-3">
                 <point.icon className="mt-0.5 h-5 w-5 shrink-0 text-gold-light" aria-hidden />
@@ -40,8 +51,8 @@ export async function VisualizerBand() {
               </li>
             ))}
           </ul>
-          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <Link href="/visualizer" className="btn btn-gold">
+          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <Link href="/visualizer" className="btn btn-gold max-sm:w-full">
               Open the visualizer <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
             <Link
@@ -52,10 +63,6 @@ export async function VisualizerBand() {
               Work out how much you need
             </Link>
           </div>
-        </div>
-
-        <div className="lg:col-span-7">
-          <RoomSwapDemo floors={floors} />
         </div>
       </div>
     </section>

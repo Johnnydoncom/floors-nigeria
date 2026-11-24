@@ -14,7 +14,7 @@ export async function ProjectsShowcase() {
   const [lead, ...others] = projects;
 
   return (
-    <section aria-labelledby="home-projects" className="container-fluid py-16 md:py-24">
+    <section aria-labelledby="home-projects" className="container-fluid py-12 md:py-24">
       <SectionHeader
         id="home-projects"
         title="Recent projects"
@@ -22,7 +22,7 @@ export async function ProjectsShowcase() {
         action={{ label: "See all projects", href: "/projects" }}
       />
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-12 lg:gap-12">
+      <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
         <Link href={`/projects/${lead.slug}`} className="group lg:col-span-7">
           <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-muted">
             <Image

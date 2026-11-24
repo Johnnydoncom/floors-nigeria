@@ -143,6 +143,24 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    /*
+     * A safety net, not a layout tool: one element wider than a phone would
+     * otherwise make the page scroll sideways, and mobile browsers then zoom
+     * the layout out, which also throws fixed bars off-screen. `clip` does
+     * not create a scroll container, so the sticky header keeps working.
+     */
+    overflow-x: clip;
+    /* Taps answer with the element's own states, not a grey flash. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a,
+  button,
+  summary,
+  [role="button"],
+  [role="tab"] {
+    /* No double-tap-to-zoom delay on controls. */
+    touch-action: manipulation;
   }
 
   h1,

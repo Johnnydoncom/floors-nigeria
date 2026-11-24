@@ -268,7 +268,7 @@ export function HeroSlider({ slides, heading }: { slides: HeroSlideView[]; headi
             onClick={() => setStopped((value) => !value)}
             aria-label={stopped ? "Play slides" : "Pause slides"}
             className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-primary-foreground/30 text-primary-foreground/90 transition hover:border-primary-foreground hover:bg-primary-foreground/10",
+              "grid grid-cols-1 h-9 w-9 shrink-0 place-items-center rounded-full border border-primary-foreground/30 text-primary-foreground/90 transition hover:border-primary-foreground hover:bg-primary-foreground/10",
               reducedMotion && "hidden",
             )}
           >

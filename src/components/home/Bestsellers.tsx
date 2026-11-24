@@ -13,7 +13,7 @@ export async function Bestsellers() {
   return (
     <section
       aria-labelledby="home-bestsellers"
-      className="border-y border-border bg-surface py-16 md:py-24"
+      className="border-y border-border bg-surface py-12 md:py-24"
     >
       <div className="container-fluid">
         <ScrollRail
@@ -40,7 +40,7 @@ export async function Bestsellers() {
 
 export function BestsellersSkeleton() {
   return (
-    <div className="border-y border-border bg-surface py-16 md:py-24">
+    <div className="border-y border-border bg-surface py-12 md:py-24">
       <div className="container-fluid">
         <div className="h-10 w-72 animate-pulse rounded bg-muted" />
         <div className="mt-10 flex gap-4 overflow-hidden">

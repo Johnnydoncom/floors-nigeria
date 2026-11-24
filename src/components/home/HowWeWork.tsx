@@ -26,7 +26,7 @@ export function HowWeWork() {
   return (
     <section
       aria-labelledby="home-how"
-      className="border-y border-border bg-surface py-16 md:py-24"
+      className="border-y border-border bg-surface py-12 md:py-24"
     >
       <div className="container-fluid">
         <SectionHeader
@@ -35,24 +35,33 @@ export function HowWeWork() {
           lead="One team from start to finish, so there's no one to chase between the shop and the fitter."
         />
 
-        <ol className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+        <ol className="mt-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           {STEPS.map((step, position) => (
-            <li key={step.title} className="relative">
-              <div className="flex items-center gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-gold font-display text-base font-semibold text-foreground">
+            // Phones: a vertical timeline, number on the left. Wider: a row.
+            <li key={step.title} className="relative flex gap-4 sm:block">
+              {position < STEPS.length - 1 && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-[-2.5rem] left-[1.375rem] top-12 w-px bg-border sm:hidden"
+                />
+              )}
+              <div className="flex shrink-0 items-center gap-4 self-start sm:shrink">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-gold bg-surface font-display text-base font-semibold text-foreground">
                   {position + 1}
                 </span>
                 {position < STEPS.length - 1 && (
                   <span aria-hidden className="hidden h-px flex-1 bg-border lg:block" />
                 )}
               </div>
-              <h3 className="mt-5 font-display text-lg font-semibold">{step.title}</h3>
-              <p className="mt-2 max-w-xs leading-relaxed text-muted-foreground">{step.text}</p>
+              <div className="pt-2 sm:pt-0">
+                <h3 className="font-display text-lg font-semibold sm:mt-5">{step.title}</h3>
+                <p className="mt-2 max-w-xs leading-relaxed text-muted-foreground">{step.text}</p>
+              </div>
             </li>
           ))}
         </ol>
 
-        <div className="mt-12 flex flex-wrap gap-3">
+        <div className="mt-12 flex flex-wrap gap-3 max-sm:[&>a]:w-full">
           <Link href="/contact?enquiry=survey" className="btn btn-primary">
             Book a free site survey <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>

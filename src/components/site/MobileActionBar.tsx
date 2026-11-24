@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { LayoutGrid, Phone, ShoppingBag, Sparkles } from "lucide-react";
 import WhatsAppIcon from "@/components/catalog/WhatsAppIcon";
 import { useCart } from "@/lib/cart";
@@ -13,44 +13,21 @@ import { cn } from "@/lib/utils";
 /** Pages with their own controls along the bottom of the screen. */
 const HIDDEN_ON = ["/visualizer", "/room-designer", "/cart", "/checkout"];
 
-/** How far the page must scroll down before the bar steps aside. */
-const HIDE_AFTER_PX = 24;
-
 /** Height of the bar above the safe area, kept in step with its classes. */
 const BAR_HEIGHT = "4rem";
 
 /**
- * The phone's bottom bar: shop, the visualizer, WhatsApp, a call and the
- * cart, one thumb away on every page. It slides away while the visitor
- * scrolls down to read and returns as soon as they scroll back up.
+ * The phone's tab bar, as in an app: shop, the visualizer, WhatsApp, a call
+ * and the cart, one thumb away and always in the same place on every page.
  *
  * It publishes its height as `--mobile-bar-offset` on <html>, so other
- * floating controls (the chat launcher) can sit above it.
+ * floating controls (the chat launcher) sit above it.
  */
 export function MobileActionBar() {
   const pathname = usePathname();
   const cart = useCart();
-  const [tucked, setTucked] = useState(false);
-  const lastY = useRef(0);
 
   const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-
-  useEffect(() => {
-    if (hidden) return;
-    lastY.current = window.scrollY;
-
-    const onScroll = () => {
-      const y = window.scrollY;
-      const atBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 80;
-      if (atBottom || y < 80) setTucked(false);
-      else if (y - lastY.current > HIDE_AFTER_PX) setTucked(true);
-      else if (lastY.current - y > HIDE_AFTER_PX) setTucked(false);
-      if (Math.abs(y - lastY.current) > HIDE_AFTER_PX) lastY.current = y;
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [hidden]);
 
   // Let the chat launcher and other floating controls clear the bar.
   useEffect(() => {
@@ -59,9 +36,7 @@ export function MobileActionBar() {
     const apply = () =>
       root.style.setProperty(
         "--mobile-bar-offset",
-        !hidden && !tucked && phone.matches
-          ? `calc(${BAR_HEIGHT} + env(safe-area-inset-bottom))`
-          : "0px",
+        !hidden && phone.matches ? `calc(${BAR_HEIGHT} + env(safe-area-inset-bottom))` : "0px",
       );
     apply();
     phone.addEventListener("change", apply);
@@ -69,7 +44,7 @@ export function MobileActionBar() {
       phone.removeEventListener("change", apply);
       root.style.setProperty("--mobile-bar-offset", "0px");
     };
-  }, [hidden, tucked]);
+  }, [hidden]);
 
   if (hidden) return null;
 
@@ -80,11 +55,7 @@ export function MobileActionBar() {
   return (
     <nav
       aria-label="Quick actions"
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_-12px_oklch(0.2_0.01_90/0.25)] backdrop-blur-md transition-transform duration-300 ease-out motion-reduce:transition-none lg:hidden",
-        // Past its own height, so the raised WhatsApp button goes too.
-        tucked && "translate-y-[calc(100%+1.75rem)]",
-      )}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_-12px_oklch(0.2_0.01_90/0.25)] backdrop-blur-md lg:hidden"
     >
       <ul className="mx-auto grid h-16 max-w-xl grid-cols-5 items-stretch">
         <li>

@@ -48,9 +48,9 @@ export async function AdviceSection() {
   const { data: posts } = await getPosts({ per_page: 3 });
 
   return (
-    <section aria-labelledby="home-advice" className="container-fluid py-16 md:py-24">
+    <section aria-labelledby="home-advice" className="container-fluid py-12 md:py-24">
       <JsonLd data={faqSchema(HOME_FAQS)} />
-      <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
         <div className="lg:col-span-5">
           <SectionHeader
             id="home-advice"
