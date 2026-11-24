@@ -1,0 +1,30 @@
+{
+  "quad": [
+    {
+      "x": 0.33,
+      "y": 0.665
+    },
+    {
+      "x": 0.695,
+      "y": 0.665
+    },
+    {
+      "x": 0.9,
+      "y": 0.88
+    },
+    {
+      "x": 0.115,
+      "y": 0.88
+    }
+  ],
+  "widthM": 2.4,
+  "rotation": 0,
+  "label": "Scandi lounge",
+  "kind": "living",
+  "size": {
+    "width": 1920,
+    "height": 1280
+  },
+  "rug": true,
+  "walls": true
+}

@@ -147,9 +147,10 @@ export function MaterialBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, isFiltered]);
 
-  const items = (
-    view === "favorites" ? favorites : view === "recent" ? recent : state.items
-  ).filter((choice) => !unavailable.has(choice.textureUrl));
+  // Floors whose image would not load stay listed, marked, rather than
+  // vanishing: when the media host is down every floor fails, and an empty
+  // list reads as "no floors" instead of "try again shortly".
+  const items = view === "favorites" ? favorites : view === "recent" ? recent : state.items;
   const canLoadMore = view === "all" && state.page < state.lastPage && !isLoading;
 
   const update = (patch: Partial<Query>) => {
@@ -307,6 +308,7 @@ export function MaterialBrowser({
               choice={choice}
               isSelected={selected !== null && materialKey(selected) === materialKey(choice)}
               isFavorite={favorites.some((entry) => materialKey(entry) === materialKey(choice))}
+              isUnavailable={unavailable.has(choice.textureUrl)}
               onSelect={() => onSelect(choice)}
               onToggleFavorite={() => toggleFavorite(choice)}
             />
@@ -333,12 +335,14 @@ function MaterialSwatch({
   choice,
   isSelected,
   isFavorite,
+  isUnavailable = false,
   onSelect,
   onToggleFavorite,
 }: {
   choice: TextureChoice;
   isSelected: boolean;
   isFavorite: boolean;
+  isUnavailable?: boolean;
   onSelect: () => void;
   onToggleFavorite: () => void;
 }) {
@@ -358,6 +362,7 @@ function MaterialSwatch({
         className={cn(
           "group block w-full rounded-md text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2",
           isSelected ? "ring-2 ring-gold ring-offset-2 ring-offset-background" : "hover:opacity-90",
+          isUnavailable && "opacity-50",
         )}
       >
         <span className="relative block aspect-square overflow-hidden rounded-md bg-muted">
@@ -372,6 +377,11 @@ function MaterialSwatch({
               event.currentTarget.style.visibility = "hidden";
             }}
           />
+          {isUnavailable && (
+            <span className="absolute inset-x-0 bottom-0 bg-charcoal-dark/80 px-1 py-0.5 text-center text-[10px] text-primary-foreground">
+              Preview unavailable
+            </span>
+          )}
         </span>
         <span className="mt-1.5 block truncate text-[11px] leading-tight">
           {choice.variantName ?? choice.productName}

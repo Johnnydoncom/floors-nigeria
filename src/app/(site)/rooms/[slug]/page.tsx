@@ -69,7 +69,6 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
           `Durable, good-looking floors chosen for the ${room.name.toLowerCase()} — with delivery and professional installation nationwide.`
         }
         imageUrl={room.image_url}
-        productCount={room.products_count}
         trail={trail}
       />
 

@@ -1,16 +1,24 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowUpRight, Star } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowUpRight, Package, Sparkles, Star } from "lucide-react";
 import { naira, whatsAppLink } from "@/lib/format";
 import { orderEnquiry, WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { absoluteUrl } from "@/lib/structured-data";
 import type { AttributeTerm, ProductCard as ProductCardData } from "@/lib/api/types";
+import { isFloorCategory, toTextureChoices } from "@/lib/room/materials";
 import { Swatch } from "./Swatch";
 import WhatsAppIcon from "./WhatsAppIcon";
 import { cn } from "@/lib/utils";
+
+/** Fetched the first time anyone asks for a sample from a card. */
+const LeadDialog = dynamic(
+  () => import("@/components/visualizer/LeadDialog").then((module) => module.LeadDialog),
+  { ssr: false },
+);
 
 /**
  * The product card used by listings, search and recommendations.
@@ -31,9 +39,21 @@ export function ProductCard({
 }) {
   const terms = product.swatch_preview.terms;
   const [selected, setSelected] = useState<AttributeTerm | null>(null);
+  // A colour under the pointer previews without being chosen.
+  const [hovered, setHovered] = useState<AttributeTerm | null>(null);
+  const [isSampleOpen, setIsSampleOpen] = useState(false);
+  const shown = hovered ?? selected;
 
   const href = `/product/${product.slug}`;
-  const image = selected?.preview_image_url ?? product.image_url;
+  const image = shown?.preview_image_url ?? product.image_url;
+  const isFloor = [product.name, product.category?.name ?? ""].every(isFloorCategory);
+  const roomHref = `/visualizer?product=${product.slug}`;
+  // The sample is of the colour on show, so the card and the parcel agree.
+  const sample = useMemo(() => {
+    if (!isSampleOpen) return null;
+    const choices = toTextureChoices(product);
+    return choices.find((choice) => choice.variantName === selected?.label) ?? choices[0] ?? null;
+  }, [isSampleOpen, product, selected]);
   const price = selected?.preview_price ?? product.price_from;
   const compareAtPrice = selected
     ? (selected.preview_compare_at_price ?? null)
@@ -73,6 +93,17 @@ export function ProductCard({
             {badge}
           </span>
         )}
+
+        {/* On a pointer device the room is one hover away. */}
+        {isFloor && (
+          <Link
+            href={roomHref}
+            className="absolute inset-x-3 bottom-3 hidden translate-y-2 items-center justify-center gap-1.5 rounded-full bg-background/95 py-2 text-xs font-semibold opacity-0 shadow-luxe backdrop-blur transition duration-300 focus-visible:translate-y-0 focus-visible:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 [@media(hover:hover)]:flex"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
+            See in my room
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
@@ -103,7 +134,9 @@ export function ProductCard({
             terms={terms}
             total={product.swatch_preview.total}
             selected={selected}
+            shown={shown}
             onSelect={setSelected}
+            onPreview={setHovered}
             optionName={product.swatch_preview.option ?? "Finish"}
             productName={product.name}
           />
@@ -135,14 +168,41 @@ export function ProductCard({
                 : ""}
           </p>
 
-          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-            <Link
-              href={href}
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-foreground/15 px-4 font-display text-[13px] font-semibold transition group-hover:border-charcoal group-hover:bg-charcoal group-hover:text-primary-foreground"
-            >
-              View details
-              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
+          <div
+            className={cn(
+              "mt-3 grid gap-2",
+              isFloor ? "grid-cols-[1fr_auto_auto]" : "grid-cols-[1fr_auto]",
+            )}
+          >
+            {isFloor ? (
+              <button
+                type="button"
+                onClick={() => setIsSampleOpen(true)}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-charcoal px-3 font-display text-[13px] font-semibold text-primary-foreground transition hover:bg-charcoal-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+              >
+                <Package className="h-3.5 w-3.5" aria-hidden />
+                Order sample
+              </button>
+            ) : (
+              <Link
+                href={href}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-foreground/15 px-4 font-display text-[13px] font-semibold transition group-hover:border-charcoal group-hover:bg-charcoal group-hover:text-primary-foreground"
+              >
+                View details
+                <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            )}
+
+            {isFloor && (
+              <Link
+                href={roomHref}
+                aria-label={`See ${product.name} in a room`}
+                title="See in my room"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-foreground transition hover:border-gold hover:bg-gold/10"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden />
+              </Link>
+            )}
 
             <a
               href={whatsAppLink(
@@ -164,8 +224,25 @@ export function ProductCard({
           </div>
         </div>
       </div>
+
+      {isSampleOpen && sample && (
+        <LeadDialog
+          kind="sample"
+          open={isSampleOpen}
+          onOpenChange={setIsSampleOpen}
+          material={sample}
+          areaSqm={null}
+          render={noRender}
+          shareUrl={null}
+          designNote=""
+        />
+      )}
     </article>
   );
+}
+
+function noRender(): Promise<Blob | null> {
+  return Promise.resolve(null);
 }
 
 /**
@@ -176,14 +253,19 @@ function SwatchRow({
   terms,
   total,
   selected,
+  shown,
   onSelect,
+  onPreview,
   optionName,
   productName,
 }: {
   terms: AttributeTerm[];
   total: number;
   selected: AttributeTerm | null;
+  /** The colour on the card now: hovered, or else selected. */
+  shown: AttributeTerm | null;
   onSelect: (term: AttributeTerm | null) => void;
+  onPreview: (term: AttributeTerm | null) => void;
   optionName: string;
   productName: string;
 }) {
@@ -208,6 +290,8 @@ function SwatchRow({
               aria-label={term.label}
               title={term.label}
               onClick={() => onSelect(isSelected ? null : term)}
+              onPointerEnter={(event) => event.pointerType === "mouse" && onPreview(term)}
+              onPointerLeave={() => onPreview(null)}
               className={cn(
                 "rounded-full p-0.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
                 isSelected ? "ring-2 ring-gold" : "hover:ring-1 hover:ring-border",
@@ -224,7 +308,7 @@ function SwatchRow({
       </div>
 
       <p className="mt-1.5 h-4 truncate text-[11px] text-muted-foreground" aria-live="polite">
-        {selected ? selected.label : `${total} ${total === 1 ? "finish" : "finishes"}`}
+        {shown ? shown.label : `${total} ${total === 1 ? "finish" : "finishes"}`}
       </p>
     </div>
   );

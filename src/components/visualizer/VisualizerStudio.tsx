@@ -1,22 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Brush,
-  Camera,
   Check,
   ChevronDown,
   Columns2,
   Eraser,
+  Image as ImageIcon,
   Layers,
+  Lightbulb,
   Move,
+  PaintBucket,
+  PanelLeftClose,
   PenTool,
   Plus,
   RotateCcw,
+  Scan,
   ScanLine,
   Share2,
+  SlidersHorizontal,
   SplitSquareHorizontal,
   Undo2,
   Upload,
@@ -25,7 +29,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { track } from "@/lib/analytics";
 import type { ProductCard, Variant } from "@/lib/api/types";
 import { arSpecFor } from "@/lib/room/ar-material";
@@ -33,7 +36,10 @@ import { choiceForVariant, toTextureChoices } from "@/lib/room/materials";
 import { absoluteUrl } from "@/lib/structured-data";
 import type { DetectionQuality } from "@/lib/visualizer/detect-floor";
 import type { SmartSelectProgress } from "@/lib/visualizer/smart-select";
-import { prepareRoomPhoto } from "@/lib/visualizer/images";
+import { loadImage, prepareRoomPhoto } from "@/lib/visualizer/images";
+import { parsePaint } from "@/lib/visualizer/paints";
+import legacyFloors from "@/lib/visualizer/sample-floors.json";
+import { isBundledRoom } from "@/lib/visualizer/template-rooms";
 import { library, materialKey, useLibrary } from "@/lib/visualizer/library";
 import {
   composeMask,
@@ -42,13 +48,20 @@ import {
   type MaskMode,
 } from "@/lib/visualizer/mask-edits";
 import { floorWidthFromCamera, unitSquareToQuad } from "@/lib/visualizer/homography";
-import { defaultDimensions, LAYOUT_LABELS, layoutsFor } from "@/lib/visualizer/patterns";
+import { LAYOUT_LABELS } from "@/lib/visualizer/patterns";
+import {
+  dimensionsOf,
+  placementFor,
+  starterMaterial,
+  toStageMaterial,
+} from "@/lib/visualizer/placement";
 import {
   DEFAULT_PLACEMENT,
   DEFAULT_QUAD,
   FLOOR_WIDTH_RANGE,
   type FloorPreset,
   type LayoutPattern,
+  type LightMood,
   type Placement,
   type Point,
   type Quad,
@@ -61,22 +74,24 @@ import { ArLauncher } from "./ArLauncher";
 import { LeadDialog, type LeadKind } from "./LeadDialog";
 import { MaterialBrowser, toggleFavorite, type VisualizerFilters } from "./MaterialBrowser";
 import { MaterialDetails } from "./MaterialDetails";
-import {
-  RoomStage,
-  type CompareMode,
-  type RoomStageHandle,
-  type StageMaterial,
-  type StageTool,
-} from "./RoomStage";
+import { ProductPill } from "./ProductPill";
+import { RoomStage, type CompareMode, type RoomStageHandle, type StageTool } from "./RoomStage";
 import { ShareDialog } from "./ShareDialog";
+import { LightPanel, PaintPanel, RoomsPanel } from "./StudioPanels";
+import { SwatchStrip, useColourways } from "./SwatchStrip";
 import { useFloorDetection, type DetectionState } from "./useFloorDetection";
 
 /** Anything larger is not a room photo; it would only be downscaled anyway. */
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-export type SampleRoom = { src: string; label: string; floor?: FloorPreset };
+export type SampleRoom = { src: string; label: string; floor?: FloorPreset; thumb?: string };
 
-type Panel = "floors" | "adjust" | "room";
+type Panel = "rooms" | "floors" | "paint" | "light" | "adjust" | "area";
+
+const MOODS: LightMood[] = ["daylight", "warm", "cool", "evening"];
+
+/** Floors baked for the photographs the studio used before template rooms, for saved designs. */
+const LEGACY_FLOORS = legacyFloors as unknown as Record<string, FloorPreset>;
 type Share = { key: string; url: string; token: string };
 
 /**
@@ -125,7 +140,11 @@ export function VisualizerStudio({
   const [brush, setBrush] = useState<{ mode: MaskMode; size: number }>({ mode: "add", size: 0.05 });
   const [polygonDraft, setPolygonDraft] = useState<Point[]>([]);
   const [smart, setSmart] = useState<SmartState>({ status: "idle" });
-  const [panel, setPanel] = useState<Panel>(linkedProduct || linkedDesign ? "room" : "floors");
+  const [panel, setPanel] = useState<Panel>(linkedProduct || linkedDesign ? "rooms" : "floors");
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [paint, setPaint] = useState<string | null>(null);
+  const [mood, setMood] = useState<LightMood>("daylight");
+  const [showRug, setShowRug] = useState(true);
   const [compareSlot, setCompareSlot] = useState<"a" | "b">("b");
 
   const [share, setShare] = useState<Share | null>(null);
@@ -144,6 +163,9 @@ export function VisualizerStudio({
 
   const { favorites } = useLibrary();
 
+  const presetFor = (src: string): FloorPreset | undefined =>
+    sampleRooms.find((sample) => sample.src === src)?.floor ?? LEGACY_FLOORS[src];
+
   // --- Floor detection -------------------------------------------------------
 
   /** The corners the fast pass placed, to tell whether anyone has moved them since. */
@@ -151,10 +173,13 @@ export function VisualizerStudio({
   /** Set once the visitor, or a saved design, has said how wide the floor is. */
   const widthPinnedRef = useRef(false);
   const suggestedWidthRef = useRef(DEFAULT_PLACEMENT.widthM);
+  /** A template room knows how wide its floor is; nothing needs estimating. */
+  const presetWidthRef = useRef<number | null>(sampleRooms[0]?.floor?.widthM ?? null);
 
   const onDetected = useCallback(
     (detectedQuad: Quad, mask: CanvasImageSource, pass: DetectionQuality) => {
-      const suggested = suggestedFloorWidth(detectedQuad, mask as HTMLCanvasElement);
+      const suggested =
+        presetWidthRef.current ?? suggestedFloorWidth(detectedQuad, mask as HTMLCanvasElement);
 
       if (suggested && !keepQuadRef.current && !widthPinnedRef.current) {
         suggestedWidthRef.current = suggested;
@@ -186,13 +211,55 @@ export function VisualizerStudio({
       track("floor_detection_failed", { origin: room.origin ?? "sample" });
   }, [detection.state.status, room.origin]);
 
+  // --- Rug -----------------------------------------------------------------
+
+  const rugSrc = room.floor?.rug ?? null;
+  const [rugImage, setRugImage] = useState<{ src: string; image: HTMLImageElement } | null>(null);
+
+  useEffect(() => {
+    if (!rugSrc) return;
+    let cancelled = false;
+    loadImage(rugSrc)
+      .then((image) => {
+        if (!cancelled) setRugImage({ src: rugSrc, image });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [rugSrc]);
+
+  /** The floor as found, with the rug's ground added when the rug is taken away. */
+  const floorBase = useMemo(() => {
+    if (showRug || !detectedMask || !rugImage || rugImage.src !== rugSrc) return detectedMask;
+    const canvas = document.createElement("canvas");
+    canvas.width = detectedMask.width;
+    canvas.height = detectedMask.height;
+    const context = canvas.getContext("2d");
+    if (!context) return detectedMask;
+    context.drawImage(detectedMask, 0, 0);
+    context.drawImage(rugImage.image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }, [detectedMask, rugImage, rugSrc, showRug]);
+
   /** The floor area: detection, with every hand correction applied. */
   const mask = useMemo(
     () =>
-      (photoSize &&
-        composeMask(detectedMask, quad, maskEdits, photoSize.width, photoSize.height)) ??
-      detectedMask,
-    [detectedMask, maskEdits, photoSize, quad],
+      (photoSize && composeMask(floorBase, quad, maskEdits, photoSize.width, photoSize.height)) ??
+      floorBase,
+    [floorBase, maskEdits, photoSize, quad],
+  );
+
+  const baked = useMemo(
+    () =>
+      room.floor?.shading && room.floor.highlights
+        ? {
+            shading: room.floor.shading,
+            highlights: room.floor.highlights,
+            walls: room.floor.walls,
+          }
+        : null,
+    [room.floor],
   );
 
   // --- Arrival ---------------------------------------------------------------
@@ -219,6 +286,11 @@ export function VisualizerStudio({
   const changeRoom = (next: RoomSource) => {
     setRoom(next);
     setSmart({ status: "idle" });
+    setShowRug(true);
+    presetWidthRef.current = next.floor?.widthM ?? null;
+    if (next.floor?.widthM && !widthPinnedRef.current) {
+      setPlacement((current) => ({ ...current, widthM: next.floor?.widthM ?? current.widthM }));
+    }
     // The same photograph is not detected again, so it keeps the floor it has.
     if (next.src !== room.src) {
       setQuad(DEFAULT_QUAD);
@@ -346,9 +418,7 @@ export function VisualizerStudio({
 
       const settings = data.settings ?? {};
       const sampleSrc =
-        typeof settings.room === "string" && settings.room.startsWith("/images/")
-          ? settings.room
-          : null;
+        typeof settings.room === "string" && isBundledRoom(settings.room) ? settings.room : null;
       const src = data.source_url ?? sampleSrc;
 
       if (!src) throw new Error("No room photo");
@@ -370,9 +440,15 @@ export function VisualizerStudio({
         src,
         label: "Saved design",
         origin: "design",
-        floor: sampleRooms.find((sample) => sample.src === src)?.floor,
+        floor: presetFor(src),
       });
       if (savedQuad) setQuad(savedQuad);
+      setPaint(parsePaint(settings.paint));
+      setMood(
+        MOODS.includes(settings.mood as LightMood) ? (settings.mood as LightMood) : "daylight",
+      );
+      // After changeRoom, which shows the rug for a new room.
+      if (settings.rug === "hidden") setShowRug(false);
       setMaskEdits(parseMaskEdits(settings.mask_edits));
 
       if (choice) {
@@ -384,6 +460,7 @@ export function VisualizerStudio({
       setPlacement((current) => restorePlacement(settings, placementFor(choice, current, false)));
       setLayoutPinned(typeof settings.layout === "string");
       setPanel("floors");
+      setIsPanelOpen(true);
     } catch {
       toast.error("That design could not be opened. It may have been deleted.");
     }
@@ -478,6 +555,9 @@ export function VisualizerStudio({
     placement,
     quad,
     maskEdits.length,
+    paint,
+    mood,
+    showRug,
   ]);
   const shareUrl = share?.key === designKey ? share.url : null;
 
@@ -512,8 +592,13 @@ export function VisualizerStudio({
         finish: placement.finish,
       };
       if (material?.variantName) settings.finish_label = material.variantName;
-      if (!room.file && room.src.startsWith("/images/")) settings.room = room.src;
+      if (!room.file && isBundledRoom(room.src)) settings.room = room.src;
       if (maskEdits.length) settings.mask_edits = JSON.stringify(maskEdits);
+      // Only what differs from the room as photographed, so older designs and
+      // their settings keep the shape they always had.
+      if (paint && room.floor?.walls) settings.paint = paint;
+      if (mood !== "daylight") settings.mood = mood;
+      if (!showRug && rugSrc) settings.rug = "hidden";
 
       Object.entries(settings).forEach(([key, value]) =>
         form.append(`settings[${key}]`, String(value)),
@@ -558,7 +643,19 @@ export function VisualizerStudio({
     } finally {
       setIsSaving(false);
     }
-  }, [designKey, maskEdits, material, placement, quad, room, shareUrl]);
+  }, [
+    designKey,
+    maskEdits,
+    material,
+    mood,
+    paint,
+    placement,
+    quad,
+    room,
+    rugSrc,
+    shareUrl,
+    showRug,
+  ]);
 
   const renderImage = useCallback(
     () => stageRef.current?.toBlob("image/jpeg") ?? Promise.resolve(null),
@@ -621,238 +718,414 @@ export function VisualizerStudio({
     ? favorites.some((entry) => materialKey(entry) === materialKey(material))
     : false;
 
+  const colourways = useColourways(material);
+  const hasWalls = Boolean(room.floor?.walls);
+
+  const openPanel = (next: Panel) => {
+    // On a wide screen the rail toggles its panel; on a phone the panel is
+    // always the section below the room, so a tap only switches it.
+    setIsPanelOpen((open) => !(open && panel === next) || !isWide());
+    setPanel(next);
+  };
+
+  const rail: { id: Panel; label: string; icon: React.ReactNode }[] = [
+    { id: "rooms", label: "Rooms", icon: <ImageIcon className="h-5 w-5" aria-hidden /> },
+    { id: "floors", label: "Floors", icon: <Layers className="h-5 w-5" aria-hidden /> },
+    { id: "paint", label: "Paint", icon: <PaintBucket className="h-5 w-5" aria-hidden /> },
+    { id: "light", label: "Light", icon: <Lightbulb className="h-5 w-5" aria-hidden /> },
+    { id: "adjust", label: "Layout", icon: <SlidersHorizontal className="h-5 w-5" aria-hidden /> },
+    { id: "area", label: "Floor area", icon: <Scan className="h-5 w-5" aria-hidden /> },
+  ];
+
+  const panelTitle: Record<Panel, string> = {
+    rooms: "Choose a room",
+    floors: "Choose a floor",
+    paint: "Paint the walls",
+    light: "Light & finish",
+    adjust: "Pattern, direction & size",
+    area: "Fix the floor area",
+  };
+
   return (
-    <div className="container-fluid grid grid-cols-1 gap-3 pb-8 pt-2 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4 lg:gap-x-8 lg:pb-10 lg:pt-4">
-      {/* The room. On a phone it stays in view while floors are chosen below it. */}
-      <div className="z-20 min-w-0 space-y-2 bg-background pb-2 max-lg:sticky max-lg:top-[calc(var(--header-height)-0.25rem)] max-lg:pt-1 lg:col-start-1 lg:row-start-1 lg:pb-0">
-        <RoomStage
-          photoSrc={room.src}
-          material={stageMaterial}
-          compareMaterial={stageCompare}
-          quad={quad}
-          placement={placement}
-          mask={mask}
-          mode={mode}
-          tool={tool}
-          brush={brush}
-          polygonDraft={polygonDraft}
-          onPolygonDraftChange={setPolygonDraft}
-          onQuadChange={setQuad}
-          onMaskEdit={addMaskEdit}
-          onSmartTap={onSmartTap}
-          smartBusyAt={smart.status === "selecting" ? smart.at : null}
-          onReady={onStageReady}
-          onPhotoLoaded={setPhotoSize}
-          onRendered={onRendered}
-          onTextureFailed={onTextureFailed}
-          detection={detection.state}
-        />
-
-        <DetectionNotice
-          state={detection.state}
-          onRetry={detection.retry}
-          onMarkByHand={() => selectTool("corners")}
-        />
-      </div>
-
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:col-start-1 lg:row-start-2">
-        <div role="radiogroup" aria-label="Compare" className="flex gap-1.5">
-          <ModeButton
-            active={mode === "wipe"}
-            icon={<SplitSquareHorizontal className="h-4 w-4" aria-hidden />}
-            onClick={() => setMode("wipe")}
+    <div className="container-fluid pb-10 pt-2 lg:pt-4">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3 lg:gap-5",
+          isPanelOpen
+            ? "lg:grid-cols-[76px_minmax(300px,360px)_minmax(0,1fr)]"
+            : "lg:grid-cols-[76px_minmax(0,1fr)]",
+        )}
+      >
+        {/* Tools. A column beside the room on a wide screen, a row under it on a phone. */}
+        <nav
+          aria-label="Visualizer tools"
+          className="min-w-0 max-lg:order-3 lg:sticky lg:top-[calc(var(--header-height)+0.75rem)] lg:self-start"
+        >
+          <div
+            role="tablist"
+            aria-orientation="vertical"
+            className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-surface/70 p-1 [scrollbar-width:none] lg:flex-col"
           >
-            Before / after
-          </ModeButton>
-          <ModeButton
-            active={mode === "split"}
-            icon={<Columns2 className="h-4 w-4" aria-hidden />}
-            onClick={() => {
-              setMode("split");
-              setTool("view");
-              track("comparison_used", { mode: "split" });
-            }}
-          >
-            Side by side
-          </ModeButton>
-          <ModeButton
-            active={mode === "products"}
-            icon={<Layers className="h-4 w-4" aria-hidden />}
-            onClick={() => {
-              setMode("products");
-              setTool("view");
-              setCompareSlot("b");
-              setPanel("floors");
-              track("comparison_used", { mode: "products" });
-            }}
-          >
-            <span>
-              Compare<span className="hidden sm:inline"> floors</span>
-            </span>
-          </ModeButton>
-        </div>
+            {rail.map((item) => {
+              const active = isPanelOpen && panel === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls="studio-panel"
+                  onClick={() => openPanel(item.id)}
+                  className={cn(
+                    "flex min-w-[68px] shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+                    active
+                      ? "bg-charcoal text-primary-foreground shadow-luxe"
+                      : "text-muted-foreground hover:bg-background hover:text-foreground",
+                  )}
+                >
+                  {item.icon}
+                  <span className="whitespace-nowrap">{item.label}</span>
+                  {item.id === "paint" && paint && hasWalls && (
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-6 rounded-full"
+                      style={{ backgroundColor: paint }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-        <div className="flex gap-1.5 max-sm:w-full">
-          <Button
-            variant="outline"
-            className="h-9 max-sm:flex-1 sm:h-10"
-            onClick={() => uploadRef.current?.click()}
+        {/* The open tool */}
+        {isPanelOpen && (
+          <aside
+            id="studio-panel"
+            role="tabpanel"
+            aria-label={panelTitle[panel]}
+            className="min-w-0 rounded-2xl border border-border bg-background p-4 max-lg:order-4 lg:sticky lg:top-[calc(var(--header-height)+0.75rem)] lg:max-h-[calc(100dvh-var(--header-height)-1.5rem)] lg:self-start lg:overflow-y-auto"
           >
-            <Upload aria-hidden />
-            Use your room
-          </Button>
-          <Button
-            className="h-9 max-sm:flex-1 sm:h-10"
-            onClick={() => setIsShareOpen(true)}
-            disabled={!material}
-          >
-            <Share2 aria-hidden />
-            Save &amp; share
-          </Button>
-        </div>
-      </div>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-semibold">{panelTitle[panel]}</h2>
+              <button
+                type="button"
+                onClick={() => setIsPanelOpen(false)}
+                aria-label="Close panel"
+                className="hidden h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-surface hover:text-foreground lg:grid"
+              >
+                <PanelLeftClose className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
 
-      <div className="order-last min-w-0 lg:order-none lg:col-start-1 lg:row-start-3">
-        <FloorAreaTools
-          tool={tool}
-          onTool={selectTool}
-          brush={brush}
-          onBrush={setBrush}
-          editCount={maskEdits.length}
-          polygonPoints={polygonDraft.length}
-          smart={smart}
-          onUndo={() => setMaskEdits((current) => current.slice(0, -1))}
-          onResetEdits={() => setMaskEdits([])}
-          onResetCorners={() => {
-            setQuad(DEFAULT_QUAD);
-            setMaskEdits([]);
-            detection.retry();
-          }}
-          onFinishPolygon={() => {
-            if (polygonDraft.length >= 3)
-              addMaskEdit({ type: "polygon", mode: brush.mode, points: polygonDraft });
-            setPolygonDraft([]);
-          }}
-          onUndoPoint={() => setPolygonDraft((points) => points.slice(0, -1))}
-          onCancelPolygon={() => setPolygonDraft([])}
-        />
-      </div>
+            {panel === "rooms" && (
+              <RoomsPanel
+                rooms={sampleRooms.map((sample) => ({
+                  src: sample.src,
+                  label: sample.label,
+                  thumb: sample.thumb,
+                }))}
+                current={room.src}
+                onUpload={() => uploadRef.current?.click()}
+                onCamera={() => cameraRef.current?.click()}
+                onRoom={(sample) => {
+                  if (sample.src === room.src) return;
+                  keepQuadRef.current = false;
+                  changeRoom({
+                    src: sample.src,
+                    label: sample.label,
+                    floor: presetFor(sample.src),
+                    origin: "sample",
+                  });
+                }}
+                rug={
+                  rugSrc
+                    ? {
+                        shown: showRug,
+                        onChange: (shown) => {
+                          setShowRug(shown);
+                          track("rug_toggled", { shown });
+                        },
+                      }
+                    : null
+                }
+              />
+            )}
 
-      {/* Floors, layout and room */}
-      <aside className="min-w-0 lg:sticky lg:top-[var(--header-height)] lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:max-h-[calc(100dvh-var(--header-height)-1rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-        <Tabs value={panel} onValueChange={(value) => setPanel(value as Panel)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="floors">Floors</TabsTrigger>
-            <TabsTrigger value="adjust">Adjust</TabsTrigger>
-            <TabsTrigger value="room">Room</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="floors" className="mt-3">
-            <MaterialBrowser
-              initial={materials}
-              filters={filters}
-              selected={mode === "products" && compareSlot === "b" ? compareMaterial : material}
-              unavailable={unavailable}
-              onSelect={(choice) => chooseMaterial(choice)}
-              header={
-                mode === "products" ? (
-                  <div className="rounded-md border border-gold/40 bg-gold/5 p-2">
-                    <p className="px-1 text-xs text-muted-foreground">Choosing the floor for:</p>
-                    <div
-                      className="mt-1.5 grid grid-cols-2 gap-1.5"
-                      role="radiogroup"
-                      aria-label="Which side"
-                    >
-                      <Chip
-                        active={compareSlot === "a"}
-                        onClick={() => setCompareSlot("a")}
-                        className="truncate"
+            {panel === "floors" && (
+              <MaterialBrowser
+                initial={materials}
+                filters={filters}
+                selected={mode === "products" && compareSlot === "b" ? compareMaterial : material}
+                unavailable={unavailable}
+                onSelect={(choice) => chooseMaterial(choice)}
+                header={
+                  mode === "products" ? (
+                    <div className="rounded-md border border-gold/40 bg-gold/5 p-2">
+                      <p className="px-1 text-xs text-muted-foreground">Choosing the floor for:</p>
+                      <div
+                        className="mt-1.5 grid grid-cols-2 gap-1.5"
+                        role="radiogroup"
+                        aria-label="Which side"
                       >
-                        Left · {material?.variantName ?? material?.productName ?? "—"}
-                      </Chip>
-                      <Chip
-                        active={compareSlot === "b"}
-                        onClick={() => setCompareSlot("b")}
-                        className="truncate"
-                      >
-                        Right ·{" "}
-                        {compareMaterial?.variantName ?? compareMaterial?.productName ?? "choose"}
-                      </Chip>
+                        <Chip
+                          active={compareSlot === "a"}
+                          onClick={() => setCompareSlot("a")}
+                          className="truncate"
+                        >
+                          Left · {material?.variantName ?? material?.productName ?? "—"}
+                        </Chip>
+                        <Chip
+                          active={compareSlot === "b"}
+                          onClick={() => setCompareSlot("b")}
+                          className="truncate"
+                        >
+                          Right ·{" "}
+                          {compareMaterial?.variantName ?? compareMaterial?.productName ?? "choose"}
+                        </Chip>
+                      </div>
                     </div>
-                  </div>
+                  ) : null
+                }
+              />
+            )}
+
+            {panel === "paint" && (
+              <PaintPanel
+                available={hasWalls}
+                color={paint}
+                onChange={(color) => {
+                  setPaint(color);
+                  if (color) track("wall_paint_chosen", { color, room: room.label });
+                }}
+                onShowRooms={() => setPanel("rooms")}
+              />
+            )}
+
+            {panel === "light" && (
+              <LightPanel
+                mood={mood}
+                onMood={(next) => {
+                  setMood(next);
+                  track("light_mood_chosen", { mood: next });
+                }}
+                placement={placement}
+                onPlacement={setPlacement}
+              />
+            )}
+
+            {panel === "adjust" && (
+              <AdjustPanel
+                placement={placement}
+                kind={material?.kind ?? "plank"}
+                productDimensions={productDimensions}
+                onChange={(next) => {
+                  if (next.widthM !== placement.widthM) widthPinnedRef.current = true;
+                  setPlacement(next);
+                }}
+                onLayoutChange={changeLayout}
+                onReset={() => {
+                  setLayoutPinned(false);
+                  widthPinnedRef.current = false;
+                  setPlacement(
+                    placementFor(
+                      material,
+                      {
+                        ...DEFAULT_PLACEMENT,
+                        widthM: presetWidthRef.current ?? suggestedWidthRef.current,
+                      },
+                      false,
+                    ),
+                  );
+                }}
+              />
+            )}
+
+            {panel === "area" && (
+              <FloorAreaTools
+                tool={tool}
+                onTool={selectTool}
+                brush={brush}
+                onBrush={setBrush}
+                editCount={maskEdits.length}
+                polygonPoints={polygonDraft.length}
+                smart={smart}
+                onUndo={() => setMaskEdits((current) => current.slice(0, -1))}
+                onResetEdits={() => setMaskEdits([])}
+                onResetCorners={() => {
+                  setQuad(DEFAULT_QUAD);
+                  setMaskEdits([]);
+                  detection.retry();
+                }}
+                onFinishPolygon={() => {
+                  if (polygonDraft.length >= 3)
+                    addMaskEdit({ type: "polygon", mode: brush.mode, points: polygonDraft });
+                  setPolygonDraft([]);
+                }}
+                onUndoPoint={() => setPolygonDraft((points) => points.slice(0, -1))}
+                onCancelPolygon={() => setPolygonDraft([])}
+              />
+            )}
+          </aside>
+        )}
+
+        {/* The room. On a phone it stays in view while floors are chosen below it,
+            so there the column dissolves into the grid: a sticky element only
+            sticks within its parent, and the parent must be the whole page. */}
+        <div className="min-w-0 space-y-3 max-lg:contents">
+          <div className="z-20 bg-background pb-1 max-lg:sticky max-lg:top-[calc(var(--header-height)-0.25rem)] max-lg:order-1 max-lg:pt-1">
+            <RoomStage
+              photoSrc={room.src}
+              material={stageMaterial}
+              compareMaterial={stageCompare}
+              quad={quad}
+              placement={placement}
+              mask={mask}
+              mode={mode}
+              tool={tool}
+              brush={brush}
+              polygonDraft={polygonDraft}
+              onPolygonDraftChange={setPolygonDraft}
+              onQuadChange={setQuad}
+              onMaskEdit={addMaskEdit}
+              onSmartTap={onSmartTap}
+              smartBusyAt={smart.status === "selecting" ? smart.at : null}
+              onReady={onStageReady}
+              onPhotoLoaded={setPhotoSize}
+              onRendered={onRendered}
+              onTextureFailed={onTextureFailed}
+              detection={detection.state}
+              baked={baked}
+              paintColor={hasWalls ? paint : null}
+              mood={mood}
+              chrome={
+                material && tool === "view" && mode !== "split" ? (
+                  <ProductPill
+                    material={material}
+                    isFavorite={isFavorite}
+                    onToggleFavorite={() => toggleFavorite(material)}
+                    rotation={placement.rotation}
+                    onRotation={(rotation) => setPlacement((current) => ({ ...current, rotation }))}
+                    onOrderSample={() => setLead("sample")}
+                  />
                 ) : null
               }
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="adjust" className="mt-4">
-            <AdjustPanel
-              placement={placement}
-              kind={material?.kind ?? "plank"}
-              productDimensions={productDimensions}
-              onChange={(next) => {
-                if (next.widthM !== placement.widthM) widthPinnedRef.current = true;
-                setPlacement(next);
-              }}
-              onLayoutChange={changeLayout}
-              onReset={() => {
-                setLayoutPinned(false);
-                widthPinnedRef.current = false;
-                setPlacement(
-                  placementFor(
-                    material,
-                    { ...DEFAULT_PLACEMENT, widthM: suggestedWidthRef.current },
-                    false,
-                  ),
-                );
+          <div className="max-lg:order-2">
+            <DetectionNotice
+              state={detection.state}
+              onRetry={detection.retry}
+              onMarkByHand={() => {
+                setPanel("area");
+                setIsPanelOpen(true);
+                selectTool("corners");
               }}
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="room" className="mt-4">
-            <RoomPanel
-              sampleRooms={sampleRooms}
-              current={room.src}
-              onUpload={() => uploadRef.current?.click()}
-              onCamera={() => cameraRef.current?.click()}
-              onSample={(sample) => {
-                if (sample.src === room.src) return;
-                keepQuadRef.current = false;
-                changeRoom({ ...sample, origin: "sample" });
-              }}
-            />
-          </TabsContent>
-        </Tabs>
+          <SwatchStrip
+            items={colourways}
+            selected={material}
+            onSelect={(choice) => chooseMaterial(choice)}
+            className="rounded-xl border border-border px-3 py-2 max-lg:order-2"
+          />
 
-        <input
-          ref={uploadRef}
-          type="file"
-          accept="image/*"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void applyUpload(file, "upload");
-            event.target.value = "";
-          }}
-        />
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void applyUpload(file, "camera");
-            event.target.value = "";
-          }}
-        />
-      </aside>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 max-lg:order-2">
+            <div
+              role="radiogroup"
+              aria-label="Compare"
+              className="flex gap-1 rounded-full border border-border bg-surface/70 p-1"
+            >
+              <ModeButton
+                active={mode === "wipe"}
+                icon={<SplitSquareHorizontal className="h-4 w-4" aria-hidden />}
+                onClick={() => setMode("wipe")}
+              >
+                Before / after
+              </ModeButton>
+              <ModeButton
+                active={mode === "split"}
+                icon={<Columns2 className="h-4 w-4" aria-hidden />}
+                onClick={() => {
+                  setMode("split");
+                  setTool("view");
+                  track("comparison_used", { mode: "split" });
+                }}
+              >
+                <span>
+                  Side<span className="hidden sm:inline"> by side</span>
+                </span>
+              </ModeButton>
+              <ModeButton
+                active={mode === "products"}
+                icon={<Layers className="h-4 w-4" aria-hidden />}
+                onClick={() => {
+                  setMode("products");
+                  setTool("view");
+                  setCompareSlot("b");
+                  setPanel("floors");
+                  setIsPanelOpen(true);
+                  track("comparison_used", { mode: "products" });
+                }}
+              >
+                <span>
+                  Compare<span className="hidden sm:inline"> floors</span>
+                </span>
+              </ModeButton>
+            </div>
+
+            <div className="flex gap-1.5 max-sm:w-full">
+              <Button
+                variant="outline"
+                className="h-10 rounded-full max-sm:flex-1"
+                onClick={() => uploadRef.current?.click()}
+              >
+                <Upload aria-hidden />
+                Use your room
+              </Button>
+              <Button
+                className="h-10 rounded-full max-sm:flex-1"
+                onClick={() => setIsShareOpen(true)}
+                disabled={!material}
+              >
+                <Share2 aria-hidden />
+                Save &amp; share
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void applyUpload(file, "upload");
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void applyUpload(file, "camera");
+          event.target.value = "";
+        }}
+      />
 
       {/* The product and what to do next */}
-      <div className="order-last min-w-0 space-y-4 lg:order-none lg:col-start-1 lg:row-start-4">
+      <div className="mt-8 space-y-4">
         {material && (
           <MaterialDetails
             material={material}
@@ -904,6 +1177,11 @@ export function VisualizerStudio({
       />
     </div>
   );
+}
+
+/** Whether the layout is the wide one, where the panel sits beside the room. */
+function isWide(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
 }
 
 /**
@@ -1123,124 +1401,6 @@ function smartHint(smart: SmartState): string {
   }
 }
 
-function RoomPanel({
-  sampleRooms,
-  current,
-  onUpload,
-  onCamera,
-  onSample,
-}: {
-  sampleRooms: SampleRoom[];
-  current: string;
-  onUpload: () => void;
-  onCamera: () => void;
-  onSample: (sample: SampleRoom) => void;
-}) {
-  const { designs } = useLibrary();
-
-  return (
-    <div className="space-y-6">
-      <section>
-        <Button className="h-11 w-full" onClick={onUpload}>
-          <Upload aria-hidden />
-          Upload a photo of your room
-        </Button>
-        {/* Only offered where there is a camera to open. */}
-        <Button
-          variant="outline"
-          className="mt-2 hidden h-11 w-full [@media(pointer:coarse)]:inline-flex"
-          onClick={onCamera}
-        >
-          <Camera aria-hidden />
-          Take a photo now
-        </Button>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Stand in a doorway or corner, hold the phone level at chest height, and get as much floor
-          in shot as you can. Your photo stays on this device unless you save or send it.
-        </p>
-      </section>
-
-      {sampleRooms.length > 0 && (
-        <section>
-          <h3 className="font-display text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Or use one of our rooms
-          </h3>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {sampleRooms.map((sample) => (
-              <button
-                key={sample.src}
-                type="button"
-                onClick={() => onSample(sample)}
-                aria-pressed={current === sample.src}
-                className={cn(
-                  "group relative aspect-[4/3] overflow-hidden rounded-md bg-muted bg-cover bg-center text-left transition",
-                  current === sample.src
-                    ? "ring-2 ring-gold ring-offset-2 ring-offset-background"
-                    : "opacity-85 hover:opacity-100",
-                )}
-                style={{ backgroundImage: `url(${sample.src})` }}
-              >
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-4 text-[11px] font-semibold text-white">
-                  {sample.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {designs.length > 0 && (
-        <section>
-          <h3 className="font-display text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Your saved designs
-          </h3>
-          <ul className="mt-2 space-y-2">
-            {designs.slice(0, 6).map((design) => (
-              <li key={design.token} className="flex items-center gap-3">
-                <Link
-                  href={`/visualizer?design=${design.token}`}
-                  scroll={false}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 transition hover:bg-surface"
-                >
-                  <span
-                    className="h-12 w-16 shrink-0 rounded bg-muted bg-cover bg-center"
-                    style={
-                      design.imageUrl ? { backgroundImage: `url(${design.imageUrl})` } : undefined
-                    }
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm">
-                      {design.productName ?? "Room design"}
-                    </span>
-                    <span className="block text-[11px] text-muted-foreground">
-                      {new Date(design.savedAt).toLocaleDateString()}
-                    </span>
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => library.forgetDesign(design.token)}
-                  aria-label="Remove from this list"
-                  className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-surface hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Kept in this browser.{" "}
-            <Link href="/account/saved" className="underline underline-offset-2">
-              Sign in
-            </Link>{" "}
-            to keep designs with your account.
-          </p>
-        </section>
-      )}
-    </div>
-  );
-}
-
 /**
  * What automatic detection is doing, and what to do when it cannot help.
  *
@@ -1346,34 +1506,6 @@ function ToolButton({
 
 // --- Helpers -----------------------------------------------------------------
 
-/**
- * The floor the studio opens on. The first impression should be the best one
- * the catalogue can give: a real texture if there is one, or else a plank floor,
- * whose photographs make the most convincing surface.
- */
-function starterMaterial(materials: TextureChoice[]): TextureChoice | null {
-  return (
-    materials.find((choice) => choice.isSeamless) ??
-    materials.find((choice) => choice.kind === "plank") ??
-    materials[0] ??
-    null
-  );
-}
-
-function toStageMaterial(choice: TextureChoice | null): StageMaterial | null {
-  if (!choice) return null;
-
-  return {
-    textureSrc: choice.textureUrl,
-    kind: choice.kind ?? "plank",
-    isSeamless: choice.isSeamless ?? false,
-    textureSizeM: choice.textureSizeM ?? null,
-    label: choice.variantName
-      ? `${choice.productName} — ${choice.variantName}`
-      : choice.productName,
-  };
-}
-
 /** The real width of a detected quad, to the nearest 10cm the slider can show. */
 function suggestedFloorWidth(quad: Quad, mask: HTMLCanvasElement): number | null {
   const { width, height } = mask;
@@ -1385,54 +1517,6 @@ function suggestedFloorWidth(quad: Quad, mask: HTMLCanvasElement): number | null
   const { min, max } = FLOOR_WIDTH_RANGE;
 
   return Math.round(Math.min(max, Math.max(min, metres)) * 10) / 10;
-}
-
-/** The product's own piece size, longest side first, or a typical one. */
-function dimensionsOf(choice: TextureChoice | null): {
-  lengthMm: number;
-  widthMm: number;
-  isMeasured: boolean;
-} {
-  const kind = choice?.kind ?? "plank";
-  const length = choice?.variant?.dimensions.length_mm ?? null;
-  const width = choice?.variant?.dimensions.width_mm ?? null;
-
-  if (length && width && length > 0 && width > 0) {
-    return {
-      lengthMm: Math.max(length, width),
-      widthMm: Math.min(length, width),
-      isMeasured: true,
-    };
-  }
-
-  return { ...defaultDimensions(kind), isMeasured: false };
-}
-
-/**
- * Placement for a newly chosen material: its own piece size, and a layout it
- * can actually be laid in. A layout the visitor picked is kept wherever the new
- * floor allows it; otherwise it is laid the way that floor is fitted: planks
- * staggered, tiles in a grid. Both cut the surface into real pieces, which is
- * what makes it read as a floor rather than a photograph repeated.
- */
-function placementFor(
-  choice: TextureChoice | null,
-  current: Placement,
-  layoutPinned: boolean,
-): Placement {
-  const kind = choice?.kind ?? "plank";
-  const dimensions = dimensionsOf(choice);
-  const layouts = layoutsFor(kind);
-  const fallbackLayout: LayoutPattern =
-    kind === "tile" ? "grid" : kind === "plank" ? "staggered" : "natural";
-
-  return {
-    ...current,
-    layout: layoutPinned && layouts.includes(current.layout) ? current.layout : fallbackLayout,
-    plankLengthMm: dimensions.lengthMm,
-    plankWidthMm: dimensions.widthMm,
-    finish: kind === "carpet" || kind === "rug" ? "matte" : current.finish,
-  };
 }
 
 function restorePlacement(settings: Record<string, unknown>, base: Placement): Placement {

@@ -62,8 +62,36 @@ export type Placement = {
   finish: Finish;
 };
 
-/** A sample room's floor, found once ahead of time (`bake-sample-floors.mjs`). */
-export type FloorPreset = { mask: string; quad: Quad };
+/**
+ * A sample room's floor, found once ahead of time — by `bake-sample-floors.mjs`
+ * for the older photographs, by `scripts/bake-room.py` for template rooms.
+ *
+ * A template room carries more than the floor's outline: the floor's own light,
+ * measured once from the photograph with the furniture kept out of it, so no
+ * light is estimated in the browser; a rug the visitor can take away; and the
+ * walls, for trying a paint colour with the floor.
+ */
+export type FloorPreset = {
+  /** Opaque where the floor is (alpha). */
+  mask: string;
+  quad: Quad;
+  /** Real width of the quad's near edge, in metres, when it is known. */
+  widthM?: number;
+  /** Grey: the floor's shadows, multiplied over the material. */
+  shading?: string;
+  /** Grey: the floor's highlights, screened over by how glossy the finish is. */
+  highlights?: string;
+  /** Opaque where a rug lies on the floor; hiding the rug lays the floor there too. */
+  rug?: string;
+  /** Grey for the wall's own light, alpha for where the walls are. */
+  walls?: string;
+};
+
+/** How the room is lit, applied over the whole picture. */
+export type LightMood = "daylight" | "warm" | "cool" | "evening";
+
+/** A paint colour on the walls of a template room. */
+export type WallPaint = { color: string; name: string };
 
 export type RoomSource = {
   /** Object URL for an upload, or a path for a sample room or saved design. */
@@ -134,6 +162,11 @@ export type SurfaceLayer = {
    * perspective runs. Without it the quad does both.
    */
   mask?: CanvasImageSource | null;
+  /**
+   * The floor's light, baked with a template room. When present it is used as
+   * it is; otherwise the light is measured from the photograph (`lighting.ts`).
+   */
+  light?: { shading: CanvasImageSource; highlights: CanvasImageSource } | null;
 };
 
 /** The range "floor width" can be set to, in metres. */

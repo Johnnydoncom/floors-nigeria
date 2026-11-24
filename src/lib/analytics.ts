@@ -25,7 +25,11 @@ export type AnalyticsEvent =
   | "lead_submitted"
   | "cta_clicked"
   | "ar_launched"
-  | "qr_shown";
+  | "qr_shown"
+  | "rug_toggled"
+  | "wall_paint_chosen"
+  | "light_mood_chosen"
+  | "room_preview_opened";
 
 export type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 

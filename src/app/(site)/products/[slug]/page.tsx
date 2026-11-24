@@ -64,7 +64,6 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         title={category.name}
         lede={category.short_description}
         imageUrl={category.image_url}
-        productCount={category.products_count}
         trail={trail}
         links={category.children ?? []}
         linksLabel="In this category"

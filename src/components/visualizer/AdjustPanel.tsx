@@ -2,23 +2,14 @@
 
 import { RotateCcw } from "lucide-react";
 import { LAYOUT_LABELS, layoutsFor } from "@/lib/visualizer/patterns";
-import {
-  FLOOR_WIDTH_RANGE,
-  type Finish,
-  type MaterialKind,
-  type Placement,
-} from "@/lib/visualizer/types";
+import { FLOOR_WIDTH_RANGE, type MaterialKind, type Placement } from "@/lib/visualizer/types";
 import { cn } from "@/lib/utils";
 
 const ROTATION_PRESETS = [0, 45, 90];
-const FINISHES: { value: Finish; label: string }[] = [
-  { value: "matte", label: "Matte" },
-  { value: "satin", label: "Satin" },
-  { value: "gloss", label: "Gloss" },
-];
 
 /**
- * How the floor is laid (§10): pattern, direction, size, finish and light.
+ * How the floor is laid (§10): pattern, direction and size. Finish and the
+ * room's light live in the Light panel (`StudioPanels.tsx`).
  *
  * Plank size defaults to the product's real dimensions; "floor width" is the
  * one number a photograph cannot give, and dialling it in is what makes the
@@ -165,41 +156,6 @@ export function AdjustPanel({
             </p>
           </div>
         )}
-      </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold">Finish &amp; light</legend>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Finish">
-          {FINISHES.map((finish) => (
-            <Chip
-              key={finish.value}
-              active={placement.finish === finish.value}
-              onClick={() => set({ finish: finish.value })}
-            >
-              {finish.label}
-            </Chip>
-          ))}
-        </div>
-        <Slider
-          id="lighting"
-          label="Room lighting & shadows"
-          hint={`${Math.round(placement.lighting * 100)}%`}
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round(placement.lighting * 100)}
-          onChange={(value) => set({ lighting: value / 100 })}
-        />
-        <Slider
-          id="brightness"
-          label="Material brightness"
-          hint={`${Math.round(placement.brightness * 100)}%`}
-          min={60}
-          max={140}
-          step={5}
-          value={Math.round(placement.brightness * 100)}
-          onChange={(value) => set({ brightness: value / 100 })}
-        />
       </fieldset>
 
       <button

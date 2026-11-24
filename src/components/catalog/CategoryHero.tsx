@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowUpRight, Sparkles } from "lucide-react";
 
 export type BreadcrumbTrail = { name: string; url: string }[];
 
@@ -8,17 +9,20 @@ export type CategoryLink = { name: string; slug: string };
 /**
  * The masthead for category and room landing pages.
  *
- * Deliberately short: a heading, one line of orientation, and the imagery —
- * enough for a visitor and a crawler to know where they are, without pushing
- * the products below the fold. The full category copy belongs under the grid,
+ * Compact on purpose: where you are, one line of orientation, the
+ * subcategories, and the way into the room visualizer — then the products,
+ * which start above the fold. The full category copy belongs under the grid,
  * where a shopper who wants it will go looking (§32).
+ *
+ * It names no product count. The category's own count leaves out its
+ * subcategories, so it disagreed with the grid's; the toolbar's count is the
+ * one that matches what is shown.
  */
 export function CategoryHero({
   eyebrow,
   title,
   lede,
   imageUrl,
-  productCount,
   trail,
   links = [],
   linksLabel = "Browse",
@@ -29,91 +33,92 @@ export function CategoryHero({
   /** One sentence. Anything longer belongs below the products. */
   lede?: string | null;
   imageUrl?: string | null;
-  productCount?: number;
   trail: BreadcrumbTrail;
   links?: CategoryLink[];
   linksLabel?: string;
   hrefPrefix?: string;
 }) {
   return (
-    <section className="bg-charcoal-dark pt-header text-primary-foreground">
-      <div className="container-fluid grid items-center gap-10 py-10 lg:grid-cols-12 lg:py-14">
-        <div className="lg:col-span-7">
-          <nav aria-label="Breadcrumb">
-            <ol className="flex flex-wrap items-center gap-2 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/55">
-              {trail.map((crumb, index) => (
-                <li key={crumb.url} className="flex items-center gap-2">
-                  {index > 0 && <span aria-hidden>/</span>}
-                  {index === trail.length - 1 ? (
-                    <span className="text-gold-light">{crumb.name}</span>
-                  ) : (
-                    <Link href={crumb.url} className="transition hover:text-primary-foreground">
-                      {crumb.name}
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </nav>
+    <section className="border-b border-border bg-surface/50 pt-header">
+      <div className="container-fluid py-6 lg:py-8">
+        <nav aria-label="Breadcrumb">
+          <ol className="flex flex-wrap items-center gap-2 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {trail.map((crumb, index) => (
+              <li key={crumb.url} className="flex items-center gap-2">
+                {index > 0 && <span aria-hidden>/</span>}
+                {index === trail.length - 1 ? (
+                  <span className="text-foreground">{crumb.name}</span>
+                ) : (
+                  <Link href={crumb.url} className="transition hover:text-foreground">
+                    {crumb.name}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ol>
+        </nav>
 
-          <p className="mt-6 font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-light">
-            {eyebrow}
-          </p>
-
-          <h1 className="mt-2 text-balance font-display text-4xl tracking-tight md:text-5xl">
-            {title}
-          </h1>
-
-          {lede && (
-            <p className="mt-4 max-w-xl text-lg leading-relaxed text-primary-foreground/70">
-              {lede}
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
+          <div className="min-w-0 max-w-2xl">
+            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
+              {eyebrow}
             </p>
-          )}
+            <h1 className="mt-1 text-balance font-display text-3xl tracking-tight md:text-4xl">
+              {title}
+            </h1>
+            {lede && (
+              <p className="mt-2 line-clamp-2 text-base leading-relaxed text-muted-foreground">
+                {lede}
+              </p>
+            )}
+          </div>
 
-          {productCount !== undefined && productCount > 0 && (
-            <p className="mt-6 inline-flex items-center gap-2 border border-white/15 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-primary-foreground/70">
-              {productCount} product{productCount === 1 ? "" : "s"}
-            </p>
-          )}
-        </div>
-
-        {imageUrl && (
-          <div className="hidden lg:col-span-5 lg:block">
-            <div className="relative aspect-[4/3] overflow-hidden shadow-luxe ring-1 ring-white/10">
+          <Link
+            href="/visualizer"
+            className="group flex w-full max-w-sm items-center gap-3 rounded-xl border border-border bg-background p-2 pr-4 transition hover:border-gold hover:shadow-luxe sm:w-auto"
+          >
+            <span className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
               <Image
-                src={imageUrl}
+                src={imageUrl ?? "/rooms/loft-lounge/thumb.webp"}
                 alt=""
                 fill
-                sizes="(min-width: 1024px) 40vw, 0px"
-                priority
+                sizes="80px"
                 className="object-cover"
               />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {links.length > 0 && (
-        <nav aria-label={linksLabel} className="border-t border-white/10">
-          <div className="container-fluid flex items-center gap-3 overflow-x-auto py-4">
-            <span className="shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/45">
-              {linksLabel}
             </span>
-            <ul className="flex gap-2">
+            <span className="min-w-0">
+              <span className="flex items-center gap-1 text-sm font-semibold">
+                <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
+                See these floors in your room
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Upload a photo, or try one of ours
+              </span>
+            </span>
+            <ArrowUpRight
+              className="ml-auto h-4 w-4 shrink-0 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              aria-hidden
+            />
+          </Link>
+        </div>
+
+        {links.length > 0 && (
+          <nav aria-label={linksLabel} className="mt-5">
+            <ul className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
               {links.map((link) => (
                 <li key={link.slug}>
                   <Link
                     href={`${hrefPrefix}/${link.slug}`}
-                    className="inline-flex h-9 items-center whitespace-nowrap border border-white/15 px-3.5 text-sm text-primary-foreground/80 transition hover:border-gold hover:text-gold-light"
+                    className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border bg-background px-4 text-sm transition hover:border-charcoal hover:bg-charcoal hover:text-primary-foreground"
                   >
                     {link.name}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
-        </nav>
-      )}
+          </nav>
+        )}
+      </div>
     </section>
   );
 }

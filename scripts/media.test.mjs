@@ -49,3 +49,36 @@ test("blob and data URLs are not mistaken for media", () => {
   assert.equal(mediaProxyPath(blob), blob);
   assert.equal(mediaProxyPath(data), data);
 });
+
+test("the media route only serves plain image paths inside the public disk", async () => {
+  const { mediaStoragePath } = await import("../src/lib/api/media.ts");
+  assert.equal(mediaStoragePath(["44", "oak plank.jpg"]), "/storage/44/oak%20plank.jpg");
+  assert.equal(
+    mediaStoragePath(["44", "conversions", "oak-thumb.webp"]),
+    "/storage/44/conversions/oak-thumb.webp",
+  );
+  for (const bad of [
+    [],
+    ["..", "x.jpg"],
+    ["44", "x.php"],
+    ["44", ""],
+    ["a/b.jpg"],
+    ["44", "x.jpg?y=1"],
+    ["1", "2", "3", "4", "5", "6", "7.jpg"],
+  ]) {
+    assert.equal(mediaStoragePath(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("resize widths snap to a short list, and only media URLs gain one", async () => {
+  const { mediaWidth, mediaTexturePath } = await import("../src/lib/api/media.ts");
+  assert.equal(mediaWidth(null), null);
+  assert.equal(mediaWidth("abc"), null);
+  assert.equal(mediaWidth("1000"), 1280);
+  assert.equal(mediaWidth("99999"), 1920);
+  assert.equal(
+    mediaTexturePath("https://api.floornigeria.com/storage/44/a.jpg", 1280),
+    "/media/44/a.jpg?w=1280",
+  );
+  assert.equal(mediaTexturePath("/rooms/office/photo.webp", 1280), "/rooms/office/photo.webp");
+});

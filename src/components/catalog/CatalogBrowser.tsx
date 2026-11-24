@@ -44,7 +44,7 @@ export function CatalogBrowser({
   emptyMessage,
 }: CatalogBrowserProps) {
   return (
-    <div className="container-fluid grid gap-10 py-12 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="container-fluid grid gap-10 py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="hidden lg:block">
         <div className="sticky top-header-offset">
           <Suspense fallback={<FilterRailSkeleton />}>

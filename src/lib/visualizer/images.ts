@@ -2,7 +2,7 @@
  * Getting images into the visualizer at a sensible size (§10, §28).
  */
 
-import { mediaProxyPath } from "@/lib/api/media";
+import { mediaProxyPath, mediaTexturePath } from "@/lib/api/media";
 
 /** Longest side a room photograph is worked at. A 12MP phone photo is 4032px. */
 export const MAX_ROOM_SIDE = 2560;
@@ -30,13 +30,16 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * A product texture, loaded for the canvas.
- *
- * Image optimization is off (`next.config.ts`), so there is no resized
- * rendition to prefer — the source is used as it is.
+ * Width a product texture is fetched at. A texture becomes a tile a plank or
+ * two across, and a 1280px photograph already carries more detail than the
+ * far end of any floor shows; a product photograph straight from the media
+ * host is often 3–5MB, which on a Nigerian mobile connection is the wait.
  */
+export const TEXTURE_WIDTH = 1280;
+
+/** A product texture, loaded for the canvas at texture size. */
 export function loadTexture(src: string): Promise<HTMLImageElement> {
-  return loadImage(src);
+  return loadImage(mediaTexturePath(src, TEXTURE_WIDTH));
 }
 
 /**

@@ -45,6 +45,24 @@ export function useFilterNavigation() {
     [push, searchParams],
   );
 
+  /**
+   * Several keys in one navigation. Two `set` calls in a row would each start
+   * from the same URL, and the second would undo the first — which is how a
+   * price band used to lose its lower bound.
+   */
+  const setMany = useCallback(
+    (entries: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams);
+      for (const [key, value] of Object.entries(entries)) {
+        if (value === null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+      params.delete("page");
+      push(params);
+    },
+    [push, searchParams],
+  );
+
   const clearAll = useCallback(() => {
     const params = new URLSearchParams();
     const query = searchParams.get("q");
@@ -57,5 +75,5 @@ export function useFilterNavigation() {
     [searchParams],
   );
 
-  return { searchParams, toggle, set, clearAll, isActive, isPending };
+  return { searchParams, toggle, set, setMany, clearAll, isActive, isPending };
 }

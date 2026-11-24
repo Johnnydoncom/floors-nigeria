@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { MEDIA_PROXY_PREFIX, MEDIA_SOURCE_PATH, mediaOrigin } from "./src/lib/api/media";
 
 const nextConfig: NextConfig = {
   /**
@@ -11,37 +10,40 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
 
   /**
-   * Product imagery is served straight from the media host (Laravel, a CDN or
-   * an object store) — the URLs Laravel returns are used as they are.
-   *
-   * This rewrite exists for the one consumer that cannot do that: the room
-   * visualizer reads a texture into a canvas and exports it, which needs the
-   * image to be same-origin (a cross-origin image taints the canvas, and the
-   * public disk sends no CORS headers). It maps `/media/*` back to the media
-   * host so that path is served from this origin.
+   * Next 16.4 asks Cache Components apps to choose. `false` keeps prefetching
+   * exactly as it was built and tested. Turning it on makes a `<Link>` prefetch
+   * the route's static App Shell instead of the page — likely fewer function
+   * invocations on Vercel — but it is a behaviour change to adopt deliberately
+   * (see node_modules/next/dist/docs/01-app/02-guides/adopting-partial-prefetching.md).
    */
-  async rewrites() {
+  partialPrefetching: false,
+
+  /**
+   * Product imagery is served straight from the media host (Laravel, a CDN or
+   * an object store) — the URLs Laravel returns are used as they are. The room
+   * visualizer's same-origin copies come from `app/media/[...path]/route.ts`
+   * (see `lib/api/media.ts` for why that is a route, not a rewrite).
+   */
+
+  /**
+   * Template rooms are fetched by the photo, the canvas and the preloader in
+   * turn; without a lifetime each is a revalidation round trip, which on a
+   * mobile connection is most of the wait. A day fresh, a week served stale
+   * while it refreshes: a re-baked room reaches everyone within a day.
+   *
+   * (The self-hosted ONNX runtime in `public/vendor/ort/<version>` could be
+   * cached for a year the same way — `scripts/vendor-ort.mjs`.)
+   */
+  async headers() {
     return [
       {
-        source: `${MEDIA_PROXY_PREFIX}/:path*`,
-        destination: `${mediaOrigin()}${MEDIA_SOURCE_PATH}/:path*`,
+        source: "/rooms/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+        ],
       },
     ];
   },
-
-  /**
-   * The self-hosted ONNX runtime lives under a folder named for its version
-   * (`scripts/vendor-ort.mjs`), so a new version is a new URL and the files can
-   * be cached for a year. 13MB a visitor downloads once, not once per visit.
-   */
-  // async headers() {
-  //   return [
-  //     {
-  //       source: "/vendor/ort/:version/:file*",
-  //       headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-  //     },
-  //   ];
-  // },
 
   images: {
     /**

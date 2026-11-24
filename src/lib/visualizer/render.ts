@@ -2,7 +2,7 @@ import { drawFloor, floorMap } from "./floor-raster";
 import { planeAspect, project, unitSquareToQuad } from "./homography";
 import { FINISH_SHEEN, lightingMaps } from "./lighting";
 import { materialTile } from "./material-tile";
-import type { Point, Quad, SurfaceLayer } from "./types";
+import type { LightMood, Point, Quad, SurfaceLayer } from "./types";
 
 /**
  * Renders a floor material into a room photograph (§10).
@@ -25,32 +25,136 @@ export type RenderOptions = {
    * the same homography on a vertical plane, which is why this is a list.
    */
   surfaces: SurfaceLayer[];
+  /** A paint colour for the walls, and the baked wall layer it is laid through. */
+  paint?: { color: string; walls: CanvasImageSource } | null;
+  /** The room's light, as a grade over the finished picture. */
+  mood?: LightMood;
 };
+
+/**
+ * Each mood as a multiply tint and an optional screen glow. Mild on purpose:
+ * it should read as the same room at another hour, not as a filter.
+ */
+const MOODS: Record<
+  Exclude<LightMood, "daylight">,
+  { tint: string; alpha: number; glow?: string; glowAlpha?: number }
+> = {
+  warm: { tint: "#ffd9a8", alpha: 0.32, glow: "#ff9d4d", glowAlpha: 0.05 },
+  cool: { tint: "#dbe6ff", alpha: 0.3, glow: "#cfe0ff", glowAlpha: 0.04 },
+  evening: { tint: "#e2b27a", alpha: 0.55, glow: "#ff8a3d", glowAlpha: 0.04 },
+};
+
+/**
+ * Off-screen canvases, kept per target and reused: a slider drag renders many
+ * times a second, and a fresh photo-sized canvas for each would be 10MB of
+ * garbage a frame on a 1920px room.
+ */
+const scratch = new WeakMap<
+  HTMLCanvasElement,
+  { floor: HTMLCanvasElement; paint: HTMLCanvasElement }
+>();
+
+function scratchFor(target: HTMLCanvasElement, width: number, height: number) {
+  let entry = scratch.get(target);
+  if (!entry) {
+    entry = { floor: document.createElement("canvas"), paint: document.createElement("canvas") };
+    scratch.set(target, entry);
+  }
+  for (const canvas of [entry.floor, entry.paint]) {
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }
+  return entry;
+}
 
 /**
  * Draw the room, then each surface's material with the room's own light back
  * over it.
  */
 export function renderRoom(canvas: HTMLCanvasElement, options: RenderOptions): void {
-  const { photo, photoWidth, photoHeight, surfaces } = options;
+  const { photo, photoWidth, photoHeight, surfaces, paint, mood = "daylight" } = options;
   const context = canvas.getContext("2d");
 
   if (!context || photoWidth === 0 || photoHeight === 0) return;
 
-  canvas.width = photoWidth;
-  canvas.height = photoHeight;
+  if (canvas.width !== photoWidth || canvas.height !== photoHeight) {
+    canvas.width = photoWidth;
+    canvas.height = photoHeight;
+  }
+
+  const buffers = scratchFor(canvas, photoWidth, photoHeight);
 
   context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = 1;
   context.clearRect(0, 0, photoWidth, photoHeight);
   context.drawImage(photo, 0, 0, photoWidth, photoHeight);
 
+  if (paint) paintWalls(context, buffers.paint, photoWidth, photoHeight, paint);
+
   for (const surface of surfaces) {
-    drawSurface(context, photo, photoWidth, photoHeight, surface);
+    drawSurface(context, buffers.floor, photo, photoWidth, photoHeight, surface);
   }
+
+  if (mood !== "daylight") grade(context, photoWidth, photoHeight, MOODS[mood]);
+}
+
+/**
+ * A paint colour through the wall layer: the colour multiplied by the wall's
+ * own light (grey), kept only where the wall is (alpha). Shadows, the wash of
+ * a downlight and the texture of brick all survive, so it reads as paint
+ * rather than a flat fill.
+ */
+function paintWalls(
+  context: CanvasRenderingContext2D,
+  buffer: HTMLCanvasElement,
+  width: number,
+  height: number,
+  paint: { color: string; walls: CanvasImageSource },
+): void {
+  const layer = buffer.getContext("2d");
+  if (!layer) return;
+
+  layer.globalCompositeOperation = "source-over";
+  layer.clearRect(0, 0, width, height);
+  layer.drawImage(paint.walls, 0, 0, width, height);
+  // Multiply over transparency paints the colour outright, so the alpha is put
+  // back from the wall layer afterwards.
+  layer.globalCompositeOperation = "multiply";
+  layer.fillStyle = paint.color;
+  layer.fillRect(0, 0, width, height);
+  layer.globalCompositeOperation = "destination-in";
+  layer.drawImage(paint.walls, 0, 0, width, height);
+  layer.globalCompositeOperation = "source-over";
+
+  context.drawImage(buffer, 0, 0);
+}
+
+function grade(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  mood: { tint: string; alpha: number; glow?: string; glowAlpha?: number },
+): void {
+  context.save();
+  context.globalCompositeOperation = "multiply";
+  context.globalAlpha = mood.alpha;
+  context.fillStyle = mood.tint;
+  context.fillRect(0, 0, width, height);
+  if (mood.glow && mood.glowAlpha) {
+    context.globalCompositeOperation = "screen";
+    context.globalAlpha = mood.glowAlpha;
+    context.fillStyle = mood.glow;
+    context.fillRect(0, 0, width, height);
+  }
+  context.restore();
 }
 
 function drawSurface(
   context: CanvasRenderingContext2D,
+  floor: HTMLCanvasElement,
   photo: CanvasImageSource,
   photoWidth: number,
   photoHeight: number,
@@ -90,13 +194,14 @@ function drawSurface(
 
   // Composed off-screen so it can be trimmed to the floor before it reaches
   // the photograph.
-  const floor = document.createElement("canvas");
-  floor.width = photoWidth;
-  floor.height = photoHeight;
-
   const floorContext = floor.getContext("2d");
 
   if (!floorContext) return;
+
+  floorContext.setTransform(1, 0, 0, 1, 0, 0);
+  floorContext.globalCompositeOperation = "source-over";
+  floorContext.globalAlpha = 1;
+  floorContext.clearRect(0, 0, photoWidth, photoHeight);
 
   floorContext.save();
   // Without a mask the quad is the floor's whole outline.
@@ -159,7 +264,7 @@ function applyRoomLight(
 
   if (placement.lighting <= 0) return;
 
-  const maps = lightingMaps(photo, photoWidth, photoHeight, { mask, quad });
+  const maps = surface.light ?? lightingMaps(photo, photoWidth, photoHeight, { mask, quad });
 
   floorContext.save();
   if (clip) clipToQuad(floorContext, clip);

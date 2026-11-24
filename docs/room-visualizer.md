@@ -31,6 +31,79 @@ and how the floor is found in the first place.
    ft²), request a quote or order a sample (both reach the CRM with the render
    attached), ask on WhatsApp, find a showroom — or view the floor in AR.
 
+## Template rooms (Nov 2026)
+
+The studio opens on **template rooms**: photographs prepared once, with
+everything the browser would otherwise work out baked alongside them in
+`public/rooms/<id>/`:
+
+| File             | What it is                                                                        |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `photo.webp`     | The room, 1920 wide.                                                              |
+| `thumb.webp`     | 480 wide, for the room pickers.                                                   |
+| `floor.png`      | The floor, in alpha (the renderer trims with `destination-in`).                   |
+| `shading.png`    | The floor's own shadows and reflections, grey, relative to its average.           |
+| `highlights.png` | The floor's highlights, screened over by how glossy the finish is.                |
+| `walls.webp`     | Grey = the walls' own light, alpha = where they are. Present when paintable.      |
+| `rug.png`        | A rug the visitor can hide; its pixels join the floor. Present when there is one. |
+| `meta.json`      | Quad, real width of its near edge, size — mirrored in `template-rooms.ts`.        |
+
+Because the light is baked, a template room never runs `lighting.ts`, never
+downloads a model, and changing the floor is one redraw: the first floor is on
+screen in about 1.2s on a laptop and 3.1s on throttled 4G with a 4× slower CPU
+(production build, Nov 2026). Uploaded photos still take the full path —
+detection, refinement, measured light — described below.
+
+### What a template room adds
+
+- **Paint** (`StudioPanels.tsx` → `render.ts › paintWalls`): a curated palette
+  (`paints.ts`) or any colour, multiplied by the wall layer's grey so shadows
+  and brick texture survive.
+- **Light** (`render.ts › grade`): daylight, warm, cool and evening moods as a
+  mild multiply-and-screen grade over the finished picture.
+- **Rug** (`VisualizerStudio.tsx`): hiding it adds `rug.png` to the floor mask.
+  The baked shading under the rug is measured against the rug with a wide blur,
+  so the pouf's shadow stays when the rug goes. The rug mask is grown a few
+  pixels so its fringe does not outline where it was.
+
+Saved designs record paint, mood and a hidden rug only when they differ from
+the room as photographed (`settings.paint`, `settings.mood`, `settings.rug`).
+Designs saved on the older sample photographs still reopen: their floors are
+kept in `sample-floors.json` (`LEGACY_FLOORS`).
+
+### Adding or re-baking a room
+
+```
+pip install opencv-python-headless numpy pillow
+python3 scripts/room-grid.py path/to/photo.jpg            # gridded view → /tmp/grid.jpg
+# write scripts/rooms/<id>.json (see the existing four)
+python3 scripts/bake-room.py <id> path/to/photo.jpg       # → public/rooms/<id>/
+```
+
+The spec gives polygons in shares of the photo: `probable` (where the floor
+might be), `sure` (seeds that are certainly floor), `not` (certainly not) and
+`notLines` (thin legs). GrabCut does the rest at 1280px and a guided filter
+softens the edge along the photo. Where colour cannot separate them — chrome
+chair bases, painted brick — a `manual` block draws the mask instead: a region,
+minus polygons and lines. **Look at every `/tmp/review_<id>_*.jpg` before
+shipping**: these are the first floors anyone sees. Then add the room to
+`SPECS` in `template-rooms.ts`; `scripts/template-rooms.test.mjs` fails until
+the two agree. Rooms are cached for a day (`next.config.ts`), so a re-baked
+room reaches everyone within a day.
+
+## Textures load through a route, not a rewrite
+
+Textures must be same-origin for the canvas to stay exportable, so they come
+from `/media/*`. That was a `next.config.ts` rewrite to the media host until
+Nov 2026, when the host began answering the rewrite's forwarded requests with
+an empty 403 — every texture failed, the floor list emptied itself ("No floors
+match") and nothing was laid. `app/media/[...path]/route.ts` now fetches the
+file server to server, like the API client, accepts only plain image paths
+under `/storage`, and with `?w=` resizes to WebP (`TEXTURE_WIDTH` = 1280; a
+product photo is often 3–5MB). Responses are cached at the CDN for a year: a
+media path changes when its content does. A texture that still fails is kept
+in the list, marked "Preview unavailable", instead of vanishing.
+
 ## The tool comes first
 
 Both tools open on the tool itself. `ToolHeading` is a single line, and the
@@ -42,51 +115,59 @@ to fit the window height.
 
 ## Where the work happens
 
-| Path                                                          | Responsibility                                                   |
-| ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `src/lib/visualizer/homography.ts`                            | The projective map, and the floor's true proportions.            |
-| `src/lib/visualizer/floor-raster.ts`                          | Every pixel → the material: WebGL2, with a JavaScript fallback.  |
-| `src/lib/visualizer/material-patch.ts`                        | The clean rectangle of material inside a product photograph.     |
-| `src/lib/visualizer/sample-floors.json`                       | Sample rooms' floors, baked by `scripts/bake-sample-floors.mjs`. |
-| `src/lib/visualizer/coverage.ts`                              | Stretching the detected quad over the floor it found.            |
-| `src/lib/visualizer/floor-mask.ts`                            | The label map sorted into floor, structure and occluders.        |
-| `src/lib/visualizer/floor-detector.ts`                        | Main-thread side of detection: reads the photo, runs the worker. |
-| `src/lib/visualizer/detect-floor.worker.ts`                   | Runs the model and mask analysis off the main thread.            |
-| `src/lib/visualizer/texture-prep.ts`                          | Straighten, even out and make seamless a texture photo.          |
-| `src/components/admin/TextureStudio.tsx`                      | The admin tool for preparing visualizer textures.                |
-| `scripts/vendor-ort.mjs`                                      | Copies the ONNX runtime into `public/vendor/ort/<version>`.      |
-| `src/lib/visualizer/detect-floor.ts`                          | Segmentation model → floor mask and perspective quad.            |
-| `src/lib/visualizer/patterns.ts`                              | Laying patterns as geometry: one repeating period each.          |
-| `src/lib/visualizer/material-tile.ts`                         | A texture baked into planks or tiles, with joints.               |
-| `src/lib/visualizer/lighting.ts`                              | The room's light, separated from the old floor.                  |
-| `src/lib/visualizer/mask-edits.ts`                            | Hand corrections to the floor area, as replayable edits.         |
-| `src/lib/visualizer/render.ts`                                | Composes a surface: material, room light, then the mask.         |
-| `src/lib/visualizer/compose.ts`                               | The labelled before-and-after image.                             |
-| `src/lib/visualizer/images.ts`                                | Upload downscaling, optimized textures, texture cache.           |
-| `src/lib/visualizer/library.ts`                               | Favourites, recently tried and saved designs (browser).          |
-| `src/lib/visualizer/types.ts`                                 | Geometry, placement and surface types.                           |
-| `src/lib/room/materials.ts`                                   | Catalogue products → materials, with kind and variation.         |
-| `src/lib/room/ar-*.ts`, `quick-look.ts`                       | AR: capability check, floor patch, WebXR, Quick Look.            |
-| `src/lib/analytics.ts`                                        | Typed analytics events to GTM / gtag / a DOM event.              |
-| `src/components/visualizer/RoomStage.tsx`                     | Canvas, compare modes, zoom/pan, corners, mask painting.         |
-| `src/components/visualizer/VisualizerStudio.tsx`              | State, links in, save and share orchestration.                   |
-| `src/components/visualizer/MaterialBrowser.tsx`               | Search, filters, favourites and recent floors.                   |
-| `src/components/visualizer/AdjustPanel.tsx`                   | Pattern, direction, size, finish and light.                      |
-| `src/components/visualizer/MaterialDetails.tsx`               | The product card, estimator and every CTA.                       |
-| `src/components/visualizer/ShareDialog.tsx`, `LeadDialog.tsx` | Sharing; quote and sample requests.                              |
-| `src/components/visualizer/ArLauncher.tsx`                    | "View in your room" for whichever AR the device has.             |
-| `src/components/visualizer/useFloorDetection.ts`              | Runs detection per room, out of the render path.                 |
-| `src/components/tools/ToolIntro.tsx`                          | The one-line heading above each tool, and the guide below it.    |
-| `src/app/(site)/visualizer/page.tsx`                          | Server component; popular materials and filter choices.          |
-| `src/app/api/catalog/materials/route.ts`                      | Catalogue search/filter and product deep links as materials.     |
-| `src/app/api/visualizations/route.ts`                         | Proxies a save to Laravel, keeping the API URL server-side.      |
-| `src/app/api/visualizations/[token]/route.ts`                 | A saved design, for reopening in the studio.                     |
-| `src/app/api/leads/route.ts`                                  | Quote and sample requests → `POST /v1/quotes`.                   |
-| `scripts/floor-raster.test.mjs`                               | Every pixel receives material; the true-scale estimate.          |
-| `scripts/material-patch.test.mjs`                             | Finding the material in cut-outs, staged shots and scenes.       |
-| `scripts/visualizer-coverage.test.mjs`                        | Detection keeps its floor; the quad's handles stay reachable.    |
-| `scripts/floor-mask.test.mjs`                                 | The mask rules, against the mistakes the model makes.            |
-| `scripts/patterns.test.mjs`                                   | Every layout tiles; planks keep their real proportions.          |
+| Path                                                          | Responsibility                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/lib/visualizer/homography.ts`                            | The projective map, and the floor's true proportions.              |
+| `src/lib/visualizer/floor-raster.ts`                          | Every pixel → the material: WebGL2, with a JavaScript fallback.    |
+| `src/lib/visualizer/material-patch.ts`                        | The clean rectangle of material inside a product photograph.       |
+| `src/lib/visualizer/sample-floors.json`                       | Sample rooms' floors, baked by `scripts/bake-sample-floors.mjs`.   |
+| `src/lib/visualizer/coverage.ts`                              | Stretching the detected quad over the floor it found.              |
+| `src/lib/visualizer/floor-mask.ts`                            | The label map sorted into floor, structure and occluders.          |
+| `src/lib/visualizer/floor-detector.ts`                        | Main-thread side of detection: reads the photo, runs the worker.   |
+| `src/lib/visualizer/detect-floor.worker.ts`                   | Runs the model and mask analysis off the main thread.              |
+| `src/lib/visualizer/texture-prep.ts`                          | Straighten, even out and make seamless a texture photo.            |
+| `src/components/admin/TextureStudio.tsx`                      | The admin tool for preparing visualizer textures.                  |
+| `scripts/vendor-ort.mjs`                                      | Copies the ONNX runtime into `public/vendor/ort/<version>`.        |
+| `src/lib/visualizer/detect-floor.ts`                          | Segmentation model → floor mask and perspective quad.              |
+| `src/lib/visualizer/patterns.ts`                              | Laying patterns as geometry: one repeating period each.            |
+| `src/lib/visualizer/material-tile.ts`                         | A texture baked into planks or tiles, with joints.                 |
+| `src/lib/visualizer/lighting.ts`                              | The room's light, separated from the old floor.                    |
+| `src/lib/visualizer/mask-edits.ts`                            | Hand corrections to the floor area, as replayable edits.           |
+| `src/lib/visualizer/render.ts`                                | Composes a surface: material, room light, then the mask.           |
+| `src/lib/visualizer/compose.ts`                               | The labelled before-and-after image.                               |
+| `src/lib/visualizer/images.ts`                                | Upload downscaling, optimized textures, texture cache.             |
+| `src/lib/visualizer/library.ts`                               | Favourites, recently tried and saved designs (browser).            |
+| `src/lib/visualizer/types.ts`                                 | Geometry, placement and surface types.                             |
+| `src/lib/room/materials.ts`                                   | Catalogue products → materials, with kind and variation.           |
+| `src/lib/room/ar-*.ts`, `quick-look.ts`                       | AR: capability check, floor patch, WebXR, Quick Look.              |
+| `src/lib/analytics.ts`                                        | Typed analytics events to GTM / gtag / a DOM event.                |
+| `src/components/visualizer/RoomStage.tsx`                     | Canvas, compare modes, zoom/pan, corners, mask painting.           |
+| `src/components/visualizer/VisualizerStudio.tsx`              | State, links in, save and share; the rail, panel and stage layout. |
+| `src/components/visualizer/StudioPanels.tsx`                  | Rooms (with the rug switch), Paint and Light panels.               |
+| `src/components/visualizer/ProductPill.tsx`                   | The floor on show over the room: price, direction dial, sample.    |
+| `src/components/visualizer/SwatchStrip.tsx`                   | The product's other colours under the room.                        |
+| `src/components/visualizer/RoomPreview*.tsx`                  | The product page's lazy "See it in a room" section.                |
+| `src/lib/visualizer/template-rooms.ts`                        | The template rooms and their baked layers.                         |
+| `src/lib/visualizer/placement.ts`                             | How a chosen floor is laid; shared by studio and product page.     |
+| `src/app/media/[...path]/route.ts`                            | Same-origin, resized textures (see above).                         |
+| `scripts/bake-room.py`, `scripts/rooms/*.json`                | Baking template rooms.                                             |
+| `src/components/visualizer/MaterialBrowser.tsx`               | Search, filters, favourites and recent floors.                     |
+| `src/components/visualizer/AdjustPanel.tsx`                   | Pattern, direction, size, finish and light.                        |
+| `src/components/visualizer/MaterialDetails.tsx`               | The product card, estimator and every CTA.                         |
+| `src/components/visualizer/ShareDialog.tsx`, `LeadDialog.tsx` | Sharing; quote and sample requests.                                |
+| `src/components/visualizer/ArLauncher.tsx`                    | "View in your room" for whichever AR the device has.               |
+| `src/components/visualizer/useFloorDetection.ts`              | Runs detection per room, out of the render path.                   |
+| `src/components/tools/ToolIntro.tsx`                          | The one-line heading above each tool, and the guide below it.      |
+| `src/app/(site)/visualizer/page.tsx`                          | Server component; popular materials and filter choices.            |
+| `src/app/api/catalog/materials/route.ts`                      | Catalogue search/filter and product deep links as materials.       |
+| `src/app/api/visualizations/route.ts`                         | Proxies a save to Laravel, keeping the API URL server-side.        |
+| `src/app/api/visualizations/[token]/route.ts`                 | A saved design, for reopening in the studio.                       |
+| `src/app/api/leads/route.ts`                                  | Quote and sample requests → `POST /v1/quotes`.                     |
+| `scripts/floor-raster.test.mjs`                               | Every pixel receives material; the true-scale estimate.            |
+| `scripts/material-patch.test.mjs`                             | Finding the material in cut-outs, staged shots and scenes.         |
+| `scripts/visualizer-coverage.test.mjs`                        | Detection keeps its floor; the quad's handles stay reachable.      |
+| `scripts/floor-mask.test.mjs`                                 | The mask rules, against the mistakes the model makes.              |
+| `scripts/patterns.test.mjs`                                   | Every layout tiles; planks keep their real proportions.            |
 
 Everything renders in the browser, including detection. The only network calls
 are the model download — which a sample room never needs — catalogue browsing,

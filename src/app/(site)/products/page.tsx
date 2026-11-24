@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
+import { Suspense } from "react";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
+import { CategoryTiles } from "@/components/catalog/CategoryTiles";
+import { ShoppingSteps } from "@/components/catalog/ShoppingSteps";
 import { hasRefinements, type SearchParamsRecord } from "@/lib/catalog-filters";
 
 type PageProps = {
@@ -32,22 +35,32 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <section className="bg-charcoal-dark pb-14 pt-header text-primary-foreground">
-        <div className="container-fluid">
-          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-light">
-            Catalogue
-          </p>
-          <h1 className="mt-4 max-w-3xl text-balance font-display text-4xl tracking-tight md:text-5xl">
-            Every surface we supply, in one place.
-          </h1>
-          <p className="mt-4 max-w-xl text-primary-foreground/70">
-            Specification-ready products across our material families — filter by room, look, finish
-            and budget, then visualise your choice in your own space.
-          </p>
+      {/* A short masthead: the families, how buying works, then the products. */}
+      <section className="border-b border-border bg-surface/50 pt-header">
+        <div className="container-fluid space-y-6 py-6 lg:py-8">
+          <div className="max-w-3xl">
+            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
+              Catalogue
+            </p>
+            <h1 className="mt-1 text-balance font-display text-3xl tracking-tight md:text-4xl">
+              Every floor we supply, in one place.
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Filter by room, look, finish and budget — then see your choice in your own space.
+            </p>
+          </div>
+
+          <Suspense fallback={<div className="h-[188px]" aria-hidden />}>
+            <CategoryTiles />
+          </Suspense>
+
+          <ShoppingSteps />
         </div>
       </section>
 
-      <CatalogBrowser basePath="/products" searchParams={Promise.resolve(params)} />
+      <div id="catalogue" className="scroll-mt-24">
+        <CatalogBrowser basePath="/products" searchParams={Promise.resolve(params)} />
+      </div>
     </>
   );
 }

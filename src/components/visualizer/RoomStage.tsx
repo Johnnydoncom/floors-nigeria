@@ -13,6 +13,7 @@ import {
 import { renderRoom } from "@/lib/visualizer/render";
 import {
   QUAD_CORNER_LABELS,
+  type LightMood,
   type MaterialKind,
   type Placement,
   type Point,
@@ -92,6 +93,10 @@ export function RoomStage({
   detection,
   onSmartTap,
   smartBusyAt,
+  baked,
+  paintColor = null,
+  mood = "daylight",
+  chrome,
   className,
 }: {
   photoSrc: string;
@@ -121,6 +126,17 @@ export function RoomStage({
   onRendered?: () => void;
   /** A material's image could not be loaded; the floor before it stays on show. */
   onTextureFailed?: (src: string) => void;
+  /** A template room's baked layers: the floor's light, and its walls for paint. */
+  baked?: { shading?: string; highlights?: string; walls?: string } | null;
+  /** A colour for the walls, when the room has a wall layer. */
+  paintColor?: string | null;
+  mood?: LightMood;
+  /**
+   * Controls laid over the room (the product pill). Placed at the foot of the
+   * room on a phone, where the status chip cannot collide with them, and at
+   * the top on a larger screen.
+   */
+  chrome?: React.ReactNode;
   className?: string;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -167,7 +183,17 @@ export function RoomStage({
     awaitingFloor: false,
     mode,
     onRendered,
+    paintColor,
+    mood,
+    expectsBaked: false,
   });
+  /** The baked layers, for the photograph they were baked with. */
+  const bakedRef = useRef<{
+    src: string;
+    shading?: HTMLImageElement;
+    highlights?: HTMLImageElement;
+    walls?: HTMLImageElement;
+  } | null>(null);
 
   // Until the floor is known there is only a guessed trapezoid to lay material
   // on, and a patch in the middle of a room reads as a broken render. The room
@@ -177,7 +203,18 @@ export function RoomStage({
   const awaitingFloor = !mask && isFindingFloor && skippedFor !== photoSrc && tool !== "corners";
 
   useLayoutEffect(() => {
-    latest.current = { quad, placement, mask, material, awaitingFloor, mode, onRendered };
+    latest.current = {
+      quad,
+      placement,
+      mask,
+      material,
+      awaitingFloor,
+      mode,
+      onRendered,
+      paintColor,
+      mood,
+      expectsBaked: Boolean(baked?.shading),
+    };
   });
 
   const draw = useCallback(() => {
@@ -185,8 +222,17 @@ export function RoomStage({
     if (!photo) return;
 
     const current = latest.current;
+    const layers =
+      bakedRef.current?.src === photoRef.current?.dataset.src ? bakedRef.current : null;
+    const light =
+      layers?.shading && layers.highlights
+        ? { shading: layers.shading, highlights: layers.highlights }
+        : null;
+    // A template room's own light is a few kilobytes away; measuring it from
+    // the photograph meanwhile would be the slow path this room exists to skip.
+    const awaitingLight = current.expectsBaked && !light;
     const layer = (loaded: LoadedTexture | null): SurfaceLayer[] =>
-      loaded && !current.awaitingFloor
+      loaded && !current.awaitingFloor && !awaitingLight
         ? [
             {
               kind: "floor",
@@ -198,6 +244,7 @@ export function RoomStage({
               isSeamless: loaded.material.isSeamless,
               textureSizeM: loaded.material.textureSizeM,
               mask: current.mask,
+              light,
             },
           ]
         : [];
@@ -206,10 +253,15 @@ export function RoomStage({
       photo,
       photoWidth: photo.naturalWidth,
       photoHeight: photo.naturalHeight,
+      paint:
+        current.paintColor && layers?.walls
+          ? { color: current.paintColor, walls: layers.walls }
+          : null,
+      mood: current.mood,
     };
 
     const loaded = textureRef.current;
-    const shown = current.awaitingFloor ? "" : (loaded?.material.textureSrc ?? "");
+    const shown = current.awaitingFloor || awaitingLight ? "" : (loaded?.material.textureSrc ?? "");
 
     if (shownRef.current !== shown) {
       if (shownRef.current !== null && canvasRef.current && fadeRef.current) {
@@ -252,6 +304,7 @@ export function RoomStage({
     loadImage(photoSrc)
       .then((image) => {
         if (cancelled) return;
+        image.dataset.src = photoSrc;
         photoRef.current = image;
         shownRef.current = null;
         setAspect(image.naturalWidth / image.naturalHeight);
@@ -271,6 +324,30 @@ export function RoomStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoSrc, scheduleDraw]);
 
+  // A template room's baked layers. Small greyscale files; until they arrive
+  // the light is measured as for any photo, so nothing waits on them.
+  const bakedKey = baked ? `${baked.shading}|${baked.highlights}|${baked.walls}` : "";
+  useEffect(() => {
+    let cancelled = false;
+    bakedRef.current = null;
+    if (!baked) return;
+
+    const load = (src?: string) => (src ? loadImage(src).catch(() => undefined) : undefined);
+    void Promise.all([load(baked.shading), load(baked.highlights), load(baked.walls)]).then(
+      ([shading, highlights, walls]) => {
+        if (cancelled) return;
+        bakedRef.current = { src: photoSrc, shading, highlights, walls };
+        scheduleDraw();
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+    // Keyed by the layers' paths: a new object with the same paths is the same room.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bakedKey, photoSrc, scheduleDraw]);
+
   const textureStatus = useTexture(material, textureRef, scheduleDraw, onTextureFailed);
   useTexture(compareMaterial, compareTextureRef, scheduleDraw, onTextureFailed);
 
@@ -278,7 +355,18 @@ export function RoomStage({
   // because switching layout mounts fresh canvases.
   useEffect(() => {
     scheduleDraw();
-  }, [scheduleDraw, quad, placement, mask, material, compareMaterial, mode, awaitingFloor]);
+  }, [
+    scheduleDraw,
+    quad,
+    placement,
+    mask,
+    material,
+    compareMaterial,
+    mode,
+    awaitingFloor,
+    paintColor,
+    mood,
+  ]);
 
   useEffect(() => {
     onReady?.({
@@ -893,10 +981,17 @@ export function RoomStage({
           )}
         </div>
 
-        {material && tool === "view" && (
-          <p className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-9rem)] truncate rounded bg-charcoal-dark/80 px-2 py-1 text-[11px] font-semibold text-primary-foreground">
-            {material.label}
-          </p>
+        {chrome ? (
+          <div className="pointer-events-none absolute bottom-2 left-2 right-24 z-10 flex justify-start lg:inset-x-3 lg:bottom-auto lg:top-3 lg:justify-center">
+            {chrome}
+          </div>
+        ) : (
+          material &&
+          tool === "view" && (
+            <p className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-9rem)] truncate rounded bg-charcoal-dark/80 px-2 py-1 text-[11px] font-semibold text-primary-foreground">
+              {material.label}
+            </p>
+          )
         )}
 
         {overlays}
@@ -1099,7 +1194,7 @@ function detectionLabel(detection: Extract<DetectionState, { status: "running" }
 function StatusChip({ label, onSkip }: { label: string; onSkip?: () => void }) {
   return (
     <div
-      className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-full bg-charcoal-dark/85 py-1.5 pl-3 pr-3 text-xs text-primary-foreground"
+      className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-full bg-charcoal-dark/85 py-1.5 pl-3 pr-3 text-xs text-primary-foreground lg:bottom-2 lg:top-auto lg:max-w-[calc(100%-9rem)]"
       onPointerDown={(event) => event.stopPropagation()}
     >
       <span role="status" aria-live="polite" className="flex min-w-0 items-center gap-2">

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
+import { preload } from "react-dom";
 import type { Metadata } from "next";
 import { Camera, Layers, ScanLine } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
 import { getFilterOptions, getProducts } from "@/lib/api/catalog";
 import type { FilterOptions } from "@/lib/api/types";
 import { floorChoices, isFloorCategory } from "@/lib/room/materials";
-import sampleFloors from "@/lib/visualizer/sample-floors.json";
-import type { FloorPreset } from "@/lib/visualizer/types";
+import { TEMPLATE_ROOMS } from "@/lib/visualizer/template-rooms";
 import { ToolGuide, ToolHeading } from "@/components/tools/ToolIntro";
 import { VisualizerStudio, type SampleRoom } from "@/components/visualizer/VisualizerStudio";
 import type { VisualizerFilters } from "@/components/visualizer/MaterialBrowser";
@@ -19,17 +19,15 @@ export const metadata: Metadata = pageMetadata({
 });
 
 /**
- * Rooms to try when a visitor has not photographed their own yet. Their floors
- * were found ahead of time, so these open with no model to download.
+ * Rooms to try when a visitor has not photographed their own yet: template
+ * rooms, whose floor, light, walls and rug were prepared ahead of time, so they
+ * open with no model to download and nothing to measure (`template-rooms.ts`).
  */
-const SAMPLE_ROOMS: SampleRoom[] = [
-  { src: "/images/hero-living.jpg", label: "Living room" },
-  { src: "/images/project-residence.jpg", label: "Residence" },
-  { src: "/images/project-office.jpg", label: "Office" },
-  { src: "/images/project-hotel.jpg", label: "Hotel lobby" },
-].map((room) => ({
-  ...room,
-  floor: (sampleFloors as unknown as Record<string, FloorPreset>)[room.src],
+const SAMPLE_ROOMS: SampleRoom[] = TEMPLATE_ROOMS.map((room) => ({
+  src: room.src,
+  label: room.label,
+  thumb: room.thumb,
+  floor: room.floor,
 }));
 
 /** Materials shipped with the page, for an instant first screen. */
@@ -43,6 +41,16 @@ const MATERIAL_LIMIT = 24;
  * everything else in the catalogue is a search away inside it.
  */
 export default async function VisualizerPage() {
+  // The first room is the first thing on screen: its photograph is the page's
+  // largest paint, and its floor and light are what the first floor needs.
+  const first = TEMPLATE_ROOMS[0];
+  // Requested as the studio requests them (CORS mode, for a readable canvas),
+  // or the browser would fetch each twice.
+  preload(first.src, { as: "image", fetchPriority: "high", crossOrigin: "anonymous" });
+  for (const layer of [first.floor.mask, first.floor.shading, first.floor.highlights]) {
+    if (layer) preload(layer, { as: "image", fetchPriority: "low", crossOrigin: "anonymous" });
+  }
+
   const [{ data: products }, filterOptions] = await Promise.all([
     getProducts({ per_page: MATERIAL_LIMIT, sort: "popular" }),
     getFilterOptions(),
@@ -115,11 +123,23 @@ function visualizerFilters(options: FilterOptions): VisualizerFilters {
   };
 }
 
+/** The studio's frame with the first room already in it, so the page paints the room at once. */
 function StudioSkeleton() {
+  const first = TEMPLATE_ROOMS[0];
   return (
-    <div className="container-fluid grid gap-8 pb-10 pt-2 lg:grid-cols-[minmax(0,1fr)_380px] lg:pt-4">
-      <div className="aspect-[4/3] animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <div className="hidden h-96 animate-pulse rounded-lg bg-muted motion-reduce:animate-none lg:block" />
+    <div className="container-fluid grid grid-cols-1 gap-3 pb-10 pt-2 lg:grid-cols-[76px_minmax(300px,360px)_minmax(0,1fr)] lg:gap-5 lg:pt-4">
+      <div className="hidden h-[26rem] animate-pulse rounded-2xl bg-surface motion-reduce:animate-none lg:block" />
+      <div className="hidden h-[32rem] animate-pulse rounded-2xl bg-surface motion-reduce:animate-none lg:block" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- the preloaded photograph, as is */}
+      <img
+        src={first.src}
+        alt={`${first.label} — sample room`}
+        width={first.width}
+        height={first.height}
+        fetchPriority="high"
+        crossOrigin="anonymous"
+        className="h-auto w-full rounded-lg bg-muted"
+      />
     </div>
   );
 }
