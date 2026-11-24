@@ -158,7 +158,7 @@ export function HeroSlider({ slides, heading }: { slides: HeroSlideView[]; headi
       ref={rootRef}
       aria-roledescription="carousel"
       aria-label="Featured floors"
-      className="relative isolate h-[calc(100svh-var(--header-height))] max-h-[54rem] min-h-[36rem] max-lg:h-[calc(100svh-var(--header-height)-4rem)] overflow-hidden bg-charcoal-dark text-primary-foreground"
+      className="relative isolate h-[calc(100svh-var(--header-height))] max-h-[50rem] min-h-[36rem] max-lg:h-[calc(100svh-var(--header-height)-4rem)] overflow-hidden bg-charcoal-dark text-primary-foreground"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}
@@ -312,9 +312,9 @@ export function HeroSlider({ slides, heading }: { slides: HeroSlideView[]; headi
                       style={
                         selected && !reducedMotion
                           ? {
-                              animationDuration: `${HERO_INTERVAL}ms`,
-                              animationPlayState: rotating ? "running" : "paused",
-                            }
+                            animationDuration: `${HERO_INTERVAL}ms`,
+                            animationPlayState: rotating ? "running" : "paused",
+                          }
                           : undefined
                       }
                       onAnimationEnd={selected ? () => go(index + 1) : undefined}
