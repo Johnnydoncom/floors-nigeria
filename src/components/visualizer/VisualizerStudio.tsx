@@ -1007,6 +1007,7 @@ export function VisualizerStudio({
                     rotation={placement.rotation}
                     onRotation={(rotation) => setPlacement((current) => ({ ...current, rotation }))}
                     onOrderSample={() => setLead("sample")}
+                    onRequestQuote={() => setLead("quote")}
                   />
                 ) : null
               }

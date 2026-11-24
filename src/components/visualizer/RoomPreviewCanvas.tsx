@@ -16,10 +16,12 @@ export default function RoomPreviewCanvas({
   room,
   material,
   rotation,
+  controls = true,
 }: {
   room: TemplateRoom;
   material: TextureChoice;
   rotation: number;
+  controls?: boolean;
 }) {
   const [found, setFound] = useState<{ src: string; quad: Quad; mask: HTMLCanvasElement } | null>(
     null,
@@ -67,6 +69,7 @@ export default function RoomPreviewCanvas({
       onMaskEdit={noop}
       detection={detection.state}
       baked={baked}
+      controls={controls}
     />
   );
 }

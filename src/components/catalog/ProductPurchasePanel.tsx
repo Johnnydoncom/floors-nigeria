@@ -241,7 +241,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
               </Button>
             </div>
 
-            {selectedChoice && (
+            {selectedChoice && product.samples_enabled && (
               <Button
                 variant="outline"
                 className="h-12 w-full rounded-none border-gold/60 bg-gold/5 hover:bg-gold/10"

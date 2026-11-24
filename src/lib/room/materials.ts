@@ -29,6 +29,7 @@ export function toTextureChoices(product: ProductCard): TextureChoice[] {
     textureSizeM: product.visualizer_texture_size_m ?? null,
     imageUrl: product.image_url,
     brandName: product.brand?.name ?? null,
+    samplesEnabled: product.samples_enabled ?? false,
     categoryName: product.category?.name ?? null,
     skuFamily: product.sku_family,
     priceUnit: variant?.pricing.unit_label ?? null,

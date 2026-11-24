@@ -14,7 +14,10 @@ import {
   Compass,
 } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
-import { HeroSlider } from "@/components/site/HeroSlider";
+import { HeroRoomTeaser } from "@/components/site/HeroRoomTeaser";
+import { ShoppingSteps } from "@/components/catalog/ShoppingSteps";
+import { floorChoices } from "@/lib/room/materials";
+import type { TextureChoice } from "@/lib/visualizer/types";
 import { JsonLd } from "@/components/site/JsonLd";
 import { getCategories, getProducts } from "@/lib/api/catalog";
 import { FloorCard } from "@/components/catalog/FloorCard";
@@ -47,7 +50,6 @@ const spcImg = "/images/collection-spc.jpg";
 const hotelImg = "/images/project-hotel.jpg";
 const officeImg = "/images/project-office.jpg";
 const residenceImg = "/images/project-residence.jpg";
-const aiImg = "/images/ai-visualizer.jpg";
 
 const promises = [
   { icon: Truck, title: "Nationwide delivery", note: "Free above ₦500,000" },
@@ -80,8 +82,8 @@ const tools = [
   },
   {
     icon: Sparkles,
-    title: "AI Room Visualizer",
-    desc: "See a floor in your own room in seconds",
+    title: "Room Visualizer",
+    desc: "Any floor, any wall colour, in your own room — in seconds",
     href: "/visualizer",
   },
   {
@@ -128,53 +130,64 @@ export default function Home() {
     <>
       <JsonLd data={[organizationSchema(), websiteSchema()]} />
 
-      <HeroSlider />
-
-      {/* INTRO — the page's one h1, rendered on the server so it never
-          changes with the carousel. */}
-      <section className="border-b border-border">
-        <div className="container-fluid grid gap-8 py-16 md:py-20 lg:grid-cols-12 lg:items-end lg:gap-12">
-          <Reveal className="lg:col-span-7">
+      {/* HERO — the page's one h1, and the room the visualizer opens on. */}
+      <section className="overflow-hidden border-b border-border bg-surface/40 pt-header">
+        <div className="container-fluid grid items-center gap-10 py-10 md:py-12 lg:grid-cols-12 lg:gap-14 lg:py-12">
+          <div className="lg:col-span-5">
             <p className="eyebrow">Floors NG · Lagos, Abuja &amp; nationwide</p>
-            <h1 className="mt-4 font-display text-3xl tracking-tight text-balance md:text-5xl md:leading-[1.08]">
+            <h1 className="mt-4 text-balance font-display text-4xl tracking-tight md:text-5xl md:leading-[1.05] xl:text-[3.4rem]">
               Premium flooring, supplied and installed across Nigeria.
             </h1>
-          </Reveal>
-          <Reveal delay={0.08} className="lg:col-span-5">
-            <p className="text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
+            <p className="mt-5 max-w-lg text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
               SPC and luxury vinyl, engineered wood, natural stone, epoxy, artificial grass and wall
-              panels — specified by our team, delivered to site and laid by our own crews.
+              panels — see them in your own room, then let our crews lay them.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/products" className="btn btn-primary">
                 Shop all flooring <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
-              <Link href="/contact" className="btn btn-outline">
-                Book a free consultation
+              <Link href="/visualizer" className="btn btn-outline">
+                <Sparkles className="h-4 w-4" aria-hidden /> See it in your room
               </Link>
             </div>
-          </Reveal>
-        </div>
+            <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-border pt-6">
+              {stats.slice(0, 3).map(([value, label]) => (
+                <div key={label} className="flex flex-col-reverse">
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="font-display text-2xl tracking-tight">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
 
-        <div className="container-fluid">
-          <ul className="grid grid-cols-2 gap-x-2 sm:gap-x-6 border-t border-border sm:grid-cols-2 lg:grid-cols-4">
-            {promises.map((item) => (
-              <li key={item.title} className="flex items-center gap-3 py-5">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-gold">
-                  <item.icon className="h-[18px] w-[18px]" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{item.title}</span>
-                  <span className="block text-xs text-muted-foreground">{item.note}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="lg:col-span-7">
+            <Suspense fallback={<HeroRoomTeaser floors={[]} />}>
+              <HeroTeaser />
+            </Suspense>
+          </div>
         </div>
       </section>
 
+      {/* PROMISES + HOW BUYING WORKS */}
+      <section className="container-fluid space-y-8 py-10 md:py-14">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-4">
+          {promises.map((item) => (
+            <li key={item.title} className="flex items-center gap-3 py-2">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/10 text-gold">
+                <item.icon className="h-[18px] w-[18px]" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">{item.title}</span>
+                <span className="block text-xs text-muted-foreground">{item.note}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <ShoppingSteps />
+      </section>
+
       {/* SHOP BY MATERIAL */}
-      <section className="container-fluid py-20 md:py-28">
+      <section className="container-fluid pb-20 pt-6 md:pb-28">
         <SectionHeading
           eyebrow="Shop by floor"
           title="Every floor we supply, laid by our own crews."
@@ -233,58 +246,45 @@ export default function Home() {
         </div>
       </section>
 
-      {/* AI STUDIO + TOOLS */}
-      <section className="bg-charcoal-dark text-primary-foreground">
-        <div className="container-fluid grid items-center gap-12 py-20 md:py-28 lg:grid-cols-12">
+      {/* PLANNING TOOLS */}
+      <section className="border-y border-border bg-surface/60 py-20 md:py-28">
+        <div className="container-fluid grid items-center gap-12 lg:grid-cols-12">
           <Reveal className="lg:col-span-5">
-            <p className="eyebrow text-gold-light">Free planning tools</p>
-            <h2 className="mt-4 font-display text-3xl tracking-tight text-balance md:text-5xl">
+            <p className="eyebrow">Free planning tools</p>
+            <h2 className="mt-3 text-balance font-display text-3xl tracking-tight md:text-[2.75rem] md:leading-[1.1]">
               Plan the floor before you lay a single plank.
             </h2>
-            <p className="mt-5 max-w-md text-primary-foreground/65">
-              Photoreal room previews, square-metre calculators with wastage, and a specifier on
-              call — every tool free to use.
+            <p className="mt-4 max-w-md text-muted-foreground">
+              Photoreal room previews, wall colours, square-metre calculators with wastage, and a
+              specifier on call — every tool free to use.
             </p>
-            <div className="mt-9 space-y-3">
-              {tools.map((f) => (
-                <Link
-                  key={f.title}
-                  href={f.href}
-                  className="group flex items-center gap-4 rounded-lg border border-white/10 p-4 transition hover:border-gold/50 hover:bg-white/[0.04]"
-                >
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gold/15 text-gold-light">
-                    <f.icon className="h-5 w-5" aria-hidden />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-display font-semibold">{f.title}</div>
-                    <div className="text-sm text-primary-foreground/55">{f.desc}</div>
-                  </div>
-                  <ArrowRight
-                    className="h-4 w-4 text-primary-foreground/40 transition group-hover:translate-x-0.5 group-hover:text-gold-light"
-                    aria-hidden
-                  />
-                </Link>
-              ))}
-            </div>
+            <Link href="/visualizer" className="btn btn-primary mt-8">
+              Open the visualizer <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
           </Reveal>
 
-          <Reveal delay={0.15} className="lg:col-span-7">
-            <div className="relative overflow-hidden rounded-xl shadow-elevated">
-              <div className="relative aspect-[5/4] w-full">
-                <Image
-                  src={aiImg}
-                  alt="Room visualizer previewing a timber floor"
-                  fill
-                  sizes="(min-width: 1024px) 58vw, 100vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full bg-charcoal-dark/70 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest backdrop-blur">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Live
-                preview
-              </div>
-            </div>
-          </Reveal>
+          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-7">
+            {tools.map((tool, i) => (
+              <Reveal key={tool.title} delay={i * 0.06}>
+                <Link
+                  href={tool.href}
+                  className="group flex h-full flex-col rounded-xl border border-border bg-background p-5 transition hover:-translate-y-0.5 hover:border-gold/60 hover:shadow-luxe"
+                >
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-gold/10 text-gold">
+                    <tool.icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="mt-4 flex items-center gap-1.5 font-display text-lg font-semibold tracking-tight">
+                    {tool.title}
+                    <ArrowUpRight
+                      className="h-4 w-4 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-gold"
+                      aria-hidden
+                    />
+                  </span>
+                  <span className="mt-1 text-sm text-muted-foreground">{tool.desc}</span>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -349,7 +349,7 @@ export default function Home() {
         <Reveal>
           <div className="grid overflow-hidden rounded-xl border border-border lg:grid-cols-2">
             <div className="bg-charcoal-dark p-10 text-primary-foreground md:p-14">
-              <p className="eyebrow text-gold-light">For specifiers</p>
+              <p className="eyebrow text-gold-light">For specifiers &amp; contractors</p>
               <h2 className="mt-4 font-display text-3xl tracking-tight md:text-4xl">
                 Open a trade account.
               </h2>
@@ -508,4 +508,21 @@ async function BestsellerGrid() {
       ))}
     </div>
   );
+}
+
+/**
+ * Floors for the hero's room: the most popular, one colour each, so the four
+ * swatches are four different floors.
+ */
+async function HeroTeaser() {
+  const { data } = await getProducts({ sort: "popular", per_page: 12 });
+  const seen = new Set<string>();
+  const floors: TextureChoice[] = [];
+  for (const choice of floorChoices(data)) {
+    if (seen.has(choice.productSlug)) continue;
+    seen.add(choice.productSlug);
+    floors.push(choice);
+    if (floors.length === 4) break;
+  }
+  return <HeroRoomTeaser floors={floors} />;
 }

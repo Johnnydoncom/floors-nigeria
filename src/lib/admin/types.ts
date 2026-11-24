@@ -135,6 +135,8 @@ export type ProductRow = {
   status: string;
   status_label: string;
   is_featured: boolean;
+  /** Whether the storefront offers "Order sample" for it. */
+  samples_enabled?: boolean;
   category: { id: number; name: string } | null;
   brand: string | null;
   thumb_url: string | null;
@@ -221,6 +223,8 @@ export type ProductDetail = {
   status: string;
   status_label: string;
   is_featured: boolean;
+  /** Whether the storefront offers "Order sample" for it. */
+  samples_enabled?: boolean;
   sku_family: string | null;
   short_description: string | null;
   description: string | null;

@@ -129,6 +129,7 @@ export function ProductEditor({
     type: product?.type ?? "simple",
     status: product?.status ?? "draft",
     is_featured: product?.is_featured ?? false,
+    samples_enabled: product?.samples_enabled ?? false,
     sku_family: text(product?.sku_family),
     short_description: text(product?.short_description),
     description: text(product?.description),
@@ -415,6 +416,18 @@ export function ProductEditor({
                 <Switch
                   checked={details.is_featured}
                   onCheckedChange={(checked) => setDetail("is_featured", checked)}
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2.5 text-sm">
+                <span>
+                  Offer samples
+                  <span className="block text-xs text-muted-foreground">
+                    Shows &ldquo;Order sample&rdquo; on the product, its card and in the visualizer
+                  </span>
+                </span>
+                <Switch
+                  checked={details.samples_enabled}
+                  onCheckedChange={(checked) => setDetail("samples_enabled", checked)}
                 />
               </label>
               <FieldShell id="p-brand" label="Brand" error={error("brand_id")}>

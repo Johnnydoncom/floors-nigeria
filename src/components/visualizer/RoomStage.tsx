@@ -97,6 +97,7 @@ export function RoomStage({
   paintColor = null,
   mood = "daylight",
   chrome,
+  controls = true,
   className,
 }: {
   photoSrc: string;
@@ -137,6 +138,8 @@ export function RoomStage({
    * the top on a larger screen.
    */
   chrome?: React.ReactNode;
+  /** Zoom and the before/after slider; off for a picture that is only shown. */
+  controls?: boolean;
   className?: string;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -957,7 +960,7 @@ export function RoomStage({
         </div>
 
         <div
-          className="absolute bottom-2 right-2 flex gap-1"
+          className={cn("absolute bottom-2 right-2 flex gap-1", !controls && "hidden")}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <ZoomButton
@@ -986,6 +989,7 @@ export function RoomStage({
             {chrome}
           </div>
         ) : (
+          controls &&
           material &&
           tool === "view" && (
             <p className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-9rem)] truncate rounded bg-charcoal-dark/80 px-2 py-1 text-[11px] font-semibold text-primary-foreground">
@@ -997,7 +1001,7 @@ export function RoomStage({
         {overlays}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className={cn("flex items-center gap-3", !controls && "hidden")}>
         <label
           htmlFor="wipe"
           className="shrink-0 font-display text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"

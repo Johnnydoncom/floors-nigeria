@@ -178,7 +178,7 @@ export function MaterialDetails({
           <ShoppingBag aria-hidden />
           {isOrderable ? "Add to cart" : "Currently unavailable"}
         </Button>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={cn("grid gap-2", material.samplesEnabled ? "grid-cols-2" : "grid-cols-1")}>
           <Button
             variant="outline"
             className="h-11"
@@ -190,17 +190,19 @@ export function MaterialDetails({
             <FileText aria-hidden />
             Request quote
           </Button>
-          <Button
-            variant="outline"
-            className="h-11"
-            onClick={() => {
-              cta("order_sample");
-              onOrderSample();
-            }}
-          >
-            <Package aria-hidden />
-            Order sample
-          </Button>
+          {material.samplesEnabled && (
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={() => {
+                cta("order_sample");
+                onOrderSample();
+              }}
+            >
+              <Package aria-hidden />
+              Order sample
+            </Button>
+          )}
         </div>
         {ar}
         <a

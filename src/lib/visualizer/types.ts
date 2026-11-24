@@ -136,6 +136,8 @@ export type TextureChoice = {
   textureSizeM?: number | null;
   imageUrl?: string | null;
   brandName?: string | null;
+  /** Whether the product offers samples, so "Order sample" is shown at all. */
+  samplesEnabled?: boolean;
   categoryName?: string | null;
   skuFamily?: string | null;
   priceUnit?: string | null;

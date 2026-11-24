@@ -106,7 +106,7 @@ export function FilterRail({
 
       <Accordion
         type="multiple"
-        defaultValue={["categories", "price", "room", "brands"]}
+        defaultValue={["categories", "price", "room", "brands", "collections"]}
         className="border-t border-border"
       >
         {!isHidden("categories") && (
@@ -150,6 +150,24 @@ export function FilterRail({
                   count={countOf(brand)}
                   checked={isActive("brands", brand.slug)}
                   onToggle={() => toggle("brands", brand.slug)}
+                />
+              ))}
+            </ShowMore>
+          </FilterGroup>
+        )}
+
+        {!isHidden("collections") && (options.collections?.length ?? 0) > 0 && (
+          <FilterGroup value="collections" label="Collection">
+            <ShowMore limit={6}>
+              {(options.collections ?? []).map((collection) => (
+                <FilterCheckbox
+                  key={collection.slug}
+                  id={`collections-${collection.slug}`}
+                  label={collection.name}
+                  hint={collection.brand}
+                  count={countOf(collection)}
+                  checked={isActive("collections", collection.slug)}
+                  onToggle={() => toggle("collections", collection.slug)}
                 />
               ))}
             </ShowMore>
@@ -273,12 +291,15 @@ function FilterGroup({
 function FilterCheckbox({
   id,
   label,
+  hint,
   count,
   checked,
   onToggle,
 }: {
   id: string;
   label: string;
+  /** A second, quieter line — a collection's brand. */
+  hint?: string | null;
   /** How many products the option holds, when the API says. */
   count?: number | null;
   checked: boolean;
@@ -289,6 +310,7 @@ function FilterCheckbox({
       <Checkbox id={id} checked={checked} onCheckedChange={onToggle} />
       <Label htmlFor={id} className="flex-1 cursor-pointer text-sm font-normal">
         {label}
+        {hint && <span className="block text-[11px] text-muted-foreground">{hint}</span>}
       </Label>
       {typeof count === "number" && (
         <span className="font-mono text-[11px] text-muted-foreground">{count}</span>
@@ -357,6 +379,9 @@ function activeChips(
     ),
   );
   const brands = new Map(options.brands.map((brand) => [brand.slug, brand.name]));
+  const collections = new Map(
+    (options.collections ?? []).map((collection) => [collection.slug, collection.name]),
+  );
   const availability = new Map(options.availability.map((status) => [status.value, status.label]));
 
   const add = (key: string, lookup: Map<string, string>) => {
@@ -366,6 +391,7 @@ function activeChips(
 
   add("categories", categories);
   add("brands", brands);
+  add("collections", collections);
   add("taxonomies", taxonomies);
   add("availability", availability);
 

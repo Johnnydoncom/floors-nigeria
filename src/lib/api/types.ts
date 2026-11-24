@@ -184,6 +184,8 @@ export type ProductCard = {
   short_description: string | null;
   status: string;
   is_featured: boolean;
+  /** Whether "Order sample" is offered; set per product in the admin. */
+  samples_enabled?: boolean;
   image_url: string | null;
   thumb_url: string | null;
   /** Rendering asset the room visualizer tiles across a floor. */
@@ -261,7 +263,9 @@ export type Product = ProductCard & {
 
 export type FilterOptions = {
   categories: { slug: string; name: string; children: { slug: string; name: string }[] }[];
-  brands: { slug: string; name: string }[];
+  brands: { slug: string; name: string; count?: number }[];
+  /** Product ranges within a brand; older APIs leave it out. */
+  collections?: { slug: string; name: string; brand: string | null; count?: number }[];
   taxonomies: Partial<Record<TaxonomyType, { slug: string; name: string }[]>>;
   attributes: {
     slug: string;

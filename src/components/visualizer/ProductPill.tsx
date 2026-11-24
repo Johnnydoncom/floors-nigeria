@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Compass, Heart, Package, RotateCw } from "lucide-react";
+import { Compass, FileText, Heart, Package, RotateCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { naira } from "@/lib/format";
 import type { TextureChoice } from "@/lib/visualizer/types";
@@ -19,6 +19,7 @@ export function ProductPill({
   rotation,
   onRotation,
   onOrderSample,
+  onRequestQuote,
 }: {
   material: TextureChoice;
   isFavorite: boolean;
@@ -26,7 +27,11 @@ export function ProductPill({
   rotation: number;
   onRotation: (degrees: number) => void;
   onOrderSample: () => void;
+  onRequestQuote: () => void;
 }) {
+  // Samples are a per-product choice in the admin; without one, the next step
+  // is a quote.
+  const offersSample = material.samplesEnabled === true;
   const name = material.variantName ?? material.productName;
   const thumb = material.swatchUrl ?? material.textureUrl;
 
@@ -79,11 +84,15 @@ export function ProductPill({
 
       <button
         type="button"
-        onClick={onOrderSample}
+        onClick={offersSample ? onOrderSample : onRequestQuote}
         className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-charcoal px-3 text-xs font-semibold uppercase tracking-[0.08em] text-primary-foreground transition hover:bg-charcoal-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold sm:px-4"
       >
-        <Package className="h-3.5 w-3.5" aria-hidden />
-        <span className="max-sm:sr-only">Order sample</span>
+        {offersSample ? (
+          <Package className="h-3.5 w-3.5" aria-hidden />
+        ) : (
+          <FileText className="h-3.5 w-3.5" aria-hidden />
+        )}
+        <span className="max-sm:sr-only">{offersSample ? "Order sample" : "Get a quote"}</span>
       </button>
     </div>
   );

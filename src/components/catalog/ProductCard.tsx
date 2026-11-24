@@ -47,6 +47,8 @@ export function ProductCard({
   const href = `/product/${product.slug}`;
   const image = shown?.preview_image_url ?? product.image_url;
   const isFloor = [product.name, product.category?.name ?? ""].every(isFloorCategory);
+  // Set per product in the admin.
+  const offersSample = isFloor && product.samples_enabled === true;
   const roomHref = `/visualizer?product=${product.slug}`;
   // The sample is of the colour on show, so the card and the parcel agree.
   const sample = useMemo(() => {
@@ -174,7 +176,7 @@ export function ProductCard({
               isFloor ? "grid-cols-[1fr_auto_auto]" : "grid-cols-[1fr_auto]",
             )}
           >
-            {isFloor ? (
+            {offersSample ? (
               <button
                 type="button"
                 onClick={() => setIsSampleOpen(true)}
