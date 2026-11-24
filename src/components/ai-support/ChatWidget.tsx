@@ -531,7 +531,8 @@ export default function ChatWidget() {
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            "fixed bottom-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105",
+            // Clears the phone action bar when it is showing (--mobile-bar-offset).
+            "fixed bottom-[calc(1.25rem+var(--mobile-bar-offset,0px))] z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-[transform,bottom] duration-300 hover:scale-105",
             isRight ? "right-4 sm:right-6" : "left-4 sm:left-6",
           )}
           style={themeColor ? { backgroundColor: themeColor } : undefined}
@@ -558,7 +559,7 @@ export default function ChatWidget() {
           role="dialog"
           aria-label="Floor Nigeria chat"
           className={cn(
-            "fixed bottom-4 z-50 flex h-[min(560px,calc(100dvh-2rem))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl",
+            "fixed bottom-[calc(1rem+var(--mobile-bar-offset,0px))] z-50 flex h-[min(560px,calc(100dvh-2rem-var(--mobile-bar-offset,0px)))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl",
             isRight ? "right-4 sm:right-6" : "left-4 sm:left-6",
           )}
         >

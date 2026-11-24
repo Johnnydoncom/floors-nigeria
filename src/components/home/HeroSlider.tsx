@@ -152,11 +152,13 @@ export function HeroSlider({ slides, heading }: { slides: HeroSlideView[]; headi
   const slide = slides[index];
 
   return (
+    // On phones the slide tabs must clear the action bar (4rem), so the hero is
+    // that much shorter there — a fixed amount, so nothing jumps as it hides.
     <section
       ref={rootRef}
       aria-roledescription="carousel"
       aria-label="Featured floors"
-      className="relative isolate h-[calc(100svh-var(--header-height))] max-h-[54rem] min-h-[36rem] overflow-hidden bg-charcoal-dark text-primary-foreground"
+      className="relative isolate h-[calc(100svh-var(--header-height))] max-h-[54rem] min-h-[36rem] max-lg:h-[calc(100svh-var(--header-height)-4rem)] overflow-hidden bg-charcoal-dark text-primary-foreground"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}

@@ -84,10 +84,13 @@ export function ScrollRail({
           </button>
         </div>
       </div>
+      {/* `relative` makes the row the containing block of anything absolutely
+          positioned inside it (screen-reader text in the cards), so its
+          overflow is clipped here instead of widening the whole page. */}
       <ul
         ref={track}
         aria-label={label}
-        className="scrollbar-none -mx-5 mt-8 flex md:mt-10 snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 md:-mx-8 md:scroll-px-8 md:px-8 xl:-mx-12 xl:scroll-px-12 xl:px-12"
+        className="scrollbar-none relative -mx-5 mt-8 flex md:mt-10 snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 md:-mx-8 md:scroll-px-8 md:px-8 xl:-mx-12 xl:scroll-px-12 xl:px-12"
       >
         {children}
       </ul>

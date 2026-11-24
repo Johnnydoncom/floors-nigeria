@@ -1,11 +1,30 @@
 import Link from "next/link";
-import { Instagram, Linkedin, Youtube, Phone, Mail, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Mail,
+  MapPin,
+  Phone,
+  Youtube,
+  type LucideIcon,
+} from "lucide-react";
+import WhatsAppIcon from "@/components/catalog/WhatsAppIcon";
 import { SampleRequestForm } from "./SampleRequestForm";
 import { Logo } from "./Logo";
 import { getNavigation } from "@/lib/api/navigation";
 import { getPages } from "@/lib/api/content";
-import { HEAD_OFFICE, NETWORK_STATS, formatPhone } from "@/lib/branches";
-import { SHOWROOM_EMAIL, SHOWROOM_PHONE } from "@/lib/site-contact";
+import { HEAD_OFFICE, HUBS, NETWORK_STATS, formatPhone } from "@/lib/branches";
+import { whatsAppLink } from "@/lib/format";
+import {
+  COMPANY_RC,
+  SHOWROOM_EMAIL,
+  SHOWROOM_PHONE,
+  SOCIAL_LINKS,
+  WHATSAPP_NUMBER,
+} from "@/lib/site-contact";
 
 /**
  * Evaluated once when the server module loads, so the copyright line never
@@ -13,31 +32,33 @@ import { SHOWROOM_EMAIL, SHOWROOM_PHONE } from "@/lib/site-contact";
  */
 const COPYRIGHT_YEAR = new Date().getFullYear();
 
+type Column = { title: string; links: [label: string, href: string][] };
+
 /**
  * Static columns. The products column is built from the live catalogue in
  * {@link Footer} so it never drifts from what is actually for sale.
  */
-const cols = [
+const COLUMNS: Column[] = [
   {
-    title: "Solutions",
-    links: [
-      ["Residential", "/industries#residential"],
-      ["Commercial", "/industries#commercial"],
-      ["Hospitality", "/industries#hospitality"],
-      ["Healthcare", "/industries#healthcare"],
-      ["Education", "/industries#education"],
-      ["Retail", "/industries#retail"],
-    ],
-  },
-  {
-    title: "Plan & visualise",
+    title: "Plan your floor",
     links: [
       ["Find My Floor", "/floor-finder"],
       ["Room Visualizer", "/visualizer"],
       ["Room Designer", "/room-designer"],
       ["Floor Calculator", "/calculator"],
       ["Order samples", "/contact?enquiry=samples"],
-      ["Journal", "/blog"],
+      ["Buying guides", "/blog"],
+    ],
+  },
+  {
+    title: "Who we floor",
+    links: [
+      ["Homes", "/industries#residential"],
+      ["Offices", "/industries#commercial"],
+      ["Hotels", "/industries#hospitality"],
+      ["Hospitals", "/industries#healthcare"],
+      ["Schools", "/industries#education"],
+      ["Shops", "/industries#retail"],
     ],
   },
   {
@@ -55,6 +76,13 @@ const cols = [
 /** Pages shown in the bottom bar rather than a column. */
 const LEGAL_SLUGS = new Set(["terms", "privacy-policy", "cookie-policy", "returns"]);
 
+const SOCIAL_ICONS: Record<string, LucideIcon> = {
+  Instagram,
+  Facebook,
+  LinkedIn: Linkedin,
+  YouTube: Youtube,
+};
+
 export async function Footer() {
   // A catalogue outage should not take the footer down with it.
   const [floors, pages] = await Promise.all([
@@ -64,16 +92,17 @@ export async function Footer() {
     getPages().catch(() => []),
   ]);
   const footerPages = pages.filter((page) => page.show_in_footer);
+  const legalPages = footerPages.filter((page) => LEGAL_SLUGS.has(page.slug));
 
-  const columns = [
+  const columns: Column[] = [
     {
-      title: "Shop Flooring",
+      title: "Shop flooring",
       links: [
         ...floors.slice(0, 7).map((floor): [string, string] => [floor.name, floor.href]),
-        ["All categories", "/categories"] as [string, string],
+        ["All categories", "/categories"],
       ],
     },
-    ...cols.map((column) =>
+    ...COLUMNS.map((column) =>
       column.title === "Company"
         ? {
             ...column,
@@ -89,56 +118,92 @@ export async function Footer() {
         : column,
     ),
   ];
-  const legalPages = footerPages.filter((page) => LEGAL_SLUGS.has(page.slug));
 
-  const socials = [
-    { label: "Instagram", icon: Instagram },
-    { label: "LinkedIn", icon: Linkedin },
-    { label: "YouTube", icon: Youtube },
+  const help = [
+    {
+      title: "Chat on WhatsApp",
+      note: "Prices, stock and delivery",
+      href: whatsAppLink(WHATSAPP_NUMBER, "Hello Floor Nigeria, I would like a flooring quote."),
+      external: true,
+      icon: <WhatsAppIcon className="h-5 w-5" />,
+    },
+    {
+      title: `Call ${formatPhone(SHOWROOM_PHONE)}`,
+      note: "Talk to a flooring specialist",
+      href: `tel:${SHOWROOM_PHONE}`,
+      external: false,
+      icon: <Phone className="h-5 w-5" aria-hidden />,
+    },
+    {
+      title: "Visit a showroom",
+      note: `${NETWORK_STATS.branches} branches in ${HUBS.length} cities`,
+      href: "/branches",
+      external: false,
+      icon: <MapPin className="h-5 w-5" aria-hidden />,
+    },
   ];
 
   return (
     <footer className="bg-charcoal-dark text-primary-foreground">
-      {/* Sample request band */}
+      {/* Ways to reach a person, first: the footer is where people look for them. */}
       <div className="border-b border-white/10">
-        <div className="container-fluid grid gap-6 py-12 lg:grid-cols-12 lg:items-center">
-          <div className="lg:col-span-5">
-            <p className="eyebrow text-gold-light">Samples &amp; datasheets</p>
-            <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight md:text-3xl">
-              Specifying a floor? Start with samples.
+        <div className="container-fluid grid gap-8 py-10 lg:grid-cols-12 lg:items-center lg:py-12">
+          <div className="lg:col-span-4">
+            <h2 className="font-display text-2xl font-semibold tracking-tight md:text-[1.75rem]">
+              Need help choosing a floor?
             </h2>
             <p className="mt-2 text-sm text-primary-foreground/60">
-              Technical datasheets, BIM files and free swatches delivered nationwide.
+              Our specialists answer every day. Or{" "}
+              <Link
+                href="/contact?enquiry=survey"
+                className="text-gold-light underline-offset-4 hover:underline"
+              >
+                book a free site survey
+              </Link>
+              .
             </p>
           </div>
-          <SampleRequestForm className="lg:col-span-6 lg:col-start-7" />
+          <ul className="grid gap-3 sm:grid-cols-3 lg:col-span-8">
+            {help.map((item) => (
+              <li key={item.title}>
+                <a
+                  href={item.href}
+                  {...(item.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="group flex h-full items-center gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 transition hover:border-gold/60 hover:bg-white/[0.06]"
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gold/15 text-gold-light">
+                    {item.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-display text-sm font-semibold">
+                      {item.title}
+                    </span>
+                    <span className="block truncate text-xs text-primary-foreground/55">
+                      {item.note}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
-      <div className="container-fluid py-16">
+      <div className="container-fluid pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-12 lg:pb-10 lg:pt-16">
         <div className="grid gap-12 lg:grid-cols-12">
-          <div className="space-y-6 lg:col-span-4">
+          {/* Who we are, where, and the sample request. */}
+          <div className="space-y-7 lg:col-span-4">
             <Link href="/" aria-label="Floor Nigeria home" className="inline-block">
               <Logo invert className="h-9 w-auto" />
             </Link>
-            <p className="max-w-sm text-sm leading-relaxed text-primary-foreground/60 text-pretty">
-              Nigeria&apos;s premium flooring house — engineered surfaces, natural stone, luxury
-              vinyl and architectural finishes for the country&apos;s most demanding residential and
-              commercial spaces.
+            <p className="max-w-sm text-pretty text-sm leading-relaxed text-primary-foreground/60">
+              Vinyl, SPC, laminate, wood, carpets, artificial grass and gym floors, supplied from
+              our own warehouses and installed by our own crews across Nigeria.
             </p>
             <address className="space-y-2.5 text-sm not-italic text-primary-foreground/70">
               <p className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-light" aria-hidden />
-                <span>
-                  Head office: {HEAD_OFFICE.address.join(", ")}
-                  <Link
-                    href="/branches"
-                    className="mt-1 block text-gold-light transition hover:text-gold"
-                  >
-                    + {NETWORK_STATS.locations - 1} more locations in {NETWORK_STATS.countries}{" "}
-                    countries
-                  </Link>
-                </span>
+                <span>{HEAD_OFFICE.address.join(", ")}</span>
               </p>
               <p className="flex items-center gap-2.5">
                 <Phone className="h-4 w-4 shrink-0 text-gold-light" aria-hidden />
@@ -153,51 +218,78 @@ export async function Footer() {
                 </a>
               </p>
             </address>
-            <div className="flex items-center gap-2">
-              {socials.map(({ label, icon: Icon }) => (
-                <a
-                  key={label}
-                  className="grid h-10 w-10 place-items-center rounded-full border border-white/15 transition hover:border-gold hover:bg-gold hover:text-charcoal-dark"
-                  aria-label={label}
-                  href="#"
-                >
-                  <Icon className="h-4 w-4" aria-hidden />
-                </a>
-              ))}
+
+            <div className="max-w-md">
+              <p className="mb-3 font-display text-sm font-semibold">Samples and datasheets</p>
+              <SampleRequestForm />
             </div>
+
+            {SOCIAL_LINKS.length > 0 && (
+              <ul className="flex items-center gap-2" aria-label="Floor Nigeria on social media">
+                {SOCIAL_LINKS.map(({ label, href }) => {
+                  const Icon = SOCIAL_ICONS[label];
+                  return (
+                    <li key={label}>
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/15 transition hover:border-gold hover:bg-gold hover:text-charcoal-dark"
+                      >
+                        <Icon className="h-4 w-4" aria-hidden />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
-          <nav
-            aria-label="Footer"
-            className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4 lg:col-span-8"
-          >
-            {columns.map((c) => (
-              <div key={c.title}>
-                <h3 className="mb-4 font-display text-xs font-semibold uppercase tracking-[0.16em] text-primary-foreground">
-                  {c.title}
-                </h3>
-                <ul className="space-y-2.5">
-                  {c.links.map(([label, href]) => (
-                    <li key={label}>
-                      <Link
-                        href={href as string}
-                        className="text-sm text-primary-foreground/60 transition hover:text-gold-light"
-                      >
-                        {label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <nav aria-label="Footer" className="lg:col-span-8">
+            {/* Wide screens: every column open. */}
+            <div className="hidden grid-cols-4 gap-8 lg:grid">
+              {columns.map((column) => (
+                <div key={column.title}>
+                  <h3 className="mb-4 font-display text-sm font-semibold">{column.title}</h3>
+                  <FooterLinks links={column.links} />
+                </div>
+              ))}
+            </div>
+
+            {/* Phones and tablets: one tap to open a column, so the page ends sooner. */}
+            <div className="divide-y divide-white/10 border-y border-white/10 lg:hidden">
+              {columns.map((column) => (
+                <details key={column.title} className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between py-4 font-display text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                    {column.title}
+                    <ChevronDown
+                      className="h-4 w-4 text-primary-foreground/60 transition-transform duration-200 group-open:rotate-180"
+                      aria-hidden
+                    />
+                  </summary>
+                  <div className="pb-5">
+                    <FooterLinks links={column.links} columns />
+                  </div>
+                </details>
+              ))}
+            </div>
+
+            <Link
+              href="/products"
+              className="mt-8 inline-flex items-center gap-2 font-display text-sm font-semibold text-gold-light underline-offset-4 hover:underline lg:mt-10"
+            >
+              Browse the full catalogue <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
           </nav>
         </div>
 
-        <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-8 md:flex-row md:items-center">
-          <p className="text-xs text-primary-foreground/50">
-            © {COPYRIGHT_YEAR} Floors Nigeria Limited · RC 1234567
+        <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-primary-foreground/50 lg:flex-row lg:items-center lg:justify-between">
+          <p>
+            © {COPYRIGHT_YEAR} Floors Nigeria Limited{COMPANY_RC ? `, RC ${COMPANY_RC}` : ""}. All
+            rights reserved.
           </p>
-          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-primary-foreground/50">
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
             {legalPages.map((page) => (
               <li key={page.slug}>
                 <Link href={`/${page.slug}`} className="transition hover:text-gold-light">
@@ -212,5 +304,22 @@ export async function Footer() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterLinks({ links, columns = false }: { links: Column["links"]; columns?: boolean }) {
+  return (
+    <ul className={columns ? "grid grid-cols-2 gap-x-6 gap-y-3" : "space-y-2.5"}>
+      {links.map(([label, href]) => (
+        <li key={label}>
+          <Link
+            href={href}
+            className="text-sm text-primary-foreground/60 transition hover:text-gold-light"
+          >
+            {label}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -79,6 +79,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Lets the phone action bar sit above the home indicator (safe-area insets).
+  viewportFit: "cover",
   themeColor: "#121211",
 };
 
