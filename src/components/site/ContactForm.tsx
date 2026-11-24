@@ -24,6 +24,11 @@ const ENQUIRIES = {
     note: "For architects, contractors and developers: project pricing and a dedicated account manager.",
     message: "I'd like to open a trade account for my firm. Typical project size: ",
   },
+  survey: {
+    title: "Site survey request",
+    note: "We'll visit, measure every room and check the subfloor — free of charge in Lagos — then send a written quotation.",
+    message: "I'd like a site survey. Address and rooms to be floored: ",
+  },
   quote: {
     title: "Quotation request",
     note: "We'll price the items in your cart with delivery and installation, and send a written quotation.",

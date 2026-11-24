@@ -583,3 +583,131 @@
     transform: translateX(-50%);
   }
 }
+
+/*
+ * Homepage hero. A new slide is laid in boards (staggered strips), the photo
+ * settles from a slight zoom, and the copy rises once — one orchestrated
+ * moment per slide. The visualizer slide sweeps a before/after line.
+ */
+@property --hero-wipe {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 62%;
+}
+
+@layer components {
+  .hero-board {
+    animation-name: hero-board;
+    animation-timing-function: cubic-bezier(0.7, 0, 0.2, 1);
+    animation-fill-mode: both;
+  }
+
+  .hero-settle {
+    animation: hero-settle 9s cubic-bezier(0.2, 0.6, 0.2, 1) both;
+  }
+
+  .hero-copy-in {
+    animation: hero-copy-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 250ms both;
+  }
+
+  .hero-fade-in {
+    animation: hero-fade-in 400ms ease both;
+  }
+
+  .hero-progress {
+    animation-name: hero-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+  }
+
+  .hero-wipe {
+    animation: hero-wipe 9s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  .hero-wipe-after {
+    clip-path: inset(0 0 0 var(--hero-wipe));
+  }
+
+  .hero-wipe-line {
+    left: var(--hero-wipe);
+    transform: translateX(-50%);
+  }
+
+  .hero-wipe-before {
+    right: calc(100% - var(--hero-wipe) + 0.75rem);
+  }
+
+  .hero-wipe-label {
+    left: calc(var(--hero-wipe) + 0.75rem);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-settle,
+    .hero-copy-in,
+    .hero-wipe {
+      animation: none;
+    }
+  }
+}
+
+@keyframes hero-board {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes hero-settle {
+  from {
+    transform: scale(1.07);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes hero-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hero-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hero-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes hero-wipe {
+  0%,
+  12% {
+    --hero-wipe: 88%;
+  }
+  48%,
+  62% {
+    --hero-wipe: 42%;
+  }
+  98%,
+  100% {
+    --hero-wipe: 88%;
+  }
+}
